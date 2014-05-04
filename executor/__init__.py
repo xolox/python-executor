@@ -4,15 +4,6 @@
 # Last Change: May 4, 2014
 # URL: https://executor.readthedocs.org
 
-"""
-Programmer friendly subprocess wrapper
-======================================
-
-The :py:func:`execute()` function is a simple wrapper for Python's
-``subprocess`` module that makes it very easy to handle subprocesses
-on UNIX systems with proper escaping of arguments and error checking.
-"""
-
 # Standard library modules.
 import logging
 import os
@@ -20,7 +11,7 @@ import pipes
 import subprocess
 
 # Semi-standard module versioning.
-__version__ = '1.0'
+__version__ = '1.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -46,14 +37,19 @@ def execute(*command, **options):
     :param logger: Specifies the custom logger to use (optional).
     :param sudo: If ``True`` (the default is ``False``) and we're not running
                  with ``root`` privileges the command is prefixed with ``sudo``.
-    :returns: If ``capture=True`` the standard output of the external command
-              is returned as a string. If the standard output contains a single
-              line, leading and trailing whitespace is stripped. If the output
-              contains multiple lines then no whitespace will be stripped.
+    :returns: - If ``capture=False`` (the default) then a boolean is returned:
 
-              If ``capture=False`` (the default) then a boolean is returned:
-              ``True`` if the subprocess exited with a zero status code,
-              ``False`` otherwise.
+                - ``True`` if the subprocess exited with a zero status code,
+                - ``False`` if the subprocess exited with a nonzero status code.
+
+              - If ``capture=True`` the standard output of the external command
+                is returned as a string:
+
+                - If the standard output contains a single line then all
+                  leading and trailing whitespace is stripped,
+
+                - if the output contains multiple lines then no whitespace will
+                  be stripped.
     """
     custom_logger = options.get('logger', logger)
     if len(command) == 1:
@@ -85,8 +81,8 @@ def execute(*command, **options):
 
 class ExternalCommandFailed(Exception):
     """
-    Raised by :py:func:`execute()` when an external command returns with a
-    nonzero exit code.
+    Raised by :py:func:`execute()` when an external command exits with a
+    nonzero status code.
     """
 
 # vim: ts=4 sw=4
