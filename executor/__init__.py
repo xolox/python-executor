@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 4, 2014
+# Last Change: May 10, 2014
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -72,7 +72,7 @@ def execute(*command, **options):
     stdout, stderr = shell.communicate(input=options.get('input', None))
     if options.get('check', True) and shell.returncode != 0:
         msg = "External command failed with exit code %s! (command: %s)"
-        raise ExternalCommandFailed, msg % (shell.returncode, command)
+        raise ExternalCommandFailed(msg % (shell.returncode, command))
     if options.get('capture', False):
         stripped = stdout.strip()
         return stdout if '\n' in stripped else stripped
