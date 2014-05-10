@@ -1,6 +1,9 @@
 executor: Programmer friendly subprocess wrapper
 ================================================
 
+.. image:: https://travis-ci.org/xolox/python-executor.svg?branch=master
+   :target: https://travis-ci.org/xolox/python-executor
+
 The ``execute()`` function in the ``executor`` package/module is a simple
 wrapper for Python's subprocess_ module that makes it very easy to handle
 subprocesses on UNIX systems with proper escaping of arguments and error
