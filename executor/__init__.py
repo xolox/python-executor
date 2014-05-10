@@ -37,6 +37,11 @@ def execute(*command, **options):
     :param logger: Specifies the custom logger to use (optional).
     :param sudo: If ``True`` (the default is ``False``) and we're not running
                  with ``root`` privileges the command is prefixed with ``sudo``.
+    :param encoding: In Python 3 the subprocess module expects the type of
+                     ``input`` to be bytes. If :py:func:`execute()` is given a
+                     string as input it automatically encodes it. The default
+                     encoding is UTF-8. You can change it using this argument
+                     by passing a string containing the name of an encoding.
     :returns: - If ``capture=False`` (the default) then a boolean is returned:
 
                 - ``True`` if the subprocess exited with a zero status code,
@@ -51,6 +56,7 @@ def execute(*command, **options):
                 - if the output contains multiple lines then no whitespace will
                   be stripped.
     """
+    encoding = options.get('encoding', 'utf-8')
     custom_logger = options.get('logger', logger)
     if len(command) == 1:
         command = command[0]
@@ -69,11 +75,15 @@ def execute(*command, **options):
     if options.get('capture', False):
         kw['stdout'] = subprocess.PIPE
     shell = subprocess.Popen(['bash', '-c', command], **kw)
-    stdout, stderr = shell.communicate(input=options.get('input', None))
+    input = options.get('input', None)
+    if input is not None:
+        input = input.encode(encoding)
+    stdout, stderr = shell.communicate(input=input)
     if options.get('check', True) and shell.returncode != 0:
         msg = "External command failed with exit code %s! (command: %s)"
         raise ExternalCommandFailed(msg % (shell.returncode, command))
     if options.get('capture', False):
+        stdout = stdout.decode(encoding)
         stripped = stdout.strip()
         return stdout if '\n' in stripped else stripped
     else:
