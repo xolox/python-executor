@@ -11,7 +11,7 @@ import pipes
 import subprocess
 
 # Semi-standard module versioning.
-__version__ = '1.1'
+__version__ = '1.2'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
