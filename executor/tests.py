@@ -29,8 +29,8 @@ class ExecutorTestCase(unittest.TestCase):
         self.assertFalse(which('a-program-name-that-no-one-would-ever-use'))
 
     def test_status_code_checking(self):
-        self.assertEqual(execute('true'), True)
-        self.assertEqual(execute('false', check=False), False)
+        self.assertTrue(execute('true'))
+        self.assertFalse(execute('false', check=False))
         self.assertRaises(ExternalCommandFailed, execute, 'false')
 
     def test_subprocess_output(self):
@@ -46,5 +46,29 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertEqual(execute('bash', '-c', 'echo $PWD', capture=True, directory=directory), directory)
         finally:
             os.rmdir(directory)
+
+    def test_fakeroot_option(self):
+        filename = os.path.join(tempfile.gettempdir(), 'executor-%s-fakeroot-test' % os.getpid())
+        self.assertTrue(execute('touch', filename, fakeroot=True))
+        try:
+            self.assertTrue(execute('chown', 'root:root', filename, fakeroot=True))
+            self.assertEqual(execute('stat', '--format=%U', filename, fakeroot=True, capture=True), 'root')
+            self.assertEqual(execute('stat', '--format=%G', filename, fakeroot=True, capture=True), 'root')
+            self.assertTrue(execute('chmod', '600', filename, fakeroot=True))
+            self.assertEqual(execute('stat', '--format=%a', filename, fakeroot=True, capture=True), '600')
+        finally:
+            os.unlink(filename)
+
+    def test_sudo_option(self):
+        filename = os.path.join(tempfile.gettempdir(), 'executor-%s-sudo-test' % os.getpid())
+        self.assertTrue(execute('touch', filename))
+        try:
+            self.assertTrue(execute('chown', 'root:root', filename, sudo=True))
+            self.assertEqual(execute('stat', '--format=%U', filename, sudo=True, capture=True), 'root')
+            self.assertEqual(execute('stat', '--format=%G', filename, sudo=True, capture=True), 'root')
+            self.assertTrue(execute('chmod', '600', filename, sudo=True))
+            self.assertEqual(execute('stat', '--format=%a', filename, sudo=True, capture=True), '600')
+        finally:
+            self.assertTrue(execute('rm', filename, sudo=True))
 
 # vim: ts=4 sw=4 et
