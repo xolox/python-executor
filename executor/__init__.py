@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 10, 2014
+# Last Change: June 7, 2014
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -11,16 +11,15 @@ import pipes
 import subprocess
 
 # Semi-standard module versioning.
-__version__ = '1.2'
+__version__ = '1.3'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
 
+
 def execute(*command, **options):
     """
-    Execute an external command and make sure it succeeded. Raises
-    :py:class:`ExternalCommandFailed` when the command exits with
-    a nonzero exit code.
+    Execute an external command and make sure it succeeded.
 
     :param command: The command to execute. If this is a single string it is
                     assumed to be a shell command and executed directly.
@@ -37,6 +36,10 @@ def execute(*command, **options):
     :param logger: Specifies the custom logger to use (optional).
     :param sudo: If ``True`` (the default is ``False``) and we're not running
                  with ``root`` privileges the command is prefixed with ``sudo``.
+    :param fakeroot: If ``True`` (the default is ``False``) and we're not
+                     running with ``root`` privileges the command is prefixed
+                     with ``fakeroot``. If ``fakeroot`` is not installed we
+                     fall back to ``sudo``.
     :param encoding: In Python 3 the subprocess module expects the type of
                      ``input`` to be bytes. If :py:func:`execute()` is given a
                      string as input it automatically encodes it. The default
@@ -55,6 +58,8 @@ def execute(*command, **options):
 
                 - if the output contains multiple lines then no whitespace will
                   be stripped.
+    :raises: :py:class:`ExternalCommandFailed` when the command exits with a
+             nonzero exit code.
     """
     encoding = options.get('encoding', 'utf-8')
     custom_logger = options.get('logger', logger)
@@ -62,8 +67,11 @@ def execute(*command, **options):
         command = command[0]
     else:
         command = ' '.join(pipes.quote(a) for a in command)
-    if options.get('sudo', False) and os.getuid() != 0:
-        command = 'sudo sh -c %s' % pipes.quote(command)
+    use_fakeroot = options.get('fakeroot', False)
+    use_sudo = options.get('sudo', False)
+    if (use_fakeroot or use_sudo) and os.getuid() != 0:
+        prefix = 'fakeroot' if use_fakeroot and which('fakeroot') else 'sudo'
+        command = '%s sh -c %s' % (prefix, pipes.quote(command))
     directory = options.get('directory', os.curdir)
     if directory != os.curdir:
         custom_logger.debug("Executing external command in %s: %s", directory, command)
@@ -89,10 +97,38 @@ def execute(*command, **options):
     else:
         return shell.returncode == 0
 
+
+def which(program):
+    """
+    Find the pathname of a program on the executable search path (``$PATH``).
+
+    :param program: The name of the program (a string).
+    :returns: A list of pathnames (strings) with found programs.
+
+    Some examples:
+
+    >>> from executor import which
+    >>> which('python')
+    ['/home/peter/.virtualenvs/executor/bin/python', '/usr/bin/python']
+    >>> which('vim')
+    ['/usr/bin/vim']
+    >>> which('non-existing-program')
+    []
+
+    """
+    matches = []
+    for directory in os.environ['PATH'].split(':'):
+        pathname = os.path.join(directory, program)
+        if os.access(pathname, os.X_OK):
+            matches.append(pathname)
+    return matches
+
+
 class ExternalCommandFailed(Exception):
     """
     Raised by :py:func:`execute()` when an external command exits with a
     nonzero status code.
     """
+
 
 # vim: ts=4 sw=4

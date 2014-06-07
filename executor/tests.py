@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 10, 2014
+# Last Change: June 7, 2014
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 # The module we're testing.
-from executor import execute, ExternalCommandFailed
+from executor import execute, which, ExternalCommandFailed
 
 class ExecutorTestCase(unittest.TestCase):
 
@@ -23,6 +23,10 @@ class ExecutorTestCase(unittest.TestCase):
             coloredlogs.set_level(logging.DEBUG)
         except ImportError:
             logging.basicConfig()
+
+    def test_program_searching(self):
+        self.assertTrue(which('python'))
+        self.assertFalse(which('a-program-name-that-no-one-would-ever-use'))
 
     def test_status_code_checking(self):
         self.assertEqual(execute('true'), True)
