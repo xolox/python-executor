@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 17, 2014
+# Last Change: October 18, 2014
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -11,7 +11,7 @@ import pipes
 import subprocess
 
 # Semi-standard module versioning.
-__version__ = '1.4'
+__version__ = '1.5'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -32,6 +32,11 @@ def execute(*command, **options):
                   a nonzero status code, an exception is raised.
     :param capture: If ``True`` (not the default) the standard output of the
                     external command is returned as a string.
+    :param silent: If ``True`` (not the default) the output streams of the
+                   external command are redirected to ``/dev/null``. You can
+                   use ``capture=True`` and ``silent=True`` to capture the
+                   standard output stream and silence the standard error
+                   stream.
     :param input: The text to feed to the external command on standard input.
     :param logger: Specifies the custom logger to use (optional).
     :param sudo: If ``True`` (the default is ``False``) and we're not running
@@ -81,6 +86,10 @@ def execute(*command, **options):
     kw = dict(cwd=directory)
     if options.get('input', None) is not None:
         kw['stdin'] = subprocess.PIPE
+    if options.get('silent', False):
+        null_device = open(os.devnull, 'wb')
+        kw['stdout'] = null_device
+        kw['stderr'] = null_device
     if options.get('capture', False):
         kw['stdout'] = subprocess.PIPE
     shell = subprocess.Popen(['bash', '-c', command], **kw)

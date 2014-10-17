@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 17, 2014
+# Last Change: October 18, 2014
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -44,8 +44,13 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertEqual(e.returncode, 42)
 
     def test_subprocess_output(self):
-        self.assertEqual(execute('echo this is a test', capture=True), 'this is a test')
+        self.assertEqual(execute('echo', 'this is a test', capture=True), 'this is a test')
         self.assertEqual(execute('echo', '-e', r'line 1\nline 2', capture=True), 'line 1\nline 2\n')
+        # I don't know how to test for the effect of silent=True in a practical
+        # way without creating the largest test in this test suite :-). The
+        # least I can do is make sure the keyword argument is accepted and the
+        # code runs without exceptions in supported environments.
+        self.assertTrue(execute('echo', 'this is a test', silent=True))
 
     def test_subprocess_input(self):
         self.assertEqual(execute('tr', 'a-z', 'A-Z', input='test', capture=True), 'TEST')
