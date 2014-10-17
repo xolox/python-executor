@@ -63,10 +63,5 @@ intersphinx_mapping = {'python': ('http://docs.python.org', None)}
 # a list of builtin themes.
 html_theme = 'default'
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['static']
-
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'executordoc'
