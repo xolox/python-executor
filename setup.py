@@ -3,7 +3,7 @@
 # Setup script for the `executor' package.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 4, 2014
+# Last Change: October 17, 2014
 # URL: https://executor.readthedocs.org
 
 import os, sys
@@ -33,5 +33,3 @@ setup(name='executor',
       author_email='peter@peterodding.com',
       packages=find_packages(),
       test_suite='executor.tests')
-
-# vim: ts=4 sw=4

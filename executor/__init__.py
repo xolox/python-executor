@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 7, 2014
+# Last Change: October 17, 2014
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -11,7 +11,7 @@ import pipes
 import subprocess
 
 # Semi-standard module versioning.
-__version__ = '1.3'
+__version__ = '1.4'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -40,8 +40,9 @@ def execute(*command, **options):
                      running with ``root`` privileges the command is prefixed
                      with ``fakeroot``. If ``fakeroot`` is not installed we
                      fall back to ``sudo``.
-    :param encoding: In Python 3 the subprocess module expects the type of
-                     ``input`` to be bytes. If :py:func:`execute()` is given a
+    :param encoding: In Python 3 the :py:func:`subprocess.Popen()` function
+                     expects its ``input`` argument to be an instance of
+                     :py:class:`bytes`. If :py:func:`execute()` is given a
                      string as input it automatically encodes it. The default
                      encoding is UTF-8. You can change it using this argument
                      by passing a string containing the name of an encoding.
@@ -88,8 +89,7 @@ def execute(*command, **options):
         input = input.encode(encoding)
     stdout, stderr = shell.communicate(input=input)
     if options.get('check', True) and shell.returncode != 0:
-        msg = "External command failed with exit code %s! (command: %s)"
-        raise ExternalCommandFailed(msg % (shell.returncode, command))
+        raise ExternalCommandFailed(command, shell.returncode)
     if options.get('capture', False):
         stdout = stdout.decode(encoding)
         stripped = stdout.strip()
@@ -100,7 +100,7 @@ def execute(*command, **options):
 
 def which(program):
     """
-    Find the pathname of a program on the executable search path (``$PATH``).
+    Find the pathname(s) of a program on the executable search path (``$PATH``).
 
     :param program: The name of the program (a string).
     :returns: A list of pathnames (strings) with found programs.
@@ -125,10 +125,17 @@ def which(program):
 
 
 class ExternalCommandFailed(Exception):
+
     """
     Raised by :py:func:`execute()` when an external command exits with a
     nonzero status code.
+
+    :ivar command: The command line that was executed (a string).
+    :ivar returncode: The return code of the external command (an integer).
     """
 
-
-# vim: ts=4 sw=4
+    def __init__(self, command, returncode):
+        self.command = command
+        self.returncode = returncode
+        error_message = "External command failed with exit code %s! (command: %s)"
+        super(ExternalCommandFailed, self).__init__(error_message % (returncode, command))

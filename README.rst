@@ -37,8 +37,10 @@ Traceback (most recent call last):
     raise ExternalCommandFailed, msg % (shell.returncode, command)
 executor.ExternalCommandFailed: External command failed with exit code 1! (command: false)
 
-If you know a command is likely to exit with a nonzero status code and you
-want ``execute()`` to simply return a boolean you can do this:
+The exceptions raised by the ``execute()`` functions expose ``command`` and
+``returncode`` attributes. If you know a command is likely to exit with a
+nonzero status code and you want ``execute()`` to simply return a boolean you
+can do this:
 
 >>> execute('false', check=False)
 False
@@ -77,10 +79,10 @@ DEBUG:executor:Executing external command: sudo sh -c 'echo peter-macbook > /etc
 Contact
 -------
 
-The latest version of ``executor`` is available on PyPi_ and GitHub_ (although
-I don't suppose much will change, since it's so simple). For bug reports please
-create an issue on GitHub_. If you have questions, suggestions, etc. feel free
-to send me an e-mail at `peter@peterodding.com`_.
+The latest version of ``executor`` is available on PyPI_ and GitHub_. The
+documentation is hosted on `Read the Docs`_. For bug reports please create an
+issue on GitHub_. If you have questions, suggestions, etc. feel free to send me
+an e-mail at `peter@peterodding.com`_.
 
 License
 -------
@@ -94,5 +96,6 @@ This software is licensed under the `MIT license`_.
 .. _GitHub: https://github.com/xolox/python-executor
 .. _MIT license: http://en.wikipedia.org/wiki/MIT_License
 .. _peter@peterodding.com: peter@peterodding.com
-.. _PyPi: https://pypi.python.org/pypi/executor
+.. _PyPI: https://pypi.python.org/pypi/executor
+.. _Read the Docs: https://executor.readthedocs.org
 .. _subprocess: https://docs.python.org/2/library/subprocess.html

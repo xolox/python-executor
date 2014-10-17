@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 7, 2014
+# Last Change: October 17, 2014
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -32,6 +32,16 @@ class ExecutorTestCase(unittest.TestCase):
         self.assertTrue(execute('true'))
         self.assertFalse(execute('false', check=False))
         self.assertRaises(ExternalCommandFailed, execute, 'false')
+        try:
+            execute('bash', '-c', 'exit 42')
+            # Make sure the previous line raised an exception.
+            self.assertTrue(False)
+        except Exception as e:
+            # Make sure the expected type of exception was raised.
+            self.assertTrue(isinstance(e, ExternalCommandFailed))
+            # Make sure the exception has the expected properties.
+            self.assertEqual(e.command, "bash -c 'exit 42'")
+            self.assertEqual(e.returncode, 42)
 
     def test_subprocess_output(self):
         self.assertEqual(execute('echo this is a test', capture=True), 'this is a test')
@@ -70,5 +80,3 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertEqual(execute('stat', '--format=%a', filename, sudo=True, capture=True), '600')
         finally:
             self.assertTrue(execute('rm', filename, sudo=True))
-
-# vim: ts=4 sw=4 et
