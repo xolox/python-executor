@@ -11,7 +11,7 @@ import pipes
 import subprocess
 
 # Semi-standard module versioning.
-__version__ = '1.5'
+__version__ = '1.6'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -69,15 +69,12 @@ def execute(*command, **options):
     """
     encoding = options.get('encoding', 'utf-8')
     custom_logger = options.get('logger', logger)
-    if len(command) == 1:
-        command = command[0]
-    else:
-        command = ' '.join(pipes.quote(a) for a in command)
+    command = command[0] if len(command) == 1 else quote(command)
     use_fakeroot = options.get('fakeroot', False)
     use_sudo = options.get('sudo', False)
     if (use_fakeroot or use_sudo) and os.getuid() != 0:
         prefix = 'fakeroot' if use_fakeroot and which('fakeroot') else 'sudo'
-        command = '%s sh -c %s' % (prefix, pipes.quote(command))
+        command = '%s sh -c %s' % (prefix, quote(command))
     directory = options.get('directory', os.curdir)
     if directory != os.curdir:
         custom_logger.debug("Executing external command in %s: %s", directory, command)
@@ -105,6 +102,34 @@ def execute(*command, **options):
         return stdout if '\n' in stripped else stripped
     else:
         return shell.returncode == 0
+
+
+def quote(*args):
+    """
+    Quote a string or a sequence of strings to be used as command line argument(s).
+
+    This function is a simple wrapper around :py:func:`pipes.quote()` which
+    adds support for quoting sequences of strings (lists and tuples). For
+    example the following calls are all equivalent::
+
+      >>> from executor import quote
+      >>> quote('echo', 'argument with spaces')
+      "echo 'argument with spaces'"
+      >>> quote(['echo', 'argument with spaces'])
+      "echo 'argument with spaces'"
+      >>> quote(('echo', 'argument with spaces'))
+      "echo 'argument with spaces'"
+
+    :param args: One or more strings, tuples and/or lists of strings to be quoted.
+    :returns: A string containing quoted command line arguments.
+    """
+    if len(args) > 1:
+        value = args
+    else:
+        value = args[0]
+        if not isinstance(value, (list, tuple)):
+            return pipes.quote(value)
+    return ' '.join(map(quote, value))
 
 
 def which(program):
