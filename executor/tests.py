@@ -1,12 +1,13 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 18, 2014
+# Last Change: March 5, 2015
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
 import logging
 import os
+import random
 import tempfile
 import unittest
 
@@ -85,3 +86,10 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertEqual(execute('stat', '--format=%a', filename, sudo=True, capture=True), '600')
         finally:
             self.assertTrue(execute('rm', filename, sudo=True))
+
+    def test_environment_variable_handling(self):
+        # Check that environment variables of the current process are passed on to subprocesses.
+        self.assertEqual(execute('echo $PATH', capture=True), os.environ['PATH'])
+        # Test that environment variable overrides can be given to external commands.
+        override_value = str(random.random())
+        self.assertEqual(execute('echo $override', capture=True, environment=dict(override=override_value)), override_value)

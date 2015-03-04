@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 4, 2015
+# Last Change: March 5, 2015
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -11,7 +11,7 @@ import pipes
 import subprocess
 
 # Semi-standard module versioning.
-__version__ = '1.6.2'
+c__version__ = '1.7'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def execute(*command, **options):
                      running with ``root`` privileges the command is prefixed
                      with ``fakeroot``. If ``fakeroot`` is not installed we
                      fall back to ``sudo``.
-    :param encoding: In Python 3 the :py:func:`subprocess.Popen()` function
+    :param encoding: In Python 3 the :py:class:`subprocess.Popen()` constructor
                      expects its ``input`` argument to be an instance of
                      :py:class:`bytes`. If :py:func:`execute()` is given a
                      string as input it automatically encodes it. The default
@@ -53,6 +53,13 @@ def execute(*command, **options):
                      by passing a string containing the name of an encoding.
                      The encoding specified here is also used to decode the
                      output of the external command when ``capture=True``.
+    :param environment: A dictionary of environment variables for the external
+                        command (defaults to ``None`` which means to inherit
+                        the environment variables of the current process). You
+                        only need to specify environment variables that differ
+                        from those of the current process (that is to say the
+                        environment variables of the current process are merged
+                        with the variables that you specify here).
     :returns: - If ``capture=False`` (the default) then a boolean is returned:
 
                 - ``True`` if the subprocess exited with a zero status code,
@@ -94,6 +101,8 @@ def execute(*command, **options):
         kw['stderr'] = null_device
     if options.get('capture', False):
         kw['stdout'] = subprocess.PIPE
+    kw['env'] = os.environ.copy()
+    kw['env'].update(options.get('environment', {}))
     shell = subprocess.Popen(['bash', '-c', command], **kw)
     input = options.get('input', None)
     if input is not None:
