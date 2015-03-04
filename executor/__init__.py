@@ -11,7 +11,7 @@ import pipes
 import subprocess
 
 # Semi-standard module versioning.
-__version__ = '1.6.1'
+__version__ = '1.6.2'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ def execute(*command, **options):
     use_sudo = options.get('sudo', False)
     if (use_fakeroot or use_sudo) and os.getuid() != 0:
         prefix = 'fakeroot' if use_fakeroot and which('fakeroot') else 'sudo'
-        command = '%s sh -c %s' % (prefix, quote(command))
+        command = '%s bash -c %s' % (prefix, quote(command))
     directory = options.get('directory', os.curdir)
     if directory != os.curdir:
         custom_logger.debug("Executing external command in %s: %s", directory, command)

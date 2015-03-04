@@ -74,7 +74,7 @@ end up being helpful, here's how it works:
 >>> logging.basicConfig()
 >>> logging.getLogger().setLevel(logging.DEBUG)
 >>> execute('echo peter-macbook > /etc/hostname', sudo=True)
-DEBUG:executor:Executing external command: sudo sh -c 'echo peter-macbook > /etc/hostname'
+DEBUG:executor:Executing external command: sudo bash -c 'echo peter-macbook > /etc/hostname'
 
 Contact
 -------
