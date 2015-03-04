@@ -51,13 +51,16 @@ def execute(*command, **options):
                      string as input it automatically encodes it. The default
                      encoding is UTF-8. You can change it using this argument
                      by passing a string containing the name of an encoding.
+                     The encoding specified here is also used to decode the
+                     output of the external command when ``capture=True``.
     :returns: - If ``capture=False`` (the default) then a boolean is returned:
 
                 - ``True`` if the subprocess exited with a zero status code,
                 - ``False`` if the subprocess exited with a nonzero status code.
 
               - If ``capture=True`` the standard output of the external command
-                is returned as a string:
+                is returned as a Unicode string (:py:class:`unicode` in Python
+                2.x, :py:class:`str` in Python 3.x):
 
                 - If the standard output contains a single line then all
                   leading and trailing whitespace is stripped,
