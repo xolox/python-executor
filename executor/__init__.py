@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 18, 2014
+# Last Change: March 4, 2015
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -11,7 +11,7 @@ import pipes
 import subprocess
 
 # Semi-standard module versioning.
-__version__ = '1.6'
+__version__ = '1.6.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -67,6 +67,7 @@ def execute(*command, **options):
     :raises: :py:class:`ExternalCommandFailed` when the command exits with a
              nonzero exit code.
     """
+    finalizers = []
     encoding = options.get('encoding', 'utf-8')
     custom_logger = options.get('logger', logger)
     command = command[0] if len(command) == 1 else quote(command)
@@ -85,6 +86,7 @@ def execute(*command, **options):
         kw['stdin'] = subprocess.PIPE
     if options.get('silent', False):
         null_device = open(os.devnull, 'wb')
+        finalizers.append(lambda: null_device.close())
         kw['stdout'] = null_device
         kw['stderr'] = null_device
     if options.get('capture', False):
@@ -94,6 +96,8 @@ def execute(*command, **options):
     if input is not None:
         input = input.encode(encoding)
     stdout, stderr = shell.communicate(input=input)
+    for callback in finalizers:
+        callback()
     if options.get('check', True) and shell.returncode != 0:
         raise ExternalCommandFailed(command, shell.returncode)
     if options.get('capture', False):
