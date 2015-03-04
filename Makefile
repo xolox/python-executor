@@ -1,7 +1,7 @@
 # Makefile for executor.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 17, 2014
+# Last Change: March 4, 2015
 # URL: https://github.com/xolox/python-executor
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -34,7 +34,8 @@ reset:
 	make --no-print-directory clean install
 
 test: install
-	$(ACTIVATE) && python setup.py test
+	test -x "$(VIRTUAL_ENV)/bin/tox" || ($(ACTIVATE) && pip-accel install tox)
+	$(ACTIVATE) && tox
 
 coverage: install
 	test -x "$(VIRTUAL_ENV)/bin/coverage" || ($(ACTIVATE) && pip-accel install coverage)
