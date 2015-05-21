@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 5, 2015
+# Last Change: May 21, 2015
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -178,10 +178,15 @@ class ExternalCommandFailed(Exception):
 
     """
     Raised by :py:func:`execute()` when an external command exits with a
-    nonzero status code.
+    nonzero status code. Exposes the following attributes:
 
-    :ivar command: The command line that was executed (a string).
-    :ivar returncode: The return code of the external command (an integer).
+    .. attribute:: command
+
+       The command line that was executed (a string).
+
+    .. attribute:: returncode
+
+       The return code of the external command (an integer).
     """
 
     def __init__(self, command, returncode):
