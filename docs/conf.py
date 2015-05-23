@@ -24,7 +24,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'executor'
-copyright = u'2014, Peter Odding'
+copyright = u'2015, Peter Odding'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -55,7 +55,10 @@ pygments_style = 'sphinx'
 
 # Refer to the Python standard library.
 # From: http://twistedmatrix.com/trac/ticket/4582.
-intersphinx_mapping = {'python': ('http://docs.python.org', None)}
+intersphinx_mapping = {
+    'python2': ('http://docs.python.org', None),
+    'python3': ('http://docs.python.org/3', None),
+}
 
 # -- Options for HTML output ---------------------------------------------------
 
@@ -65,3 +68,8 @@ html_theme = 'default'
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'executordoc'
+
+def setup(app):
+    # Based on http://stackoverflow.com/a/5599712/788200.
+    app.connect('autodoc-skip-member', (lambda app, what, name, obj, skip, options:
+                                        False if name == '__init__' and obj.__doc__ else skip))

@@ -1,0 +1,8 @@
+# .coveragerc: Configuration file for coverage.py.
+# http://nedbatchelder.com/code/coverage/
+
+[run]
+source = executor
+omit = executor/tests.py
+
+# vim: ft=dosini

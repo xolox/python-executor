@@ -1,7 +1,7 @@
 # Makefile for executor.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 4, 2015
+# Last Change: May 23, 2015
 # URL: https://github.com/xolox/python-executor
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -39,8 +39,9 @@ test: install
 
 coverage: install
 	test -x "$(VIRTUAL_ENV)/bin/coverage" || ($(ACTIVATE) && pip-accel install coverage)
-	$(ACTIVATE) && coverage run --source=executor setup.py test
-	$(ACTIVATE) && coverage html --omit=executor/tests.py
+	$(ACTIVATE) && coverage run setup.py test
+	$(ACTIVATE) && coverage report
+	$(ACTIVATE) && coverage html
 
 docs: install
 	test -x "$(VIRTUAL_ENV)/bin/sphinx-build" || ($(ACTIVATE) && pip-accel install sphinx)
