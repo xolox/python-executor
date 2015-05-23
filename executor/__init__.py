@@ -10,9 +10,11 @@
 The :mod:`executor` module
 ==========================
 
-If you're looking for an easy way to run external commands from Python take a
-look at the :func:`execute()` function. When you need more flexibility consider
-using the underlying :class:`ExternalCommand` class directly instead.
+The :mod:`executor` module defines the core functionality of the ``executor``
+package. If you're looking for an easy way to run external commands from Python
+take a look at the :func:`execute()` function. When you need more flexibility
+consider using the underlying :class:`ExternalCommand` class directly
+instead.
 
 :func:`execute()` versus :class:`ExternalCommand`
 -------------------------------------------------
@@ -62,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '2.0'
+__version__ = '2.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)

@@ -12,7 +12,10 @@ import tempfile
 import time
 import unittest
 
-# The module we're testing.
+# External dependencies.
+from humanfriendly import Timer
+
+# Modules included in our package.
 from executor import (
     execute,
     ExternalCommand,
@@ -20,6 +23,7 @@ from executor import (
     quote,
     which,
 )
+from executor.concurrent import CommandPool
 
 class ExecutorTestCase(unittest.TestCase):
 
@@ -165,6 +169,18 @@ class ExecutorTestCase(unittest.TestCase):
             assert 'is_running=False' in repr(cmd)
             assert 'is_finished=True' in repr(cmd)
         retry(assert_finished, 10)
+
+    def test_command_pool(self):
+        num_commands = 10
+        sleep_time = 4
+        pool = CommandPool(5)
+        for i in range(num_commands):
+            pool.add(ExternalCommand('sleep %i' % sleep_time))
+        timer = Timer()
+        results = pool.run()
+        assert all(cmd.returncode == 0 for cmd in results.values())
+        assert timer.elapsed_time < (num_commands * sleep_time)
+
 
 def retry(func, timeout):
     time_started = time.time()
