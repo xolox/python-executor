@@ -22,7 +22,7 @@ import multiprocessing
 from executor.writable_property import default_property
 
 # External dependencies.
-from humanfriendly import Spinner, Timer
+from humanfriendly import pluralize, Spinner, Timer
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -125,16 +125,23 @@ class CommandPool(object):
         """
         # Start spawning processes to execute the commands.
         timer = Timer()
-        logger.debug("Preparing to run %i commands with a concurrency of %i ..", self.num_commands, self.concurrency)
+        logger.debug("Preparing to run %s with a concurrency of %i ..",
+                     pluralize(self.num_commands, "command"),
+                     self.concurrency)
         with Spinner(timer=timer) as spinner:
             while not self.is_finished:
                 self.spawn()
                 self.collect()
-                spinner.step(label="Waiting for %i/%i commands" % (self.num_commands - self.num_finished, self.num_commands))
+                label_format = "Waiting for %i/%i %s"
+                waiting_for = self.num_commands - self.num_finished
+                commands_pluralized = "command" if self.num_commands == 1 else "commands"
+                spinner.step(label=label_format % (waiting_for, self.num_commands, commands_pluralized))
                 spinner.sleep()
         # Collect the output and return code of any commands not yet collected.
         self.collect()
-        logger.debug("Finished running %i commands in %s.", self.num_commands, timer)
+        logger.debug("Finished running %s in %s.",
+                     pluralize(self.num_commands, "command"),
+                     timer)
         # Report the results to the caller.
         return dict(self.commands)
 
