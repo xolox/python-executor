@@ -47,6 +47,7 @@ Classes and functions
 import logging
 import os
 import pipes
+import signal
 import subprocess
 import tempfile
 
@@ -60,7 +61,7 @@ from executor.writable_property import (
 )
 
 # Semi-standard module versioning.
-__version__ = '2.3'
+__version__ = '2.4'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -158,26 +159,40 @@ class ExternalCommand(object):
     Because the :class:`ExternalCommand` class has a lot of properties and
     methods here is a summary:
 
-    - The writable properties :attr:`async`, :attr:`capture`, :attr:`check`,
-      :attr:`command`, :attr:`directory`, :attr:`encoding`,
-      :attr:`environment`, :attr:`fakeroot`, :attr:`input`, :attr:`logger`,
-      :attr:`silent` and :attr:`sudo` allow you to configure how the external
-      command will be run (before it is started).
+    **Writable properties**
+     The :attr:`async`, :attr:`capture`, :attr:`check`, :attr:`command`,
+     :attr:`directory`, :attr:`encoding`, :attr:`environment`,
+     :attr:`fakeroot`, :attr:`input`, :attr:`logger`, :attr:`silent` and
+     :attr:`sudo` properties allow you to configure how the external command
+     will be run (before it is started).
 
-    - The read only properties :attr:`command_line`, :attr:`encoded_input`,
-      :attr:`is_finished`, :attr:`is_running`, :attr:`output`,
-      :attr:`returncode`, :attr:`stdout` and :attr:`was_started` allow you to
-      inspect if and how the external command was started, what its current
-      status is and what its output is.
+    **Read only properties**
+     The :attr:`command_line`, :attr:`encoded_input`, :attr:`is_finished`,
+     :attr:`is_running`, :attr:`output`, :attr:`returncode`, :attr:`stdout` and
+     :attr:`was_started` properties allow you to inspect if and how the
+     external command was started, what its current status is and what its
+     output is.
 
-    - The public methods :func:`start()`, :func:`wait()` and
-      :func:`terminate()` enable you to start external commands, wait for them
-      to finish and terminate them if they take too long.
+    **Public methods**
+     The public methods :func:`start()`, :func:`wait()` and :func:`terminate()`
+     enable you to start external commands, wait for them to finish and
+     terminate them if they take too long.
 
-    - The internal methods :func:`check_errors()`, :func:`load_output()` and
-      :func:`cleanup()` are used by :func:`start()`, :func:`wait()` and
-      :func:`terminate()` so unless you're reimplementing one of those methods
-      you probably don't need these internal methods.
+    **Internal methods**
+     The internal methods :func:`check_errors()`, :func:`load_output()` and
+     :func:`cleanup()` are used by :func:`start()`, :func:`wait()` and
+     :func:`terminate()` so unless you're reimplementing one of those methods
+     you probably don't need these internal methods.
+
+    **Context manager**
+      :class:`ExternalCommand` objects can be used as context managers by using
+      the :keyword:`with` statement:
+
+      - When the scope of the :keyword:`with` statement starts the
+        :func:`start()` method is called.
+      - When the scope of the :keyword:`with` statement ends
+        :func:`terminate()` is called if the command is still running and
+        :func:`check_errors()` is called when the command has already ended.
     """
 
     def __init__(self, *command, **options):
@@ -365,6 +380,15 @@ class ExternalCommand(object):
         return None
 
     @property
+    def is_finished(self):
+        """
+        :data:`True` once the external command has been started and has since
+        finished, :data:`False` when the external command hasn't been started
+        yet or is still running.
+        """
+        return self.subprocess.poll() is not None if self.subprocess else False
+
+    @property
     def is_running(self):
         """
         :data:`True` while the external command is running, :data:`False` when
@@ -373,13 +397,13 @@ class ExternalCommand(object):
         return self.subprocess.poll() is None if self.subprocess else False
 
     @property
-    def is_finished(self):
+    def is_terminated(self):
         """
-        :data:`True` once the external command has been started and has since
-        finished, :data:`False` when the external command hasn't been started
-        yet or is still running.
+        :data:`True` if the external command was terminated using
+        :data:`signal.SIGTERM` (e.g. by :func:`terminate()`),
+        :data:`False` otherwise.
         """
-        return self.subprocess.poll() is not None if self.subprocess else False
+        return abs(self.returncode) == signal.SIGTERM if self.returncode and self.returncode < 0 else False
 
     @default_property
     def logger(self):
@@ -633,6 +657,25 @@ class ExternalCommand(object):
         """
         if (check if check is not None else self.check) and self.returncode != 0:
             raise ExternalCommandFailed(self)
+
+    def __enter__(self):
+        """Start the external command if it hasn't already been started."""
+        if not self.was_started:
+            self.start()
+        return self
+
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """
+        Terminate an asynchronous external command that is still running or
+        check for errors if the external command has already ended.
+        """
+        if self.was_started:
+            if self.is_running:
+                self.terminate()
+            elif exc_type is None:
+                # Check for external command errors only when not already
+                # handling an exception.
+                self.check_errors()
 
     def __repr__(self):
         """

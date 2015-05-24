@@ -72,4 +72,4 @@ htmlhelp_basename = 'executordoc'
 def setup(app):
     # Based on http://stackoverflow.com/a/5599712/788200.
     app.connect('autodoc-skip-member', (lambda app, what, name, obj, skip, options:
-                                        False if name == '__init__' and obj.__doc__ else skip))
+                                        False if name.startswith('__') and obj.__doc__ else skip))
