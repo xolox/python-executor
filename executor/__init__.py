@@ -60,7 +60,7 @@ from executor.writable_property import (
 )
 
 # Semi-standard module versioning.
-__version__ = '2.2.2'
+__version__ = '2.3'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -170,13 +170,14 @@ class ExternalCommand(object):
       inspect if and how the external command was started, what its current
       status is and what its output is.
 
-    - The public methods :func:`start()` and :func:`wait()` enable you to start
-      external commands and wait for them to finish.
+    - The public methods :func:`start()`, :func:`wait()` and
+      :func:`terminate()` enable you to start external commands, wait for them
+      to finish and terminate them if they take too long.
 
     - The internal methods :func:`check_errors()`, :func:`load_output()` and
-      :func:`cleanup()` are used by :func:`start()` and :func:`wait()` so
-      unless you're reimplementing one of those two methods you probably don't
-      need these internal methods.
+      :func:`cleanup()` are used by :func:`start()`, :func:`wait()` and
+      :func:`terminate()` so unless you're reimplementing one of those methods
+      you probably don't need these internal methods.
     """
 
     def __init__(self, *command, **options):
@@ -542,10 +543,13 @@ class ExternalCommand(object):
             self.cached_stdout, stderr = self.subprocess.communicate(input=self.encoded_input)
             self.wait()
 
-    def wait(self):
+    def wait(self, check=None):
         """
         Wait for the external command to finish.
 
+        :param check: Override the value of :attr:`check` for the duration of
+                      this call to :func:`wait()`. Defaults to :data:`None`
+                      which means :attr:`check` is not overridden.
         :raises: :exc:`ExternalCommandFailed` when :attr:`check` is
                  :data:`True`, :attr:`async` is :data:`True` and the external
                  command exits with a nonzero status code.
@@ -569,7 +573,23 @@ class ExternalCommand(object):
             self.subprocess.wait()
         self.load_output()
         self.cleanup()
-        self.check_errors()
+        self.check_errors(check=check)
+
+    def terminate(self):
+        """
+        Terminate a running process using :func:`subprocess.Popen.terminate()`.
+
+        Calls :func:`wait()` after terminating the process so that the external
+        command's output is loaded and temporary resources are cleaned up. The
+        value of :attr:`check` is overridden to :data:`False` during the call
+        to :func:`terminate()` (if you're terminating an external command you
+        know the return code isn't going to be zero so there's no point in
+        raising an exception about it).
+        """
+        if self.is_running:
+            self.logger.debug("Terminating external command: %s", quote(self.command_line))
+            self.subprocess.terminate()
+            self.wait(check=False)
 
     def load_output(self):
         """
@@ -599,15 +619,19 @@ class ExternalCommand(object):
             self.null_device.close()
             self.null_device = None
 
-    def check_errors(self):
+    def check_errors(self, check=None):
         """
         Raise :exc:`ExternalCommandFailed` when :attr:`check` is set and the
         external command ended with a nonzero exit code.
 
+        :param check: Override the value of :attr:`check` for the duration of
+                      this call to :func:`check_errors()`. Defaults to
+                      :data:`None` which means :attr:`check` is not
+                      overridden.
         This internal method is used by :func:`start()` and :func:`wait()` to
         make sure that failing external commands don't go unnoticed.
         """
-        if self.check and self.returncode != 0:
+        if (check if check is not None else self.check) and self.returncode != 0:
             raise ExternalCommandFailed(self)
 
     def __repr__(self):
