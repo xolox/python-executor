@@ -9,6 +9,7 @@ the ``executor`` package, which currently defines three public modules:
 - :mod:`executor`
 - :mod:`executor.concurrent`
 - :mod:`executor.writable_property`
+- :mod:`executor.compat`
 
 .. automodule:: executor
    :members:
@@ -17,4 +18,7 @@ the ``executor`` package, which currently defines three public modules:
    :members:
 
 .. automodule:: executor.writable_property
+   :members:
+
+.. automodule:: executor.compat
    :members:

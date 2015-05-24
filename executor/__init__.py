@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 23, 2015
+# Last Change: May 24, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -51,20 +51,16 @@ import subprocess
 import tempfile
 
 # Modules included in our package.
-from executor.writable_property import override_properties, writable_property
-
-# We need to know whether standard input should be encoded or not. The way to
-# check depends on whether we are running on Python 2.x or Python 3.x (both of
-# which we want to support).
-try:
-    # On Python 2.x this does nothing, on Python 3.x it will raise NameError.
-    unicode = unicode
-except NameError:
-    # Define an unambiguous alias for our intention on Python 3.x.
-    unicode = str
+from executor.compat import str
+from executor.writable_property import (
+    default_property,
+    override_properties,
+    property_repr,
+    writable_property,
+)
 
 # Semi-standard module versioning.
-__version__ = '2.1'
+__version__ = '2.2'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -211,7 +207,7 @@ class ExternalCommand(object):
         self.output_file = None
         self.subprocess = None
 
-    @writable_property
+    @default_property
     def async(self):
         """
         If this option is :data:`True` (not the default) preparations are made
@@ -241,7 +237,7 @@ class ExternalCommand(object):
         """
         return False
 
-    @writable_property
+    @default_property
     def capture(self):
         """
         If this option is :data:`True` (not the default) the standard output of
@@ -253,7 +249,7 @@ class ExternalCommand(object):
         """
         return False
 
-    @writable_property
+    @default_property
     def check(self):
         """
         If this option is :data:`True` (the default) and the external command
@@ -268,7 +264,6 @@ class ExternalCommand(object):
         """
         A list of strings with the command to execute.
         """
-        return []
 
     @property
     def command_line(self):
@@ -300,7 +295,7 @@ class ExternalCommand(object):
                 command_line = ['sudo'] + command_line
         return command_line
 
-    @writable_property
+    @default_property
     def directory(self):
         """
         The working directory for the external command (a string). Defaults to
@@ -312,14 +307,14 @@ class ExternalCommand(object):
     def encoded_input(self):
         """
         The value of :attr:`input` encoded using :attr:`encoding`. This is a
-        :class:`python2:str` object (in Python 2.x) or a :class:`python3:bytes`
-        object (in Python 3.x).
+        :class:`python2:str` object (in Python 2) or a :class:`python3:bytes`
+        object (in Python 3).
         """
         return (self.input.encode(self.encoding)
-                if isinstance(self.input, unicode)
+                if isinstance(self.input, str)
                 else self.input)
 
-    @writable_property
+    @default_property
     def encoding(self):
         """
         The character encoding of standard input and standard output (a string,
@@ -328,7 +323,7 @@ class ExternalCommand(object):
         """
         return 'UTF-8'
 
-    @writable_property
+    @default_property
     def environment(self):
         """
         A dictionary of environment variables for the external command.
@@ -339,26 +334,29 @@ class ExternalCommand(object):
         """
         return {}
 
-    @writable_property
+    @default_property
     def fakeroot(self):
         """
         If this option is :data:`True` (not the default) and the current
         process doesn't have `superuser privileges`_ the external command is
         run with ``fakeroot``. If the ``fakeroot`` program is not installed a
         fall back to ``sudo`` is performed.
+
+        .. _superuser privileges: http://en.wikipedia.org/wiki/Superuser#Unix_and_Unix-like
         """
         return False
 
-    @writable_property
+    @default_property
     def input(self):
         """
-        The input to feed to the external command on the standard input stream.
+        The input to feed to the external command on the standard input stream
+        (defaults to :data:`None`).
 
-        When you provide a :func:`python2:unicode` object (in Python 2.x) or a
-        :class:`python3:str` object (in Python 3.x) as input it will be encoded
+        When you provide a :func:`python2:unicode` object (in Python 2) or a
+        :class:`python3:str` object (in Python 3) as input it will be encoded
         using :attr:`encoding`. To avoid the automatic conversion you can
-        simply pass a :class:`python2:str` object (in Python 2.x) or a
-        :class:`python3:bytes` object (in Python 3.x).
+        simply pass a :class:`python2:str` object (in Python 2) or a
+        :class:`python3:bytes` object (in Python 3).
 
         The conversion logic is implemented in the :attr:`encoded_input`
         attribute.
@@ -382,7 +380,7 @@ class ExternalCommand(object):
         """
         return self.subprocess.poll() is not None if self.subprocess else False
 
-    @writable_property
+    @default_property
     def logger(self):
         """
         The :class:`logging.Logger` object to use.
@@ -399,8 +397,8 @@ class ExternalCommand(object):
     def output(self):
         r"""
         The value of :attr:`stdout` decoded using :attr:`encoding`. This is a
-        :func:`python2:unicode` object (in Python 2.x) or a
-        :class:`python3:str` object (in Python 3.x).
+        :func:`python2:unicode` object (in Python 2) or a :class:`python3:str`
+        object (in Python 3).
 
         This is only available when :attr:`capture` is :data:`True`. If
         :attr:`capture` is not :data:`True` then :attr:`output` will be
@@ -438,7 +436,7 @@ class ExternalCommand(object):
         """
         return self.subprocess.poll() if self.subprocess else None
 
-    @writable_property
+    @default_property
     def silent(self):
         """
         If this is :data:`True` (not the default) any output of the external
@@ -454,8 +452,8 @@ class ExternalCommand(object):
     def stdout(self):
         """
         The output of the external command on its standard output stream, a
-        :class:`python2:str` object (in Python 2.x) or a :class:`python3:bytes`
-        object (in Python 3.x).
+        :class:`python2:str` object (in Python 2) or a :class:`python3:bytes`
+        object (in Python 3).
 
         This is only available when :attr:`capture` is :data:`True`. If
         :attr:`capture` is not :data:`True` then :attr:`stdout` will be
@@ -468,15 +466,13 @@ class ExternalCommand(object):
             self.load_output()
         return self.cached_stdout
 
-    @writable_property
+    @default_property
     def sudo(self):
         """
         If this option is :data:`True` (not the default) and the current
         process doesn't have `superuser privileges`_ the external command is
         run with ``sudo`` to ensure that the external command runs with
         superuser privileges.
-
-        .. _superuser privileges: http://en.wikipedia.org/wiki/Superuser#Unix_and_Unix-like
         """
         return False
 
@@ -618,36 +614,7 @@ class ExternalCommand(object):
         """
         Report a user friendly representation of a :class:`ExternalCommand` object.
         """
-        fields = [
-            "async=%r" % self.async,
-            "capture=%r" % self.capture,
-            "check=%r" % self.check,
-            "command=%r" % self.command,
-            "encoding=%r" % self.encoding,
-            "is_finished=%r" % self.is_finished,
-            "is_running=%r" % self.is_running,
-            "was_started=%r" % self.was_started,
-        ]
-        # The following fields are only included when they're useful.
-        if self.command_line != self.command:
-            fields.append("command_line=%r" % self.command_line)
-        if self.directory != os.curdir:
-            fields.append("directory=%r" % self.directory)
-        if self.environment:
-            fields.append("environment=%r" % self.environment)
-        if self.fakeroot:
-            fields.append("fakeroot=%r" % self.fakeroot)
-        if self.input:
-            fields.append("input=%r" % self.input)
-        if self.output:
-            fields.append("output=%r" % self.output)
-        if self.returncode is not None:
-            fields.append("returncode=%r" % self.returncode)
-        if self.silent:
-            fields.append("silent=%r" % self.silent)
-        if self.sudo:
-            fields.append("sudo=%r" % self.sudo)
-        return "%s(%s)" % (self.__class__.__name__, ", ".join(sorted(fields)))
+        return property_repr(self)
 
 
 def quote(*args):
