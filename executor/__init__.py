@@ -166,12 +166,12 @@ class ExternalCommand(object):
      :attr:`sudo` properties allow you to configure how the external command
      will be run (before it is started).
 
-    **Read only properties**
+    **Computed properties**
      The :attr:`command_line`, :attr:`encoded_input`, :attr:`is_finished`,
-     :attr:`is_running`, :attr:`output`, :attr:`returncode`, :attr:`stdout` and
-     :attr:`was_started` properties allow you to inspect if and how the
-     external command was started, what its current status is and what its
-     output is.
+     :attr:`is_running`, :attr:`is_terminated`, :attr:`output`,
+     :attr:`returncode`, :attr:`stdout` and :attr:`was_started` properties
+     allow you to inspect if and how the external command was started, what its
+     current status is and what its output is.
 
     **Public methods**
      The public methods :func:`start()`, :func:`wait()` and :func:`terminate()`
