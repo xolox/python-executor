@@ -30,12 +30,16 @@ Python 2 as well as Python 3.
 # Standard library modules.
 import sys
 
-# Make Python 2 look like Python 3.
 if sys.version_info[0] == 2:
+    # Enable importing of basestring from this module.
     basestring = basestring
+    # Alias bytes to str.
     bytes = str
+    # Alias str to unicode.
     str = unicode
-
-# Make Python 3 look like Python 2.
-if sys.version_info[0] == 3:
+elif sys.version_info[0] == 3:
+    # Alias basestring to str.
     basestring = str
+    # Enable importing of bytes and str from this module.
+    bytes = bytes
+    str = str
