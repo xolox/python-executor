@@ -60,7 +60,7 @@ from executor.property_manager import (
 )
 
 # Semi-standard module versioning.
-__version__ = '3.0.2'
+__version__ = '3.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -102,17 +102,14 @@ def execute(*command, **options):
                     :class:`ExternalCommand`.
     :returns: The return value of this function depends on two options:
 
-              =======================================  =========================================  ==================================
+              =======================================  =========================================  =================================
               Value of :attr:`~ExternalCommand.async`  Value of :attr:`~ExternalCommand.capture`  Return value
-              =======================================  =========================================  ==================================
-              :data:`False`                            :data:`False`                              :data:`True` if the subprocess
-                                                                                                  exited with a zero status code,
-                                                                                                  :data:`False` if the subprocess
-                                                                                                  exited with a nonzero status code.
+              =======================================  =========================================  =================================
+              :data:`False`                            :data:`False`                              :attr:`ExternalCommand.succeeded`
               :data:`False`                            :data:`True`                               :attr:`ExternalCommand.output`
               :data:`True`                             :data:`True`                               :class:`ExternalCommand` object
               :data:`True`                             :data:`False`                              :class:`ExternalCommand` object
-              =======================================  =========================================  ==================================
+              =======================================  =========================================  =================================
     :raises: :exc:`ExternalCommandFailed` when the command exits with a
              nonzero exit code (unless :attr:`~ExternalCommand.capture` is
              :data:`False`).
@@ -164,10 +161,7 @@ def execute(*command, **options):
     else:
         cmd.start()
         cmd.wait()
-        if cmd.capture:
-            return cmd.output
-        else:
-            return cmd.returncode == 0
+        return cmd.output if cmd.capture else cmd.succeeded
 
 
 class ExternalCommand(PropertyManager):
@@ -396,9 +390,17 @@ class ExternalCommand(PropertyManager):
         :exc:`ExternalCommandFailed` when :attr:`returncode` is set and not
         zero, :data:`None` otherwise.
         """
-        if self.returncode is not None:
-            if self.returncode != 0:
-                return ExternalCommandFailed
+        if self.is_finished and self.failed:
+            return ExternalCommandFailed
+
+    @property
+    def failed(self):
+        """
+        :data:`True` if :attr:`returncode` is a nonzero number, :data:`False`
+        if :attr:`returncode` is zero, :data:`None` when the external command
+        hasn't been started or is still running.
+        """
+        return (not self.succeeded) if self.is_finished else None
 
     @mutable_property
     def fakeroot(self):
@@ -436,7 +438,6 @@ class ExternalCommand(PropertyManager):
         The conversion logic is implemented in the :attr:`encoded_input`
         attribute.
         """
-        return None
 
     @property
     def is_finished(self):
@@ -549,6 +550,15 @@ class ExternalCommand(PropertyManager):
             # captured in a temporary file, which we'll read to get the output.
             self.load_output()
         return self.cached_stdout
+
+    @property
+    def succeeded(self):
+        """
+        :data:`True` if :attr:`returncode` is zero, :data:`False` if
+        :attr:`returncode` is set but not zero, :data:`None` when the external
+        command hasn't been started or is still running.
+        """
+        return self.returncode == 0 if self.is_finished else None
 
     @mutable_property
     def sudo(self):
