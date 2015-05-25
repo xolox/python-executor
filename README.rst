@@ -90,6 +90,34 @@ end up being helpful, here's how it works:
 >>> execute('echo peter-macbook > /etc/hostname', sudo=True)
 DEBUG:executor:Executing external command: sudo bash -c 'echo peter-macbook > /etc/hostname'
 
+Running remote commands
+~~~~~~~~~~~~~~~~~~~~~~~
+
+To run a command on a remote system using SSH you can use the RemoteCommand_
+class, it works as follows:
+
+>>> from executor.ssh.client import RemoteCommand
+>>> cmd = RemoteCommand('localhost', 'echo $SSH_CONNECTION', capture=True)
+>>> cmd.start()
+>>> cmd.output
+'127.0.0.1 57255 127.0.0.1 22'
+
+Running remote commands concurrently
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `foreach()`_ function wraps the RemoteCommand_ and CommandPool_ classes to
+make it very easy to run a remote command concurrently on a group of hosts:
+
+>>> from executor.ssh.client import foreach
+>>> from pprint import pprint
+>>> hosts = ['127.0.0.1', '127.0.0.2', '127.0.0.3', '127.0.0.4']
+>>> commands = foreach(hosts, 'echo $SSH_CONNECTION')
+>>> pprint([cmd.output for cmd in commands])
+['127.0.0.1 57278 127.0.0.1 22',
+ '127.0.0.1 52385 127.0.0.2 22',
+ '127.0.0.1 49228 127.0.0.3 22',
+ '127.0.0.1 40628 127.0.0.4 22']
+
 Contact
 -------
 
@@ -106,12 +134,15 @@ This software is licensed under the `MIT license`_.
 © 2015 Peter Odding.
 
 .. External references:
+.. _CommandPool: https://executor.readthedocs.org/en/latest/#executor.concurrent.CommandPool
 .. _documentation: https://executor.readthedocs.org
 .. _execute(): http://executor.readthedocs.org/en/latest/#executor.execute
 .. _ExternalCommandFailed: http://executor.readthedocs.org/en/latest/#executor.ExternalCommandFailed
+.. _foreach(): https://executor.readthedocs.org/en/latest/#executor.ssh.client.foreach
 .. _GitHub: https://github.com/xolox/python-executor
 .. _MIT license: http://en.wikipedia.org/wiki/MIT_License
 .. _peter@peterodding.com: peter@peterodding.com
 .. _PyPI: https://pypi.python.org/pypi/executor
 .. _Read the Docs: https://executor.readthedocs.org
+.. _RemoteCommand: https://executor.readthedocs.org/en/latest/#executor.ssh.client.RemoteCommand
 .. _subprocess: https://docs.python.org/2/library/subprocess.html

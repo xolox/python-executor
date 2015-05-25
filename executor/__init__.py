@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 24, 2015
+# Last Change: May 25, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -53,18 +53,43 @@ import tempfile
 
 # Modules included in our package.
 from executor.compat import str
-from executor.writable_property import (
-    default_property,
-    override_properties,
-    property_repr,
-    writable_property,
+from executor.property_manager import (
+    mutable_property,
+    PropertyManager,
+    required_property,
 )
 
 # Semi-standard module versioning.
-__version__ = '2.4'
+__version__ = '3.0'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
+
+DEFAULT_SHELL = 'bash'
+"""
+The default shell used to evaluate shell expressions (a string).
+
+This variable isn't based on the ``$SHELL`` environment variable because:
+
+1. Shells like ``sh``, ``dash``, ``bash`` and ``zsh`` all have their own
+   subtly incompatible semantics.
+2. People regularly use shells like ``fish`` as their default login shell :-).
+
+At an interactive prompt this is no problem (advanced users have obviously
+learned to context switch) but when you're writing source code the last thing
+you want to worry about is which shell is going to evaluate your commands! The
+:mod:`executor` package expects this shell to support the following features:
+
+- The ``-c`` option to evaluate a shell command provided as a command line
+  argument.
+
+- The ``-`` argument to instruct the shell to read shell commands from its
+  standard input stream and evaluate those.
+
+Apart from these two things nothing else is expected from the default shell so
+you're free to customize it if you really want to write your shell commands in
+``fish`` or ``zsh`` syntax :-).
+"""
 
 
 def execute(*command, **options):
@@ -121,7 +146,7 @@ def execute(*command, **options):
         self.check_errors()
       File "executor/__init__.py", line 568, in check_errors
         raise ExternalCommandFailed(self)
-    executor.ExternalCommandFailed: External command failed with exit code 1! (command: bash -c false)
+    executor.ExternalCommandFailed: External command failed with exit code 1! (command: false)
 
     The exceptions raised by :func:`execute()` expose
     :attr:`~ExternalCommandFailed.command` and
@@ -145,7 +170,7 @@ def execute(*command, **options):
             return cmd.returncode == 0
 
 
-class ExternalCommand(object):
+class ExternalCommand(PropertyManager):
 
     """
     Programmer friendly :class:`subprocess.Popen` wrapper.
@@ -189,10 +214,14 @@ class ExternalCommand(object):
       the :keyword:`with` statement:
 
       - When the scope of the :keyword:`with` statement starts the
-        :func:`start()` method is called.
+        :func:`start()` method is called (if the external command
+        isn't already running).
       - When the scope of the :keyword:`with` statement ends
-        :func:`terminate()` is called if the command is still running and
-        :func:`check_errors()` is called when the command has already ended.
+        :func:`terminate()` is called if the command is still running. The
+        :func:`load_output()` and :func:`cleanup()` functions are used to
+        cleanup after the external command. If an exception isn't already being
+        raised :func:`check_errors()` is called to make sure the external
+        command succeeded.
     """
 
     def __init__(self, *command, **options):
@@ -213,9 +242,12 @@ class ExternalCommand(object):
         :func:`wait()`.
         """
         # Store the command and its arguments.
-        self.command = list(command)
-        # Use any keyword arguments to override defaults.
-        override_properties(self, **options)
+        command = list(command)
+        if not command:
+            raise TypeError("Please provide a command to execute!")
+        self.command = command
+        # Set properties based on keyword arguments.
+        super(ExternalCommand, self).__init__(**options)
         # Initialize instance variables.
         self.cached_stdout = None
         self.input_file = None
@@ -223,7 +255,7 @@ class ExternalCommand(object):
         self.output_file = None
         self.subprocess = None
 
-    @default_property
+    @mutable_property
     def async(self):
         """
         If this option is :data:`True` (not the default) preparations are made
@@ -253,7 +285,7 @@ class ExternalCommand(object):
         """
         return False
 
-    @default_property
+    @mutable_property
     def capture(self):
         """
         If this option is :data:`True` (not the default) the standard output of
@@ -265,7 +297,7 @@ class ExternalCommand(object):
         """
         return False
 
-    @default_property
+    @mutable_property
     def check(self):
         """
         If this option is :data:`True` (the default) and the external command
@@ -275,11 +307,9 @@ class ExternalCommand(object):
         """
         return True
 
-    @writable_property
+    @required_property
     def command(self):
-        """
-        A list of strings with the command to execute.
-        """
+        """A list of strings with the command to execute."""
 
     @property
     def command_line(self):
@@ -289,8 +319,9 @@ class ExternalCommand(object):
         :attr:`command` according to the following rules:
 
         - If :attr:`command` contains a single string it is assumed to be a
-          shell command and run using ``bash -c '...'`` which means constructs
-          like semicolons, ampersands and pipes can be used (and all the usual
+          shell command and run using ``bash -c '...'`` (assuming you haven't
+          changed :data:`DEFAULT_SHELL`) which means constructs like
+          semicolons, ampersands and pipes can be used (and all the usual
           caveats apply :-).
 
         - If :attr:`fakeroot` or :attr:`sudo` is set the respective command
@@ -298,8 +329,8 @@ class ExternalCommand(object):
         """
         command_line = list(self.command)
         if len(command_line) == 1:
-            command_line = ['bash', '-c'] + command_line
-        if (self.fakeroot or self.sudo) and os.getuid() != 0:
+            command_line = [DEFAULT_SHELL, '-c'] + command_line
+        if (self.fakeroot or self.sudo) and not self.have_superuser_privileges:
             if self.sudo:
                 # Superuser privileges requested by caller.
                 command_line = ['sudo'] + command_line
@@ -311,7 +342,7 @@ class ExternalCommand(object):
                 command_line = ['sudo'] + command_line
         return command_line
 
-    @default_property
+    @mutable_property
     def directory(self):
         """
         The working directory for the external command (a string). Defaults to
@@ -330,7 +361,7 @@ class ExternalCommand(object):
                 if isinstance(self.input, str)
                 else self.input)
 
-    @default_property
+    @mutable_property
     def encoding(self):
         """
         The character encoding of standard input and standard output (a string,
@@ -339,7 +370,7 @@ class ExternalCommand(object):
         """
         return 'UTF-8'
 
-    @default_property
+    @mutable_property
     def environment(self):
         """
         A dictionary of environment variables for the external command.
@@ -350,7 +381,26 @@ class ExternalCommand(object):
         """
         return {}
 
-    @default_property
+    @property
+    def error_message(self):
+        """
+        A string describing how the external command failed or :data:`None`.
+        """
+        if self.error_type is ExternalCommandFailed:
+            text = "External command failed with exit code %s! (command: %s)"
+            return text % (self.returncode, quote(self.command_line))
+
+    @property
+    def error_type(self):
+        """
+        :exc:`ExternalCommandFailed` when :attr:`returncode` is set and not
+        zero, :data:`None` otherwise.
+        """
+        if self.returncode is not None:
+            if self.returncode != 0:
+                return ExternalCommandFailed
+
+    @mutable_property
     def fakeroot(self):
         """
         If this option is :data:`True` (not the default) and the current
@@ -362,7 +412,16 @@ class ExternalCommand(object):
         """
         return False
 
-    @default_property
+    @property
+    def have_superuser_privileges(self):
+        """
+        :data:`True` if running with `superuser privileges`_, :data:`False`
+        otherwise. Used by :attr:`command_line` to decide whether
+        :attr:`fakeroot` or :attr:`sudo` needs to be used.
+        """
+        return os.getuid() == 0
+
+    @mutable_property
     def input(self):
         """
         The input to feed to the external command on the standard input stream
@@ -405,7 +464,7 @@ class ExternalCommand(object):
         """
         return abs(self.returncode) == signal.SIGTERM if self.returncode and self.returncode < 0 else False
 
-    @default_property
+    @mutable_property
     def logger(self):
         """
         The :class:`logging.Logger` object to use.
@@ -461,7 +520,7 @@ class ExternalCommand(object):
         """
         return self.subprocess.poll() if self.subprocess else None
 
-    @default_property
+    @mutable_property
     def silent(self):
         """
         If this is :data:`True` (not the default) any output of the external
@@ -491,7 +550,7 @@ class ExternalCommand(object):
             self.load_output()
         return self.cached_stdout
 
-    @default_property
+    @mutable_property
     def sudo(self):
         """
         If this option is :data:`True` (not the default) and the current
@@ -553,7 +612,7 @@ class ExternalCommand(object):
         if self.capture:
             if self.async:
                 fd, self.output_file = tempfile.mkstemp(prefix='executor-', suffix='-output.txt')
-                logger.debug("Capturing external command output in temporary file %s ..", self.output_file)
+                self.logger.debug("Capturing external command output in temporary file %s ..", self.output_file)
                 kw['stdout'] = fd
             else:
                 kw['stdout'] = subprocess.PIPE
@@ -645,18 +704,20 @@ class ExternalCommand(object):
 
     def check_errors(self, check=None):
         """
-        Raise :exc:`ExternalCommandFailed` when :attr:`check` is set and the
-        external command ended with a nonzero exit code.
+        Raise :attr:`error_type` when :attr:`check` is set and the external
+        command failed.
 
         :param check: Override the value of :attr:`check` for the duration of
-                      this call to :func:`check_errors()`. Defaults to
-                      :data:`None` which means :attr:`check` is not
-                      overridden.
+                      this call. Defaults to :data:`None` which means
+                      :attr:`check` is not overridden.
+        :raises: :attr:`error_type` when :attr:`check` is set and
+                 :attr:`error_type` is not :data:`None`.
+
         This internal method is used by :func:`start()` and :func:`wait()` to
         make sure that failing external commands don't go unnoticed.
         """
-        if (check if check is not None else self.check) and self.returncode != 0:
-            raise ExternalCommandFailed(self)
+        if (check if check is not None else self.check) and self.error_type is not None:
+            raise self.error_type(self)
 
     def __enter__(self):
         """Start the external command if it hasn't already been started."""
@@ -666,22 +727,18 @@ class ExternalCommand(object):
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
         """
-        Terminate an asynchronous external command that is still running or
-        check for errors if the external command has already ended.
+        Terminate the external command if it is still running, cleanup after
+        the external command and check for errors.
         """
         if self.was_started:
             if self.is_running:
                 self.terminate()
-            elif exc_type is None:
+            self.load_output()
+            self.cleanup()
+            if exc_type is None:
                 # Check for external command errors only when not already
                 # handling an exception.
                 self.check_errors()
-
-    def __repr__(self):
-        """
-        Report a user friendly representation of a :class:`ExternalCommand` object.
-        """
-        return property_repr(self)
 
 
 def quote(*args):
@@ -748,14 +805,18 @@ class ExternalCommandFailed(Exception):
     .. attribute:: command
 
        The :class:`ExternalCommand` object.
-
-    .. attribute:: returncode
-
-       The return code of the external command (an integer).
     """
 
     def __init__(self, command):
         self.command = command
-        self.returncode = command.returncode
-        error_message = "External command failed with exit code %s! (command: %s)"
-        super(ExternalCommandFailed, self).__init__(error_message % (command.returncode, quote(command.command_line)))
+        super(ExternalCommandFailed, self).__init__(command.error_message)
+
+    @property
+    def returncode(self):
+        """Shortcut for :attr:`ExternalCommand.returncode`."""
+        return self.command.returncode
+
+    @property
+    def error_message(self):
+        """Shortcut for :attr:`ExternalCommand.error_message`."""
+        return self.command.error_message

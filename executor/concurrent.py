@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 24, 2015
+# Last Change: May 25, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -19,7 +19,7 @@ import logging
 import multiprocessing
 
 # Modules included in our package.
-from executor.writable_property import default_property
+from executor.property_manager import mutable_property
 
 # External dependencies.
 from humanfriendly import pluralize, Spinner, Timer
@@ -49,7 +49,7 @@ class CommandPool(object):
         if concurrency:
             self.concurrency = concurrency
 
-    @default_property
+    @mutable_property
     def concurrency(self):
         """
         The number of external commands that the pool is allowed to run

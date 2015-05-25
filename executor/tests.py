@@ -1,13 +1,14 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 23, 2015
+# Last Change: May 25, 2015
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
 import logging
 import os
 import random
+import shlex
 import tempfile
 import time
 import unittest
@@ -24,6 +25,22 @@ from executor import (
     which,
 )
 from executor.concurrent import CommandPool
+from executor.property_manager import (
+    assignable_property,
+    cached_property,
+    custom_property,
+    mutable_property,
+    PropertyManager,
+    required_property,
+)
+from executor.ssh.client import (
+    DEFAULT_CONNECT_TIMEOUT,
+    foreach,
+    RemoteCommand,
+    RemoteCommandFailed,
+    RemoteConnectFailed,
+)
+from executor.ssh.server import SSHServer
 
 class ExecutorTestCase(unittest.TestCase):
 
@@ -35,6 +52,9 @@ class ExecutorTestCase(unittest.TestCase):
             coloredlogs.set_level(logging.DEBUG)
         except ImportError:
             logging.basicConfig(level=logging.DEBUG)
+
+    def test_argument_validation(self):
+        self.assertRaises(TypeError, ExternalCommand)
 
     def test_program_searching(self):
         self.assertTrue(which('python'))
@@ -153,7 +173,7 @@ class ExecutorTestCase(unittest.TestCase):
         assert cmd.output == random_value
 
     def test_repr(self):
-        cmd = ExternalCommand('echo 42', async=True, directory='/', environment={'my-environment-variable': '42'})
+        cmd = ExternalCommand('echo 42', async=True, capture=True, directory='/', environment={'my-environment-variable': '42'})
         assert repr(cmd).startswith('ExternalCommand(')
         assert repr(cmd).endswith(')')
         assert 'echo 42' in repr(cmd)
@@ -180,6 +200,175 @@ class ExecutorTestCase(unittest.TestCase):
         results = pool.run()
         assert all(cmd.returncode == 0 for cmd in results.values())
         assert timer.elapsed_time < (num_commands * sleep_time)
+
+    def test_ssh_command_lines(self):
+        # Construct a remote command using as much defaults as possible and
+        # validate the resulting SSH client program command line.
+        cmd = RemoteCommand('localhost', 'true', ssh_user='some-random-user')
+        cmd.logger.debug("Command line: %s", cmd.command_line)
+        for token in (
+                'ssh', '-o', 'BatchMode=yes',
+                       '-o', 'ConnectTimeout=%i' % DEFAULT_CONNECT_TIMEOUT,
+                       '-o', 'StrictHostKeyChecking=no',
+                       '-l', 'some-random-user',
+                       'localhost', 'true',
+        ):
+            assert token in tokenize_command_line(cmd)
+        # Make sure batch mode can be disabled.
+        assert 'BatchMode=no' in \
+            RemoteCommand('localhost', 'date', batch_mode=False).command_line
+        # Make sure the connection timeout can be configured.
+        assert 'ConnectTimeout=42' in \
+            RemoteCommand('localhost', 'date', connect_timeout=42).command_line
+        # Make sure the SSH client program command can be configured.
+        assert 'Compression=yes' in \
+            RemoteCommand('localhost', 'date', ssh_command=['ssh', '-o', 'Compression=yes']).command_line
+        # Make sure the known hosts file can be ignored.
+        cmd = RemoteCommand('localhost', 'date', ignore_known_hosts=True)
+        assert cmd.ignore_known_hosts
+        cmd.ignore_known_hosts = False
+        assert not cmd.ignore_known_hosts
+        # Make sure strict host key checking can be enabled.
+        assert 'StrictHostKeyChecking=yes' in \
+            RemoteCommand('localhost', 'date', strict_host_key_checking=True).command_line
+        assert 'StrictHostKeyChecking=yes' in \
+            RemoteCommand('localhost', 'date', strict_host_key_checking='yes').command_line
+        # Make sure host key checking can be set to prompt the operator.
+        assert 'StrictHostKeyChecking=ask' in \
+            RemoteCommand('localhost', 'date', strict_host_key_checking='ask').command_line
+        # Make sure strict host key checking can be disabled.
+        assert 'StrictHostKeyChecking=no' in \
+            RemoteCommand('localhost', 'date', strict_host_key_checking=False).command_line
+        assert 'StrictHostKeyChecking=no' in \
+            RemoteCommand('localhost', 'date', strict_host_key_checking='no').command_line
+        # Make sure fakeroot and sudo requests are honored.
+        assert 'fakeroot' in \
+            tokenize_command_line(RemoteCommand('localhost', 'date', fakeroot=True))
+        assert 'sudo' in \
+            tokenize_command_line(RemoteCommand('localhost', 'date', sudo=True))
+        assert 'sudo' not in \
+            tokenize_command_line(RemoteCommand('localhost', 'date', ssh_user='root', sudo=True))
+
+    def test_ssh_unreachable(self):
+        # Make sure invalid SSH aliases raise the expected type of exception.
+        self.assertRaises(
+            RemoteConnectFailed,
+            lambda: RemoteCommand('this.domain.surely.wont.exist.right', 'date', silent=True).start(),
+        )
+
+    def test_remote_error_handling(self):
+        with SSHServer(async=True) as server:
+            cmd = RemoteCommand('127.0.0.1', 'exit 42', **server.client_options)
+            self.assertRaises(RemoteCommandFailed, cmd.start)
+
+    def test_foreach(self):
+        with SSHServer(async=True) as server:
+            ssh_aliases = ['127.0.0.%i' % i for i in (1, 2, 3, 4, 5, 6, 7, 8)]
+            results = foreach(ssh_aliases, 'echo $SSH_CONNECTION',
+                              concurrency=3, capture=True,
+                              **server.client_options)
+            assert sorted(ssh_aliases) == sorted(cmd.ssh_alias for cmd in results)
+            assert len(ssh_aliases) == len(set(cmd.output for cmd in results))
+
+
+class CustomPropertyTestCase(unittest.TestCase):
+
+    """Tests for the custom properties defined in the :mod:`~executor.property_manager` module."""
+
+    def test_custom_property(self):
+        """Test that :class:`.custom_property` works just like :class:`property`."""
+        class test_class(object):
+            @custom_property
+            def test_property(self):
+                return random.random()
+        # Test that custom properties can be recognized as properties.
+        assert isinstance(test_class.test_property, property)
+        # Test that custom properties are recomputed every time.
+        obj = test_class()
+        assert obj.test_property != obj.test_property
+
+    def test_assignable_property(self):
+        """Test that :class:`.assignable_property` supports assignment."""
+        class test_class(object):
+            @assignable_property
+            def test_property(self):
+                return 'default'
+        # Test that assignable properties can be recognized as properties.
+        assert isinstance(test_class.test_property, property)
+        # Test that assignable properties have a default value.
+        obj = test_class()
+        assert obj.test_property == 'default'
+        # Test that assignable properties can be assigned a new value.
+        obj = test_class()
+        obj.test_property = 'changed'
+        assert obj.test_property == 'changed'
+
+    def test_required_property(self):
+        """Test that :class:`.required_property` performs validation."""
+        class test_class(PropertyManager):
+            @required_property
+            def test_property(self):
+                """A very important property."""
+        # Test that required properties must be set.
+        self.assertRaises(TypeError, test_class)
+        # Test that required properties can be set in the constructor.
+        obj = test_class(test_property='default')
+        assert obj.test_property == 'default'
+        # Test that required properties support assignment.
+        obj = test_class(test_property='default')
+        obj.test_property = 'changed'
+        assert obj.test_property == 'changed'
+        # Test that required objects can't be deleted.
+        obj = test_class(test_property='default')
+        self.assertRaises(AttributeError, delattr, obj, 'test_property')
+
+    def test_mutable_property(self):
+        """Test that :class:`mutable_property` supports assignment and deletion."""
+        class test_class(object):
+            @mutable_property
+            def test_property(self):
+                return 'default'
+        # Test that mutable properties can be recognized as properties.
+        assert isinstance(test_class.test_property, property)
+        # Test that mutable properties have a default value.
+        obj = test_class()
+        assert obj.test_property == 'default'
+        # Test that mutable properties can be reset to their default value.
+        obj = test_class()
+        obj.test_property = 'changed'
+        assert obj.test_property == 'changed'
+        del obj.test_property
+        assert obj.test_property == 'default'
+
+    def test_cached_property(self):
+        """Test that :class:`.cached_property` caches its result."""
+        class test_class(object):
+            @cached_property
+            def test_property(self):
+                return random.random()
+        # Test that cached properties can be recognized as properties.
+        assert isinstance(test_class.test_property, property)
+        # Test that cached properties are not recomputed.
+        obj = test_class()
+        some_value = obj.test_property
+        assert some_value == obj.test_property
+        # Test that cached properties can be reset.
+        del obj.test_property
+        assert some_value != obj.test_property
+
+    def test_property_injection(self):
+        """Test that :class:`.PropertyManager` enables property injection but raises an error for unknown properties."""
+        class test_class(PropertyManager):
+            @mutable_property
+            def test_property(self):
+                return 'default'
+        assert test_class().test_property == 'default'
+        assert test_class(test_property='injected').test_property == 'injected'
+        self.assertRaises(TypeError, test_class, random_keyword_argument=True)
+
+
+def tokenize_command_line(cmd):
+    return sum(map(shlex.split, cmd.command_line), [])
 
 
 def retry(func, timeout):

@@ -8,7 +8,9 @@ the ``executor`` package, which currently defines three public modules:
 
 - :mod:`executor`
 - :mod:`executor.concurrent`
-- :mod:`executor.writable_property`
+- :mod:`executor.ssh.client`
+- :mod:`executor.ssh.server`
+- :mod:`executor.property_manager`
 - :mod:`executor.compat`
 
 .. automodule:: executor
@@ -17,7 +19,13 @@ the ``executor`` package, which currently defines three public modules:
 .. automodule:: executor.concurrent
    :members:
 
-.. automodule:: executor.writable_property
+.. automodule:: executor.ssh.client
+   :members:
+
+.. automodule:: executor.ssh.server
+   :members:
+
+.. automodule:: executor.property_manager
    :members:
 
 .. automodule:: executor.compat
