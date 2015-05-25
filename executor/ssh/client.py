@@ -168,7 +168,8 @@ class RemoteCommand(ExternalCommand):
             ssh_command.extend(('-i', self.identity_file))
         if self.ssh_user:
             ssh_command.extend(('-l', self.ssh_user))
-        ssh_command.extend(('-p', '%i' % self.port))
+        if self.port:
+            ssh_command.extend(('-p', '%i' % self.port))
         ssh_command.extend(('-o', 'BatchMode=%s' % ('yes' if self.batch_mode else 'no')))
         ssh_command.extend(('-o', 'ConnectTimeout=%i' % self.connect_timeout))
         ssh_command.extend(('-o', 'LogLevel=%s' % self.log_level))
@@ -321,10 +322,9 @@ class RemoteCommand(ExternalCommand):
     @mutable_property
     def port(self):
         """
-        The port number on which the remote SSH server is listening (an
-        integer, defaults to 22).
+        The port number of the SSH server (defaults to :data:`None` which means
+        the SSH client program decides).
         """
-        return 22
 
     @mutable_property
     def strict_host_key_checking(self):

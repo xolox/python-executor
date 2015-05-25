@@ -60,7 +60,7 @@ from executor.property_manager import (
 )
 
 # Semi-standard module versioning.
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
