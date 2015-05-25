@@ -3,21 +3,28 @@
 # Setup script for the `executor' package.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 23, 2015
+# Last Change: May 25, 2015
 # URL: https://executor.readthedocs.org
 
-import os, sys
+# Standard library modules.
+import os
+import re
+
+# De-facto standard solution for Python packaging.
 from setuptools import setup, find_packages
 
 # Find the directory where the source distribution was unpacked.
 source_directory = os.path.dirname(os.path.abspath(__file__))
 
-# Add the directory with the source distribution to the search path.
-sys.path.append(source_directory)
-
-# Import the module to find the version number (this is safe because we don't
-# have any external dependencies).
-from executor import __version__ as version_string
+# Find the current version.
+module = os.path.join(source_directory, 'executor', '__init__.py')
+for line in open(module, 'r'):
+    match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
+    if match:
+        version_string = match.group(1)
+        break
+else:
+    raise Exception("Failed to extract version from %s!" % module)
 
 # Fill in the long description (for the benefit of PyPi)
 # with the contents of README.rst (rendered by GitHub).
