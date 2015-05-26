@@ -91,7 +91,7 @@ def foreach(hosts, *command, **options):
     options.setdefault('capture', True)
     # Create a command pool.
     timer = Timer()
-    pool = CommandPool(concurrency)
+    pool = RemoteCommandPool(concurrency)
     hosts_pluralized = pluralize(len(hosts), "host")
     logger.debug("Preparing to run remote command on %s (%s) with a concurrency of %i: %s",
                  hosts_pluralized, concatenate(hosts), concurrency, quote(command))
@@ -373,6 +373,31 @@ class RemoteCommand(ExternalCommand):
                 os.path.expanduser('~/.ssh/known_hosts2'),
             ])
         return value
+
+
+class RemoteCommandPool(CommandPool):
+
+    """
+    Execute multiple remote commands concurrently.
+
+    After constructing a :class:`RemoteCommandPool` instance you add commands
+    to it using :func:`add()` and when you're ready to run the commands you
+    call :func:`run()`.
+
+    .. note:: The only difference between :class:`.CommandPool` and
+              :class:`RemoteCommandPool` is the default concurrency. This may
+              of course change in the future.
+    """
+
+    def __init__(self, concurrency=DEFAULT_CONCURRENCY):
+        """
+        Construct a :class:`RemoteCommandPool` object.
+
+        :param concurrency: Override the value of :attr:`concurrency` (an
+                            integer, defaults to :data:`DEFAULT_CONCURRENCY`
+                            for remote command pools).
+        """
+        super(RemoteCommandPool, self).__init__(concurrency)
 
 
 class RemoteCommandFailed(ExternalCommandFailed):
