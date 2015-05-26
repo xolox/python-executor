@@ -60,7 +60,7 @@ from executor.property_manager import (
 )
 
 # Semi-standard module versioning.
-__version__ = '3.2'
+__version__ = '3.3'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -488,6 +488,15 @@ class ExternalCommand(PropertyManager):
         """
         return logger
 
+    @mutable_property
+    def merge_streams(self):
+        """
+        Whether to merge the standard output and error streams (a boolean,
+        defaults to :data:`False`). If this option is enabled :attr:`stdout`
+        will contain the external command's output on both streams.
+        """
+        return False
+
     @property
     def output(self):
         r"""
@@ -640,8 +649,11 @@ class ExternalCommand(PropertyManager):
                 kw['stdout'] = self.stdout_stream.fd
             else:
                 kw['stdout'] = subprocess.PIPE
-        # Prepare to capture the standard error stream.
-        if self.capture_stderr:
+        # Make it possible to merge stderr into stdout.
+        if self.merge_streams:
+            kw['stderr'] = subprocess.STDOUT
+        elif self.capture_stderr:
+            # Prepare to capture the standard error stream.
             if self.async:
                 self.stderr_stream.prepare()
                 kw['stderr'] = self.stderr_stream.fd

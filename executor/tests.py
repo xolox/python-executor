@@ -89,12 +89,23 @@ class ExecutorTestCase(unittest.TestCase):
 
     def test_stderr(self):
         stdout_value = 'this goes to standard output'
-        stderr_value = 'and this goes to standard error'
+        stderr_value = 'and this goes to the standard error stream'
         shell_command = 'echo %s; echo %s >&2' % (stdout_value, stderr_value)
         cmd = ExternalCommand(shell_command, capture=True, capture_stderr=True)
         cmd.start()
         assert stdout_value in cmd.stdout
         assert stderr_value in cmd.stderr
+
+    def test_merged_streams(self):
+        stdout_value = 'this goes to standard output'
+        stderr_value = 'and this goes to the standard error stream'
+        shell_command = 'echo %s; echo %s >&2' % (stdout_value, stderr_value)
+        cmd = ExternalCommand(shell_command, capture=True, merge_streams=True)
+        cmd.start()
+        assert stdout_value in cmd.stdout
+        assert stderr_value in cmd.stdout
+        assert stdout_value not in (cmd.stderr or '')
+        assert stderr_value not in (cmd.stderr or '')
 
     def test_working_directory(self):
         directory = tempfile.mkdtemp()
