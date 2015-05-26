@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 25, 2015
+# Last Change: May 26, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -349,12 +349,13 @@ class RemoteCommand(ExternalCommand):
           automatically in all cases. The argument must be "yes", "no", or
           "ask". The default is "ask".
 
-        This property defaults to ``'no'`` so that when you connect to a remote
-        system over SSH for the first time the host key is automatically added
-        to the user known hosts file. As mentioned in the quote above the host
-        keys of known hosts are always verified. Python values are mapped to
-        SSH client option values as follows:
+        This property defaults to :data:`False` so that when you connect to a
+        remote system over SSH for the first time the host key is automatically
+        added to the user known hosts file (instead of requiring interaction).
+        As mentioned in the quote above the host keys of known hosts are always
+        verified (but see :attr:`ignore_known_hosts`).
         """
+        return False
 
     @mutable_property
     def known_hosts_file(self, value=None):
