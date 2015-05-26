@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 25, 2015
+# Last Change: May 26, 2015
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -75,7 +75,10 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertEqual(e.command.command_line, ['bash', '-c', 'exit 42'])
             self.assertEqual(e.returncode, 42)
 
-    def test_subprocess_output(self):
+    def test_stdin(self):
+        self.assertEqual(execute('tr', 'a-z', 'A-Z', input='test', capture=True), 'TEST')
+
+    def test_stdout(self):
         self.assertEqual(execute('echo', 'this is a test', capture=True), 'this is a test')
         self.assertEqual(execute('echo', '-e', r'line 1\nline 2', capture=True), 'line 1\nline 2\n')
         # I don't know how to test for the effect of silent=True in a practical
@@ -84,8 +87,14 @@ class ExecutorTestCase(unittest.TestCase):
         # code runs without exceptions in supported environments.
         self.assertTrue(execute('echo', 'this is a test', silent=True))
 
-    def test_subprocess_input(self):
-        self.assertEqual(execute('tr', 'a-z', 'A-Z', input='test', capture=True), 'TEST')
+    def test_stderr(self):
+        stdout_value = 'this goes to standard output'
+        stderr_value = 'and this goes to standard error'
+        shell_command = 'echo %s; echo %s >&2' % (stdout_value, stderr_value)
+        cmd = ExternalCommand(shell_command, capture=True, capture_stderr=True)
+        cmd.start()
+        assert stdout_value in cmd.stdout
+        assert stderr_value in cmd.stderr
 
     def test_working_directory(self):
         directory = tempfile.mkdtemp()

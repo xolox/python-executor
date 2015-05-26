@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 25, 2015
+# Last Change: May 26, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -60,7 +60,7 @@ from executor.property_manager import (
 )
 
 # Semi-standard module versioning.
-__version__ = '3.1'
+__version__ = '3.2'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -243,10 +243,10 @@ class ExternalCommand(PropertyManager):
         # Set properties based on keyword arguments.
         super(ExternalCommand, self).__init__(**options)
         # Initialize instance variables.
-        self.cached_stdout = None
-        self.input_file = None
         self.null_device = None
-        self.output_file = None
+        self.stdin_stream = CachedStream('stdin')
+        self.stdout_stream = CachedStream('stdout')
+        self.stderr_stream = CachedStream('stderr')
         self.subprocess = None
 
     @mutable_property
@@ -286,8 +286,18 @@ class ExternalCommand(PropertyManager):
         the external command is captured and made available to the caller via
         :attr:`stdout` and :attr:`output`.
 
-        The standard error stream will not be captured but can be silenced
-        using the :attr:`silent` option.
+        The standard error stream will not be captured, use :attr:`capture_stderr`
+        for that. You can also silence the standard error stream using the
+        :attr:`silent` option.
+        """
+        return False
+
+    @mutable_property
+    def capture_stderr(self):
+        """
+        If this option is :data:`True` (not the default) the standard error
+        stream of the external command is captured and made available to the
+        caller via :attr:`stderr`.
         """
         return False
 
@@ -534,6 +544,19 @@ class ExternalCommand(PropertyManager):
         return False
 
     @property
+    def stderr(self):
+        """
+        The output of the external command on its standard error stream, a
+        :class:`python2:str` object (in Python 2) or a :class:`python3:bytes`
+        object (in Python 3).
+
+        This is only available when :attr:`capture_stderr` is :data:`True`. If
+        :attr:`capture_stderr` is not :data:`True` then :attr:`stderr` will be
+        :data:`None`.
+        """
+        return self.stderr_stream.load()
+
+    @property
     def stdout(self):
         """
         The output of the external command on its standard output stream, a
@@ -544,12 +567,7 @@ class ExternalCommand(PropertyManager):
         :attr:`capture` is not :data:`True` then :attr:`stdout` will be
         :data:`None`.
         """
-        # External command output can only be read when output capturing was enabled.
-        if self.capture:
-            # When running an external command asynchronously its output is
-            # captured in a temporary file, which we'll read to get the output.
-            self.load_output()
-        return self.cached_stdout
+        return self.stdout_stream.load()
 
     @property
     def succeeded(self):
@@ -605,11 +623,8 @@ class ExternalCommand(PropertyManager):
         # Prepare the input.
         if self.input is not None:
             if self.async:
-                fd, self.input_file = tempfile.mkstemp(prefix='executor-', suffix='-input.txt')
-                self.logger.debug("Writing external command input to temporary file %s ..", self.input_file)
-                with open(self.input_file, 'wb') as handle:
-                    handle.write(self.encoded_input)
-                kw['stdin'] = fd
+                self.stdin_stream.prepare(self.encoded_input)
+                kw['stdin'] = self.stdin_stream.fd
             else:
                 kw['stdin'] = subprocess.PIPE
         # Silence the standard output and error streams?
@@ -618,14 +633,20 @@ class ExternalCommand(PropertyManager):
                 self.null_device = open(os.devnull, 'wb')
             kw['stdout'] = self.null_device
             kw['stderr'] = self.null_device
-        # Prepare to capture the output.
+        # Prepare to capture the standard output stream.
         if self.capture:
             if self.async:
-                fd, self.output_file = tempfile.mkstemp(prefix='executor-', suffix='-output.txt')
-                self.logger.debug("Capturing external command output in temporary file %s ..", self.output_file)
-                kw['stdout'] = fd
+                self.stdout_stream.prepare()
+                kw['stdout'] = self.stdout_stream.fd
             else:
                 kw['stdout'] = subprocess.PIPE
+        # Prepare to capture the standard error stream.
+        if self.capture_stderr:
+            if self.async:
+                self.stderr_stream.prepare()
+                kw['stderr'] = self.stderr_stream.fd
+            else:
+                kw['stderr'] = subprocess.PIPE
         # Construct the subprocess object.
         self.logger.debug("Executing external command: %s", quote(kw['args']))
         self.subprocess = subprocess.Popen(**kw)
@@ -633,7 +654,9 @@ class ExternalCommand(PropertyManager):
         if not self.async:
             # Feed the external command its input, capture the external
             # command's output, cleanup resources and check for errors.
-            self.cached_stdout, stderr = self.subprocess.communicate(input=self.encoded_input)
+            stdout, stderr = self.subprocess.communicate(input=self.encoded_input)
+            self.stdout_stream.override(stdout)
+            self.stderr_stream.override(stderr)
             self.wait()
 
     def wait(self, check=None):
@@ -691,9 +714,8 @@ class ExternalCommand(PropertyManager):
         that the output doesn't get lost when the temporary file is cleaned up
         by :func:`cleanup()`.
         """
-        if self.output_file and os.path.isfile(self.output_file):
-            with open(self.output_file, 'rb') as handle:
-                self.cached_stdout = handle.read()
+        self.stdout_stream.load()
+        self.stderr_stream.load()
 
     def cleanup(self):
         """
@@ -703,11 +725,9 @@ class ExternalCommand(PropertyManager):
         clean up the temporary files that store the external command's input
         and output and to close the file handle to :data:`os.devnull`.
         """
-        for attribute in ('input_file', 'output_file'):
-            filename = getattr(self, attribute)
-            if filename and os.path.isfile(filename):
-                os.unlink(filename)
-            setattr(self, attribute, None)
+        self.stdin_stream.cleanup()
+        self.stdout_stream.cleanup()
+        self.stderr_stream.cleanup()
         if self.null_device:
             self.null_device.close()
             self.null_device = None
@@ -749,6 +769,64 @@ class ExternalCommand(PropertyManager):
                 # Check for external command errors only when not already
                 # handling an exception.
                 self.check_errors()
+
+
+class CachedStream(object):
+
+    """Manages a temporary file with input for / output from an external command."""
+
+    def __init__(self, kind):
+        """
+        Initialize a :class:`CachedStream` object.
+
+        :param kind: A simple (alphanumeric) string with the name of the stream.
+        """
+        self.cached_output = None
+        self.fd = None
+        self.filename = None
+        self.kind = kind
+
+    def prepare(self, contents=None):
+        """
+        Initialize the temporary file (and write the given string to it).
+
+        :param contents: If you pass this argument the given string will be
+                         written to the temporary file.
+        """
+        if not (self.fd and self.filename):
+            self.fd, self.filename = tempfile.mkstemp(prefix='executor-', suffix='-%s.txt' % self.kind)
+        logger.debug("Connecting %s stream to temporary file %s ..", self.kind, self.filename)
+        if contents is not None:
+            with open(self.filename, 'wb') as handle:
+                handle.write(contents)
+
+    def load(self):
+        """
+        Load the stream's contents from the temporary file.
+
+        :returns: The output of the stream (a string) or :data:`None` when
+                  :func:`prepare()` was never called.
+        """
+        if self.filename and os.path.isfile(self.filename):
+            with open(self.filename, 'rb') as handle:
+                self.cached_output = handle.read()
+        return self.cached_output
+
+    def override(self, output):
+        """
+        Override the value returned by :func:`load()`.
+
+        :param output: The value to return as the stream's content.
+        """
+        self.cleanup()
+        self.cached_output = output
+
+    def cleanup(self):
+        """Cleanup the temporary file."""
+        if self.filename:
+            if os.path.isfile(self.filename):
+                os.unlink(self.filename)
+            self.filename = None
 
 
 def quote(*args):
