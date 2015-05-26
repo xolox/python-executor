@@ -60,10 +60,13 @@ from executor.property_manager import (
 )
 
 # Semi-standard module versioning.
-__version__ = '3.3'
+__version__ = '3.4'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
+
+DEFAULT_ENCODING = 'UTF-8'
+"""The default encoding of the standard input, output and error streams (a string)."""
 
 DEFAULT_SHELL = 'bash'
 """
@@ -346,6 +349,28 @@ class ExternalCommand(PropertyManager):
                 command_line = ['sudo'] + command_line
         return command_line
 
+    @property
+    def decoded_stdout(self):
+        """
+        The value of :attr:`stdout` decoded using :attr:`encoding`. This is a
+        :func:`python2:unicode` object (in Python 2) or a :class:`python3:str`
+        object (in Python 3).
+        """
+        value = self.stdout
+        if value is not None:
+            return value.decode(self.encoding)
+
+    @property
+    def decoded_stderr(self):
+        """
+        The value of :attr:`stderr` decoded using :attr:`encoding`. This is a
+        :func:`python2:unicode` object (in Python 2) or a :class:`python3:str`
+        object (in Python 3).
+        """
+        value = self.stderr
+        if value is not None:
+            return value.decode(self.encoding)
+
     @mutable_property
     def directory(self):
         """
@@ -369,10 +394,10 @@ class ExternalCommand(PropertyManager):
     def encoding(self):
         """
         The character encoding of standard input and standard output (a string,
-        defaults to UTF-8). This option is used to encode :attr:`input` and to
-        decode :attr:`output`.
+        defaults to :data:`DEFAULT_ENCODING`). This option is used to encode
+        :attr:`input` and to decode :attr:`output`.
         """
-        return 'UTF-8'
+        return DEFAULT_ENCODING
 
     @mutable_property
     def environment(self):
@@ -526,9 +551,8 @@ class ExternalCommand(PropertyManager):
         providing an escape hatch when the default assumptions don't hold (you
         can always use :attr:`stdout` to get the raw output).
         """
-        raw_output = self.stdout
-        if raw_output is not None:
-            text_output = raw_output.decode(self.encoding)
+        text_output = self.decoded_stdout
+        if text_output is not None:
             stripped_output = text_output.strip()
             return stripped_output if '\n' not in stripped_output else text_output
 

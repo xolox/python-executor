@@ -93,8 +93,8 @@ class ExecutorTestCase(unittest.TestCase):
         shell_command = 'echo %s; echo %s >&2' % (stdout_value, stderr_value)
         cmd = ExternalCommand(shell_command, capture=True, capture_stderr=True)
         cmd.start()
-        assert stdout_value in cmd.stdout
-        assert stderr_value in cmd.stderr
+        assert stdout_value in cmd.decoded_stdout
+        assert stderr_value in cmd.decoded_stderr
 
     def test_merged_streams(self):
         stdout_value = 'this goes to standard output'
@@ -102,10 +102,10 @@ class ExecutorTestCase(unittest.TestCase):
         shell_command = 'echo %s; echo %s >&2' % (stdout_value, stderr_value)
         cmd = ExternalCommand(shell_command, capture=True, merge_streams=True)
         cmd.start()
-        assert stdout_value in cmd.stdout
-        assert stderr_value in cmd.stdout
-        assert stdout_value not in (cmd.stderr or '')
-        assert stderr_value not in (cmd.stderr or '')
+        assert stdout_value in cmd.decoded_stdout
+        assert stderr_value in cmd.decoded_stdout
+        assert stdout_value not in (cmd.decoded_stderr or '')
+        assert stderr_value not in (cmd.decoded_stderr or '')
 
     def test_working_directory(self):
         directory = tempfile.mkdtemp()
