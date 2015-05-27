@@ -4,10 +4,11 @@ API documentation
 -----------------
 
 The following documentation is based on the source code of version |release| of
-the ``executor`` package, which currently defines three public modules:
+the `executor` package. The following modules are available:
 
 - :mod:`executor`
 - :mod:`executor.concurrent`
+- :mod:`executor.contexts`
 - :mod:`executor.ssh.client`
 - :mod:`executor.ssh.server`
 - :mod:`executor.property_manager`
@@ -17,6 +18,9 @@ the ``executor`` package, which currently defines three public modules:
    :members:
 
 .. automodule:: executor.concurrent
+   :members:
+
+.. automodule:: executor.contexts
    :members:
 
 .. automodule:: executor.ssh.client

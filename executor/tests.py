@@ -9,9 +9,11 @@ import logging
 import os
 import random
 import shlex
+import socket
 import tempfile
 import time
 import unittest
+import uuid
 
 # External dependencies.
 from humanfriendly import Timer
@@ -25,6 +27,7 @@ from executor import (
     which,
 )
 from executor.concurrent import CommandPool
+from executor.contexts import LocalContext, RemoteContext
 from executor.property_manager import (
     assignable_property,
     cached_property,
@@ -296,6 +299,33 @@ class ExecutorTestCase(unittest.TestCase):
                               **server.client_options)
             assert sorted(ssh_aliases) == sorted(cmd.ssh_alias for cmd in results)
             assert len(ssh_aliases) == len(set(cmd.output for cmd in results))
+
+    def test_local_context(self):
+        self.check_context(LocalContext())
+
+    def test_remote_context(self):
+        with SSHServer(async=True) as server:
+            self.check_context(RemoteContext('127.0.0.1', **server.client_options))
+
+    def check_context(self, context):
+        # Make sure __str__() does something useful.
+        assert 'system' in str(context)
+        # Test context.execute() and cleanup().
+        random_file = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex)
+        assert not os.path.exists(random_file)
+        with context:
+            # Create the random file.
+            context.execute('touch', random_file)
+            # Make sure the file was created.
+            assert os.path.isfile(random_file)
+            # Schedule to clean up the file.
+            context.cleanup('rm', random_file)
+            # Make sure the file hasn't actually been removed yet.
+            assert os.path.isfile(random_file)
+        # Make sure the file has been removed (__exit__).
+        assert not os.path.isfile(random_file)
+        # Test context.capture().
+        assert context.capture('hostname') == socket.gethostname()
 
 
 class CustomPropertyTestCase(unittest.TestCase):

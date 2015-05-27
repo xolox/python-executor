@@ -5,4 +5,7 @@
 source = executor
 omit = executor/tests.py
 
+[report]
+exclude_lines = raise NotImplementedError()
+
 # vim: ft=dosini
