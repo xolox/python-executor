@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 26, 2015
+# Last Change: May 27, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -22,7 +22,7 @@ import logging
 import os
 
 # Modules included in our package.
-from executor import ExternalCommand, ExternalCommandFailed, quote
+from executor import DEFAULT_WORKING_DIRECTORY, ExternalCommand, ExternalCommandFailed, quote
 from executor.concurrent import CommandPool
 from executor.property_manager import mutable_property, required_property
 
@@ -181,7 +181,10 @@ class RemoteCommand(ExternalCommand):
             ssh_command.extend(('-o', 'StrictHostKeyChecking=no'))
         ssh_command.extend(('-o', 'UserKnownHostsFile=%s' % self.known_hosts_file))
         ssh_command.append(self.ssh_alias)
-        ssh_command.append(quote(super(RemoteCommand, self).command_line))
+        remote_command = quote(super(RemoteCommand, self).command_line)
+        if self.directory != DEFAULT_WORKING_DIRECTORY:
+            remote_command = 'cd %s && %s' % (quote(self.directory), remote_command)
+        ssh_command.append(remote_command)
         return ssh_command
 
     @mutable_property

@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 26, 2015
+# Last Change: May 27, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -60,7 +60,7 @@ from executor.property_manager import (
 )
 
 # Semi-standard module versioning.
-__version__ = '3.5'
+__version__ = '3.6'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -92,6 +92,12 @@ you want to worry about is which shell is going to evaluate your commands! The
 Apart from these two things nothing else is expected from the default shell so
 you're free to customize it if you really want to write your shell commands in
 ``fish`` or ``zsh`` syntax :-).
+"""
+
+DEFAULT_WORKING_DIRECTORY = os.curdir
+"""
+The default working directory for external commands (a string). Defaults to the
+working directory of the current process using :data:`os.curdir`.
 """
 
 
@@ -374,10 +380,10 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def directory(self):
         """
-        The working directory for the external command (a string). Defaults to
-        the working directory of the current process using :data:`os.curdir`.
+        The working directory for the external command (a string, defaults to
+        :data:`DEFAULT_WORKING_DIRECTORY`).
         """
-        return os.curdir
+        return DEFAULT_WORKING_DIRECTORY
 
     @property
     def encoded_input(self):

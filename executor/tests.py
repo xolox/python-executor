@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 26, 2015
+# Last Change: May 27, 2015
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -275,6 +275,13 @@ class ExecutorTestCase(unittest.TestCase):
             RemoteConnectFailed,
             lambda: RemoteCommand('this.domain.surely.wont.exist.right', 'date', silent=True).start(),
         )
+
+    def test_remote_working_directory(self):
+        with SSHServer(async=True) as server:
+            some_random_directory = tempfile.mkdtemp()
+            cmd = RemoteCommand('127.0.0.1', 'pwd', capture=True, directory=some_random_directory, **server.client_options)
+            cmd.start()
+            assert cmd.output == some_random_directory
 
     def test_remote_error_handling(self):
         with SSHServer(async=True) as server:
