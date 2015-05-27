@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 27, 2015
+# Last Change: May 28, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -132,6 +132,7 @@ class RemoteCommand(ExternalCommand):
         """
         # Store the SSH alias.
         self.ssh_alias = ssh_alias
+        self.remote_directory = DEFAULT_WORKING_DIRECTORY
         # Initialize the super class.
         super(RemoteCommand, self).__init__(*command, logger=logger, **options)
 
@@ -182,8 +183,8 @@ class RemoteCommand(ExternalCommand):
         ssh_command.extend(('-o', 'UserKnownHostsFile=%s' % self.known_hosts_file))
         ssh_command.append(self.ssh_alias)
         remote_command = quote(super(RemoteCommand, self).command_line)
-        if self.directory != DEFAULT_WORKING_DIRECTORY:
-            remote_command = 'cd %s && %s' % (quote(self.directory), remote_command)
+        if self.remote_directory != DEFAULT_WORKING_DIRECTORY:
+            remote_command = 'cd %s && %s' % (quote(self.remote_directory), remote_command)
         ssh_command.append(remote_command)
         return ssh_command
 
@@ -203,6 +204,22 @@ class RemoteCommand(ExternalCommand):
         when the remote system that doesn't respond (properly).
         """
         return DEFAULT_CONNECT_TIMEOUT
+
+    @property
+    def directory(self):
+        """
+        When you set this property you change the remote working directory,
+        however reading back the property you'll just get
+        :data:`.DEFAULT_WORKING_DIRECTORY`. This is because
+        :class:`.ExternalCommand` uses :attr:`directory` as the local working
+        directory for the ``ssh`` command, and a remote working directory isn't
+        guaranteed to also exist on the local system.
+        """
+        return DEFAULT_WORKING_DIRECTORY
+
+    @directory.setter
+    def directory(self, value):
+        self.remote_directory = value
 
     @property
     def error_message(self):
