@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 27, 2015
+# Last Change: May 29, 2015
 # URL: https://executor.readthedocs.org
 
 r"""
@@ -181,11 +181,13 @@ class AbstractContext(object):
                         constructor of the :class:`.ExternalCommand` class.
         :param options: All keyword arguments are passed on to the
                         constructor of the :class:`.ExternalCommand` class.
+        :raises: :exc:`~exceptions.ValueError` when :func:`cleanup()` is called
+                 outside a :keyword:`with` statement.
 
         This method registers *the intent* to run an external command in the
         current context before the context ends. To actually run the command
-        you need to use the context object as a context manager (using the
-        :keyword:`with` statement).
+        you need to use (the subclass of) the :class:`AbstractContext` object
+        as a context manager (using the :keyword:`with` statement).
 
         The last command that is registered is the first one to be executed.
         This gives the equivalent functionality of a deeply nested
@@ -198,7 +200,9 @@ class AbstractContext(object):
                      :attr:`~.ExternalCommand.check` property to
                      :data:`False`.
         """
-        self.undo_stack.append((command, options))
+        if not self.undo_stack:
+            raise ValueError("Cleanup stack can only be used inside with statements!")
+        self.undo_stack[-1].append((command, options))
 
     def start_interactive_shell(self, **options):
         """
@@ -220,15 +224,13 @@ class AbstractContext(object):
         return cmd
 
     def __enter__(self):
+        self.undo_stack.append([])
         return self
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
-        while self.undo_stack:
-            # FYI: There's no explicit error handling inside this error handler
-            # (if one cleanup command fails, should the next one be run?). The
-            # reason is that I simply haven't decided about correct semantics
-            # here...
-            command, options = self.undo_stack.pop()
+        old_scope = self.undo_stack.pop()
+        while old_scope:
+            command, options = old_scope.pop()
             self.execute(*command, **options)
 
 
