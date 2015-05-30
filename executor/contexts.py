@@ -176,6 +176,24 @@ class AbstractContext(object):
         cmd.start()
         return cmd
 
+    def test(self, *command, **options):
+        """
+        Execute an external command in the current context and get its status.
+
+        :param command: All positional arguments are passed on to the
+                        constructor of the :class:`.ExternalCommand` class.
+        :param options: All keyword arguments are passed on to the
+                        constructor of the :class:`.ExternalCommand` class.
+        :returns: The value of :attr:`.ExternalCommand.succeeded`.
+
+        This method automatically sets :attr:`~.ExternalCommand.check` to
+        :data:`False` and :attr:`~.ExternalCommand.silent` to :data:`True`.
+        """
+        options.update(check=False, silent=True)
+        cmd = self.prepare_command(command, options)
+        cmd.start()
+        return cmd.succeeded
+
     def capture(self, *command, **options):
         """
         Execute an external command in the current context and capture its output.
