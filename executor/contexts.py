@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 29, 2015
+# Last Change: May 30, 2015
 # URL: https://executor.readthedocs.org
 
 r"""
@@ -136,6 +136,24 @@ class AbstractContext(object):
         for name, value in self.options.items():
             overrides.setdefault(name, value)
         return overrides
+
+    def prepare(self, *command, **options):
+        """
+        Prepare to execute an external command in the current context.
+
+        :param command: All positional arguments are passed on to the
+                        constructor of the :class:`.ExternalCommand` class.
+        :param options: All keyword arguments are passed on to the
+                        constructor of the :class:`.ExternalCommand` class.
+        :returns: The :class:`.ExternalCommand` object.
+
+        .. note:: After constructing an :class:`.ExternalCommand` object this
+                  method doesn't call :func:`~executor.ExternalCommand.start()`
+                  which means you control if and when the command is started.
+                  This can be useful to prepare a large batch of commands and
+                  execute them concurrently using a :class:`.CommandPool`.
+        """
+        return self.prepare_command(command, options)
 
     def execute(self, *command, **options):
         """
