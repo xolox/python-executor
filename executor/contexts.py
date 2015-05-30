@@ -62,6 +62,7 @@ integration tools developed using Python:
 
 # Standard library modules.
 import logging
+import multiprocessing
 import socket
 
 # Modules included in our package.
@@ -259,6 +260,11 @@ class AbstractContext(object):
         cmd.start()
         return cmd
 
+    @property
+    def cpu_count(self):
+        """The number of CPUs in the system (an integer)."""
+        raise NotImplementedError()
+
     def __enter__(self):
         self.undo_stack.append([])
         return self
@@ -273,6 +279,10 @@ class AbstractContext(object):
 class LocalContext(AbstractContext):
 
     """Context for executing commands on the local system."""
+
+    @property
+    def cpu_count(self):
+        return multiprocessing.cpu_count()
 
     def prepare_command(self, command, options):
         return ExternalCommand(*command, **self.merge_options(options))
@@ -296,6 +306,10 @@ class RemoteContext(AbstractContext):
         """
         super(RemoteContext, self).__init__(**options)
         self.ssh_alias = ssh_alias
+
+    @property
+    def cpu_count(self):
+        return int(self.capture('nproc'))
 
     def prepare_command(self, command, options):
         return RemoteCommand(self.ssh_alias, *command, **self.merge_options(options))
