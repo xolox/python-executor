@@ -10,7 +10,7 @@ executor: Programmer friendly subprocess wrapper
 The ``executor`` package/module is a simple wrapper for Python's subprocess_
 module that makes it very easy to handle subprocesses on UNIX systems with
 proper escaping of arguments and error checking. It's currently tested on
-Python 2.6, 2.7 and 3.4. For usage instructions please refer to the
+Python 2.6, 2.7, 3.4 and PyPy. For usage instructions please refer to the
 documentation_.
 
 Examples of usage
