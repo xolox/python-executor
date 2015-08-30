@@ -7,6 +7,7 @@
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
+import codecs
 import os
 import re
 
@@ -26,10 +27,11 @@ for line in open(module, 'r'):
 else:
     raise Exception("Failed to extract version from %s!" % module)
 
-# Fill in the long description (for the benefit of PyPi)
+# Fill in the long description (for the benefit of PyPI)
 # with the contents of README.rst (rendered by GitHub).
 readme_file = os.path.join(source_directory, 'README.rst')
-readme_text = open(readme_file, 'r').read()
+with codecs.open(readme_file, 'r', 'utf-8') as handle:
+    readme_text = handle.read()
 
 setup(name='executor',
       version=version_string,

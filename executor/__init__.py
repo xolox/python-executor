@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 30, 2015
+# Last Change: August 30, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -60,7 +60,7 @@ from executor.property_manager import (
 )
 
 # Semi-standard module versioning.
-__version__ = '4.4'
+__version__ = '4.4.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)

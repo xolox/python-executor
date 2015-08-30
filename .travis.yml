@@ -10,7 +10,7 @@ before_install:
   - sudo apt-get install --yes openssh-server
 install:
   - pip install coveralls
-  - python setup.py install
+  - LC_ALL=C pip install .
 script:
   - coverage run --source=executor setup.py test
   - coverage report --fail-under=90
