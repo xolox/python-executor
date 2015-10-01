@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 1, 2015
+# Last Change: October 2, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -550,7 +550,7 @@ class ExternalCommand(PropertyManager):
 
     @property
     def output(self):
-        ur"""
+        """
         The value of :attr:`stdout` decoded using :attr:`encoding`.
 
         This is a :func:`python2:unicode` object (in Python 2) or a
@@ -566,12 +566,12 @@ class ExternalCommand(PropertyManager):
         otherwise the decoded string is returned unchanged:
 
         >>> from executor import ExternalCommand
-        >>> cmd = ExternalCommand('echo naïve', capture=True)
+        >>> cmd = ExternalCommand('echo na\xc3\xafve', capture=True)
         >>> cmd.start()
         >>> cmd.output
-        u'na\xefve'
+        u'na\\xefve'
         >>> cmd.stdout
-        'na\xc3\xafve\n'
+        'na\\xc3\\xafve\\n'
 
         This is intended to make simple things easy (:attr:`output` makes it
         easy to deal with external commands that output a single line) while
