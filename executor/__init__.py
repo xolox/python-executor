@@ -57,7 +57,7 @@ from executor.property_manager import (
 )
 
 # Semi-standard module versioning.
-__version__ = '4.4.1'
+__version__ = '4.5'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -185,18 +185,22 @@ class ExternalCommand(PropertyManager):
     methods here is a summary:
 
     **Writable properties**
-     The :attr:`async`, :attr:`capture`, :attr:`check`, :attr:`command`,
+     The :attr:`async`, :attr:`capture`, :attr:`capture_stderr`, :attr:`check`,
      :attr:`directory`, :attr:`encoding`, :attr:`environment`,
-     :attr:`fakeroot`, :attr:`input`, :attr:`logger`, :attr:`silent` and
-     :attr:`sudo` properties allow you to configure how the external command
-     will be run (before it is started).
+     :attr:`fakeroot`, :attr:`input`, :attr:`logger`, :attr:`merge_streams`,
+     :attr:`silent`, :attr:`stdout_file`, :attr:`stderr_file` and :attr:`sudo`
+     properties allow you to configure how the external command will be run
+     (before it is started).
 
     **Computed properties**
-     The :attr:`command_line`, :attr:`encoded_input`, :attr:`is_finished`,
-     :attr:`is_running`, :attr:`is_terminated`, :attr:`output`,
-     :attr:`returncode`, :attr:`stdout` and :attr:`was_started` properties
-     allow you to inspect if and how the external command was started, what its
-     current status is and what its output is.
+     The :attr:`command`, :attr:`command_line`, :attr:`decoded_stderr`,
+     :attr:`decoded_stdout`, :attr:`encoded_input`, :attr:`error_message`,
+     :attr:`error_type`, :attr:`failed`, :attr:`have_superuser_privileges`,
+     :attr:`is_finished`, :attr:`is_running`, :attr:`is_terminated`,
+     :attr:`output`, :attr:`returncode`, :attr:`stderr`, :attr:`stdout`,
+     :attr:`succeeded` and :attr:`was_started` properties allow you to inspect
+     if and how the external command was started, what its current status is
+     and what its output is.
 
     **Public methods**
      The public methods :func:`start()`, :func:`wait()` and :func:`terminate()`
@@ -621,6 +625,31 @@ class ExternalCommand(PropertyManager):
         """
         return self.stderr_stream.load()
 
+    @mutable_property
+    def stderr_file(self):
+        """
+        Capture the standard error stream to the given file handle.
+
+        When this property is set to a writable file object the standard error
+        stream of the external command is redirected to the given file. The
+        default value of this property is :data:`None`.
+
+        This can be useful to (semi) permanently store command output or to run
+        commands whose output is hidden but can be followed using `tail -f`_ if
+        the need arises. By setting :attr:`stdout_file` and :attr:`stderr_file`
+        to the same file object the output from both streams can be merged and
+        redirected to the same file. This accomplishes roughly the same thing
+        as setting :attr:`merge_streams` but leaves the caller in control of
+        the file.
+
+        If this property isn't set but :attr:`capture` is :data:`True` the
+        external command's output is captured to a temporary file that's
+        automatically cleaned up after the external command is finished and its
+        output has been cached (read into memory).
+
+        .. _tail -f: https://en.wikipedia.org/wiki/Tail_(Unix)#File_monitoring
+        """
+
     @property
     def stdout(self):
         """
@@ -634,6 +663,29 @@ class ExternalCommand(PropertyManager):
         :data:`None`.
         """
         return self.stdout_stream.load()
+
+    @mutable_property
+    def stdout_file(self):
+        """
+        Capture the standard output stream to the given file handle.
+
+        When this property is set to a writable file object the standard output
+        stream of the external command is redirected to the given file. The
+        default value of this property is :data:`None`.
+
+        This can be useful to (semi) permanently store command output or to run
+        commands whose output is hidden but can be followed using `tail -f`_ if
+        the need arises. By setting :attr:`stdout_file` and :attr:`stderr_file`
+        to the same file object the output from both streams can be merged and
+        redirected to the same file. This accomplishes roughly the same thing
+        as setting :attr:`merge_streams` but leaves the caller in control of
+        the file.
+
+        If this property isn't set but :attr:`capture` is :data:`True` the
+        external command's output is captured to a temporary file that's
+        automatically cleaned up after the external command is finished and its
+        output has been cached (read into memory).
+        """
 
     @property
     def succeeded(self):
@@ -706,7 +758,10 @@ class ExternalCommand(PropertyManager):
             kw['stdout'] = self.null_device
             kw['stderr'] = self.null_device
         # Prepare to capture the standard output stream.
-        if self.capture:
+        if self.stdout_file:
+            self.stdout_stream.redirect(self.stdout_file)
+            kw['stdout'] = self.stdout_stream.fd
+        elif self.capture:
             if self.async:
                 self.stdout_stream.prepare()
                 kw['stdout'] = self.stdout_stream.fd
@@ -715,6 +770,9 @@ class ExternalCommand(PropertyManager):
         # Make it possible to merge stderr into stdout.
         if self.merge_streams:
             kw['stderr'] = subprocess.STDOUT
+        elif self.stderr_file:
+            self.stderr_stream.redirect(self.stderr_file)
+            kw['stderr'] = self.stderr_stream.fd
         elif self.capture_stderr:
             # Prepare to capture the standard error stream.
             if self.async:
@@ -868,7 +926,27 @@ class CachedStream(object):
         self.cached_output = None
         self.fd = None
         self.filename = None
+        self.is_temporary_file = False
         self.kind = kind
+
+    def redirect(self, obj):
+        """
+        Capture the stream in a file provided by the caller.
+
+        :param obj: A file-like object that has an associated file descriptor.
+        """
+        # Try to get the file descriptor.
+        try:
+            self.fd = obj.fileno()
+        except Exception:
+            msg = "Can't capture %s stream to file object without file descriptor!"
+            raise ValueError(msg % self.kind)
+        # Try to get the filename.
+        self.filename = getattr(obj, 'name', None)
+        if not self.filename:
+            msg = "Can't capture %s stream to file object without filename! ('name' attribute)"
+            raise ValueError(msg % self.kind)
+        logger.debug("Connected %s stream to file %s ..", self.kind, self.filename)
 
     def prepare(self, contents=None):
         """
@@ -878,8 +956,9 @@ class CachedStream(object):
                          written to the temporary file.
         """
         if not (self.fd and self.filename):
+            self.is_temporary_file = True
             self.fd, self.filename = tempfile.mkstemp(prefix='executor-', suffix='-%s.txt' % self.kind)
-        logger.debug("Connecting %s stream to temporary file %s ..", self.kind, self.filename)
+            logger.debug("Connected %s stream to temporary file %s ..", self.kind, self.filename)
         if contents is not None:
             with open(self.filename, 'wb') as handle:
                 handle.write(contents)
@@ -907,9 +986,10 @@ class CachedStream(object):
 
     def cleanup(self):
         """Cleanup the temporary file."""
-        if self.filename:
+        if self.filename and self.is_temporary_file:
             if os.path.isfile(self.filename):
                 os.unlink(self.filename)
+            self.is_temporary_file = False
             self.filename = None
 
 

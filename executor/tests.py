@@ -123,6 +123,80 @@ class ExecutorTestCase(unittest.TestCase):
         assert stdout_value not in (cmd.decoded_stderr or '')
         assert stderr_value not in (cmd.decoded_stderr or '')
 
+    def test_stdout_to_file(self):
+        """Make sure the standard output stream of external commands can be redirected and appended to a file."""
+        fd, filename = tempfile.mkstemp(prefix='executor-', suffix='-stdout.txt')
+        with open(filename, 'w') as handle:
+            handle.write('existing contents\n')
+        with open(filename, 'a') as handle:
+            execute('echo appended output', stdout_file=handle)
+        # Make sure the file was _not_ removed.
+        assert os.path.isfile(filename)
+        # Make sure the output was appended.
+        with open(filename) as handle:
+            lines = [line.strip() for line in handle]
+        assert lines == ['existing contents', 'appended output']
+
+    def test_stderr_to_file(self):
+        """Make sure the standard error stream of external commands can be redirected and appended to a file."""
+        fd, filename = tempfile.mkstemp(prefix='executor-', suffix='-stderr.txt')
+        with open(filename, 'w') as handle:
+            handle.write('existing contents\n')
+        with open(filename, 'a') as handle:
+            execute('echo appended output 1>&2', stderr_file=handle)
+        # Make sure the file was _not_ removed.
+        assert os.path.isfile(filename)
+        # Make sure the output was appended.
+        with open(filename) as handle:
+            lines = [line.strip() for line in handle]
+        assert lines == ['existing contents', 'appended output']
+
+    def test_merged_streams_to_file(self):
+        """Make sure the standard streams of external commands can be merged, redirected and appended to a file."""
+        fd, filename = tempfile.mkstemp(prefix='executor-', suffix='-merged.txt')
+        with open(filename, 'w') as handle:
+            handle.write('existing contents\n')
+        with open(filename, 'a') as handle:
+            execute('echo standard output; echo standard error 1>&2', stdout_file=handle, stderr_file=handle)
+        # Make sure the file was _not_ removed.
+        assert os.path.isfile(filename)
+        # Make sure the output was appended.
+        with open(filename) as handle:
+            lines = [line.strip() for line in handle]
+        assert lines == ['existing contents', 'standard output', 'standard error']
+
+    def test_asynchronous_stream_to_file(self):
+        """Make sure the standard streams can be redirected to a file and asynchronously stream output to that file."""
+        fd, filename = tempfile.mkstemp(prefix='executor-', suffix='-streaming.txt')
+        with open(filename, 'w') as handle:
+            cmd = ExternalCommand('for ((i=0; i<25; i++)); do command echo $i; sleep 0.1; done',
+                                  async=True, stdout_file=handle)
+            cmd.start()
+
+        def expect_some_output():
+            """Expect some but not all output to be readable at some point."""
+            with open(filename) as handle:
+                lines = list(handle)
+                assert len(lines) > 0
+                assert len(lines) < 25
+
+        def expect_most_output():
+            """Expect most but not all output to be readable at some point."""
+            with open(filename) as handle:
+                lines = list(handle)
+                assert len(lines) > 15
+                assert len(lines) < 25
+
+        def expect_all_output():
+            """Expect all output to be readable at some point."""
+            with open(filename) as handle:
+                lines = list(handle)
+                assert len(lines) == 25
+
+        retry(expect_some_output, 10)
+        retry(expect_most_output, 20)
+        retry(expect_all_output, 30)
+
     def test_working_directory(self):
         """Make sure the working directory of external commands can be set."""
         directory = tempfile.mkdtemp()
@@ -481,9 +555,10 @@ def tokenize_command_line(cmd):
 def retry(func, timeout):
     """Retry a function until it no longer raises assertion errors or time runs out before then."""
     time_started = time.time()
-    while (time.time() - time_started) < timeout:
+    while True:
+        timeout_expired = (time.time() - time_started) >= timeout
         try:
             return func()
         except AssertionError:
-            pass
-    assert False, "Timeout expired but function never passed all assertions!"
+            if timeout_expired:
+                raise
