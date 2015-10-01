@@ -27,17 +27,16 @@ Python 2 as well as Python 3.
    in Python 3.
 """
 
-# Standard library modules.
-import sys
 
-if sys.version_info[0] == 2:
-    # Enable importing of basestring from this module.
+try:
+    # Enable importing of basestring from this module. This will raise
+    # NameError on Python 3 because basestring is no longer available.
     basestring = basestring
     # Alias bytes to str.
     bytes = str
     # Alias str to unicode.
     str = unicode
-elif sys.version_info[0] == 3:
+except NameError:
     # Alias basestring to str.
     basestring = str
     # Enable importing of bytes and str from this module.
