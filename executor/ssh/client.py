@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 28, 2015
+# Last Change: October 1, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -274,7 +274,7 @@ class RemoteCommand(ExternalCommand):
     def ignore_known_hosts(self):
         """
         :data:`True` if host key checking is completely disabled:
-        
+
         - :attr:`known_hosts_file` is set to :data:`os.devnull`
         - :attr:`strict_host_key_checking` is set to :data:`False`
 

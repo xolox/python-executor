@@ -1,17 +1,26 @@
-# -*- coding: utf-8 -*-
-#
-# documentation build configuration file for the 'executor' package. This
-# file is execfile()d with the current directory set to its containing dir.
+"""
+Documentation build configuration file for the `executor` package.
 
-import sys, os
+This Python script contains the Sphinx configuration for building the
+documentation of the `executor` project. This file is execfile()d with
+the current directory set to its containing dir.
+"""
+
+import os
+import sys
 
 # Add the 'executor' source distribution's root directory to the module path.
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath(os.pardir))
 
 # -- General configuration -----------------------------------------------------
 
 # Sphinx extension module names.
-extensions = ['sphinx.ext.doctest', 'sphinx.ext.autodoc', 'sphinx.ext.intersphinx']
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.doctest',
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.viewcode',
+]
 
 # Paths that contain templates, relative to this directory.
 templates_path = ['templates']
@@ -69,7 +78,12 @@ html_theme = 'default'
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'executordoc'
 
+
 def setup(app):
-    # Based on http://stackoverflow.com/a/5599712/788200.
+    """
+    Configure the autodoc extension not to skip ``__init__()`` members.
+
+    Based on http://stackoverflow.com/a/5599712/788200.
+    """
     app.connect('autodoc-skip-member', (lambda app, what, name, obj, skip, options:
                                         False if name == '__init__' and obj.__doc__ else skip))

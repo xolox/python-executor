@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 25, 2015
+# Last Change: October 1, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -260,7 +260,7 @@ class cached_property(resetable_property):
     This :class:`cached_property` implementation is based on the implementation
     included in Werkzeug_.
 
-    .. _Werkzeug: https://github.com/mitsuhiko/werkzeug/blob/2b2d921eea7d1f896ce436ec5238890abe8b81bf/werkzeug/utils.py#L35
+    .. _Werkzeug: https://github.com/mitsuhiko/werkzeug/blob/master/werkzeug/utils.py
     """
 
     def get_note(self):

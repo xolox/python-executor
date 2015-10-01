@@ -1,7 +1,7 @@
 # Makefile for executor.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 23, 2015
+# Last Change: October 1, 2015
 # URL: https://github.com/xolox/python-executor
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -17,6 +17,7 @@ default:
 	@echo '    make reset      recreate the virtual environment'
 	@echo '    make test       run the test suite'
 	@echo '    make coverage   run the tests, report coverage'
+	@echo '    make check      check the coding style'
 	@echo '    make docs       update documentation using Sphinx'
 	@echo '    make publish    publish changes to GitHub/PyPI'
 	@echo '    make clean      cleanup all temporary files'
@@ -43,6 +44,10 @@ coverage: install
 	$(ACTIVATE) && coverage report
 	$(ACTIVATE) && coverage html
 
+check: install
+	@test -x "$(VIRTUAL_ENV)/bin/flake8" || ($(ACTIVATE) && pip-accel install flake8)
+	@$(ACTIVATE) && flake8
+
 docs: install
 	test -x "$(VIRTUAL_ENV)/bin/sphinx-build" || ($(ACTIVATE) && pip-accel install sphinx)
 	$(ACTIVATE) && cd docs && sphinx-build -b html -d build/doctrees . build/html
@@ -56,4 +61,4 @@ clean:
 	find -depth -type d -name __pycache__ -exec rm -Rf {} \;
 	find -type f -name '*.pyc' -delete
 
-.PHONY: default install reset test coverage docs publish clean
+.PHONY: default install reset test coverage check docs publish clean

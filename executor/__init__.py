@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: August 30, 2015
+# Last Change: October 1, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -111,14 +111,14 @@ def execute(*command, **options):
                     :class:`ExternalCommand`.
     :returns: The return value of this function depends on two options:
 
-              =======================================  =========================================  =================================
-              Value of :attr:`~ExternalCommand.async`  Value of :attr:`~ExternalCommand.capture`  Return value
-              =======================================  =========================================  =================================
-              :data:`False`                            :data:`False`                              :attr:`ExternalCommand.succeeded`
-              :data:`False`                            :data:`True`                               :attr:`ExternalCommand.output`
-              :data:`True`                             :data:`True`                               :class:`ExternalCommand` object
-              :data:`True`                             :data:`False`                              :class:`ExternalCommand` object
-              =======================================  =========================================  =================================
+              ==============================  ================================  =================================
+              :attr:`~ExternalCommand.async`  :attr:`~ExternalCommand.capture`  Return value
+              ==============================  ================================  =================================
+              :data:`False`                   :data:`False`                     :attr:`ExternalCommand.succeeded`
+              :data:`False`                   :data:`True`                      :attr:`ExternalCommand.output`
+              :data:`True`                    :data:`True`                      :class:`ExternalCommand` object
+              :data:`True`                    :data:`False`                     :class:`ExternalCommand` object
+              ==============================  ================================  =================================
     :raises: :exc:`ExternalCommandFailed` when the command exits with a
              nonzero exit code (unless :attr:`~ExternalCommand.capture` is
              :data:`False`).

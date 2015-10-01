@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 27, 2015
+# Last Change: October 1, 2015
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -44,6 +44,7 @@ from executor.ssh.client import (
     RemoteConnectFailed,
 )
 from executor.ssh.server import SSHServer
+
 
 class ExecutorTestCase(unittest.TestCase):
 
@@ -146,7 +147,10 @@ class ExecutorTestCase(unittest.TestCase):
         self.assertEqual(execute('echo $PATH', capture=True), os.environ['PATH'])
         # Test that environment variable overrides can be given to external commands.
         override_value = str(random.random())
-        self.assertEqual(execute('echo $override', capture=True, environment=dict(override=override_value)), override_value)
+        self.assertEqual(execute('echo $override',
+                                 capture=True,
+                                 environment=dict(override=override_value)),
+                         override_value)
 
     def test_simple_async_cmd(self):
         cmd = ExternalCommand('sleep 4', async=True)
@@ -156,14 +160,19 @@ class ExecutorTestCase(unittest.TestCase):
         assert not cmd.is_finished
         # Start the external command.
         cmd.start()
-        # Make sure the external command switches to the running state within a
-        # reasonable time (this is sensitive to timing issues on slow or
-        # overloaded systems, the retry logic is there to make the test pass as
-        # quickly as possible while still allowing for some delay).
+
         def assert_running():
+            """
+            Make sure command switches to running state within a reasonable time.
+
+            This is sensitive to timing issues on slow or overloaded systems,
+            the retry logic is there to make the test pass as quickly as
+            possible while still allowing for some delay.
+            """
             assert cmd.was_started
             assert cmd.is_running
             assert not cmd.is_finished
+
         retry(assert_running, timeout=4)
         # Wait for the external command to finish.
         cmd.wait()
@@ -196,21 +205,28 @@ class ExecutorTestCase(unittest.TestCase):
         assert cmd.output == random_value
 
     def test_repr(self):
-        cmd = ExternalCommand('echo 42', async=True, capture=True, directory='/', environment={'my-environment-variable': '42'})
+        cmd = ExternalCommand('echo 42',
+                              async=True,
+                              capture=True,
+                              directory='/',
+                              environment={'my_environment_variable': '42'})
         assert repr(cmd).startswith('ExternalCommand(')
         assert repr(cmd).endswith(')')
         assert 'echo 42' in repr(cmd)
         assert 'async=True' in repr(cmd)
         assert ('directory=%r' % '/') in repr(cmd)
-        assert 'my-environment-variable' in repr(cmd)
+        assert 'my_environment_variable' in repr(cmd)
         assert 'was_started=False' in repr(cmd)
         assert 'is_running=False' in repr(cmd)
         assert 'is_finished=False' in repr(cmd)
         cmd.start()
+
         def assert_finished():
+            """Allow for some delay before the external command finishes."""
             assert 'was_started=True' in repr(cmd)
             assert 'is_running=False' in repr(cmd)
             assert 'is_finished=True' in repr(cmd)
+
         retry(assert_finished, 10)
 
     def test_command_pool(self):
@@ -282,7 +298,11 @@ class ExecutorTestCase(unittest.TestCase):
     def test_remote_working_directory(self):
         with SSHServer(async=True) as server:
             some_random_directory = tempfile.mkdtemp()
-            cmd = RemoteCommand('127.0.0.1', 'pwd', capture=True, directory=some_random_directory, **server.client_options)
+            cmd = RemoteCommand('127.0.0.1',
+                                'pwd',
+                                capture=True,
+                                directory=some_random_directory,
+                                **server.client_options)
             cmd.start()
             assert cmd.output == some_random_directory
 

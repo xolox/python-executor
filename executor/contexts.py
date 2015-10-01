@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 30, 2015
+# Last Change: October 1, 2015
 # URL: https://executor.readthedocs.org
 
 r"""
@@ -292,6 +292,7 @@ class LocalContext(AbstractContext):
 
     def __str__(self):
         return "local system (%s)" % socket.gethostname()
+
 
 class RemoteContext(AbstractContext):
 
