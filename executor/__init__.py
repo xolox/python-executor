@@ -7,14 +7,11 @@
 # URL: https://executor.readthedocs.org
 
 """
-The :mod:`executor` module
-==========================
+Core functionality of the `executor` package.
 
-The :mod:`executor` module defines the core functionality of the ``executor``
-package. If you're looking for an easy way to run external commands from Python
-take a look at the :func:`execute()` function. When you need more flexibility
-consider using the underlying :class:`ExternalCommand` class directly
-instead.
+If you're looking for an easy way to run external commands from Python take a
+look at the :func:`execute()` function. When you need more flexibility consider
+using the underlying :class:`ExternalCommand` class directly instead.
 
 :func:`execute()` versus :class:`ExternalCommand`
 -------------------------------------------------
@@ -261,6 +258,8 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def async(self):
         """
+        Enable asynchronous command execution.
+
         If this option is :data:`True` (not the default) preparations are made
         to execute the external command asynchronously (in the background).
         This has several consequences:
@@ -291,6 +290,8 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def capture(self):
         """
+        Enable capturing of the standard output stream.
+
         If this option is :data:`True` (not the default) the standard output of
         the external command is captured and made available to the caller via
         :attr:`stdout` and :attr:`output`.
@@ -304,6 +305,8 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def capture_stderr(self):
         """
+        Enable capturing of the standard error stream.
+
         If this option is :data:`True` (not the default) the standard error
         stream of the external command is captured and made available to the
         caller via :attr:`stderr`.
@@ -313,6 +316,8 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def check(self):
         """
+        Enable automatic status code checking.
+
         If this option is :data:`True` (the default) and the external command
         exits with a nonzero status code :exc:`ExternalCommandFailed` will be
         raised by :func:`start()` (when :attr:`async` isn't set) or
@@ -327,6 +332,8 @@ class ExternalCommand(PropertyManager):
     @property
     def command_line(self):
         """
+        The command line of the external command.
+
         The command line used to actually run the external command requested by
         the user (a list of strings). The command line is constructed based on
         :attr:`command` according to the following rules:
@@ -358,9 +365,10 @@ class ExternalCommand(PropertyManager):
     @property
     def decoded_stdout(self):
         """
-        The value of :attr:`stdout` decoded using :attr:`encoding`. This is a
-        :func:`python2:unicode` object (in Python 2) or a :class:`python3:str`
-        object (in Python 3).
+        The value of :attr:`stdout` decoded using :attr:`encoding`.
+
+        This is a :func:`python2:unicode` object (in Python 2) or a
+        :class:`python3:str` object (in Python 3).
         """
         value = self.stdout
         if value is not None:
@@ -369,9 +377,10 @@ class ExternalCommand(PropertyManager):
     @property
     def decoded_stderr(self):
         """
-        The value of :attr:`stderr` decoded using :attr:`encoding`. This is a
-        :func:`python2:unicode` object (in Python 2) or a :class:`python3:str`
-        object (in Python 3).
+        The value of :attr:`stderr` decoded using :attr:`encoding`.
+
+        This is a :func:`python2:unicode` object (in Python 2) or a
+        :class:`python3:str` object (in Python 3).
         """
         value = self.stderr
         if value is not None:
@@ -380,17 +389,19 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def directory(self):
         """
-        The working directory for the external command (a string, defaults to
-        :data:`DEFAULT_WORKING_DIRECTORY`).
+        The working directory for the external command.
+
+        A string, defaults to :data:`DEFAULT_WORKING_DIRECTORY`.
         """
         return DEFAULT_WORKING_DIRECTORY
 
     @property
     def encoded_input(self):
         """
-        The value of :attr:`input` encoded using :attr:`encoding`. This is a
-        :class:`python2:str` object (in Python 2) or a :class:`python3:bytes`
-        object (in Python 3).
+        The value of :attr:`input` encoded using :attr:`encoding`.
+
+        This is a :class:`python2:str` object (in Python 2) or a
+        :class:`python3:bytes` object (in Python 3).
         """
         return (self.input.encode(self.encoding)
                 if isinstance(self.input, str)
@@ -399,9 +410,10 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def encoding(self):
         """
-        The character encoding of standard input and standard output (a string,
-        defaults to :data:`DEFAULT_ENCODING`). This option is used to encode
-        :attr:`input` and to decode :attr:`output`.
+        The character encoding of standard input and standard output.
+
+        A string, defaults to :data:`DEFAULT_ENCODING`. This option is used to
+        encode :attr:`input` and to decode :attr:`output`.
         """
         return DEFAULT_ENCODING
 
@@ -418,25 +430,22 @@ class ExternalCommand(PropertyManager):
 
     @property
     def error_message(self):
-        """
-        A string describing how the external command failed or :data:`None`.
-        """
+        """A string describing how the external command failed or :data:`None`."""
         if self.error_type is ExternalCommandFailed:
             text = "External command failed with exit code %s! (command: %s)"
             return text % (self.returncode, quote(self.command_line))
 
     @property
     def error_type(self):
-        """
-        :exc:`ExternalCommandFailed` when :attr:`returncode` is set and not
-        zero, :data:`None` otherwise.
-        """
+        """:exc:`ExternalCommandFailed` when :attr:`returncode` is a nonzero number, :data:`None` otherwise."""
         if self.is_finished and self.failed:
             return ExternalCommandFailed
 
     @property
     def failed(self):
         """
+        Whether the external command has failed.
+
         :data:`True` if :attr:`returncode` is a nonzero number, :data:`False`
         if :attr:`returncode` is zero, :data:`None` when the external command
         hasn't been started or is still running.
@@ -446,6 +455,8 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def fakeroot(self):
         """
+        Run the external command under ``fakeroot``.
+
         If this option is :data:`True` (not the default) and the current
         process doesn't have `superuser privileges`_ the external command is
         run with ``fakeroot``. If the ``fakeroot`` program is not installed a
@@ -458,6 +469,8 @@ class ExternalCommand(PropertyManager):
     @property
     def have_superuser_privileges(self):
         """
+        Whether the parent Python process is running under `superuser privileges`_.
+
         :data:`True` if running with `superuser privileges`_, :data:`False`
         otherwise. Used by :attr:`command_line` to decide whether
         :attr:`fakeroot` or :attr:`sudo` needs to be used.
@@ -467,14 +480,13 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def input(self):
         """
-        The input to feed to the external command on the standard input stream
-        (defaults to :data:`None`).
+        The input to feed to the external command on the standard input stream.
 
-        When you provide a :func:`python2:unicode` object (in Python 2) or a
-        :class:`python3:str` object (in Python 3) as input it will be encoded
-        using :attr:`encoding`. To avoid the automatic conversion you can
-        simply pass a :class:`python2:str` object (in Python 2) or a
-        :class:`python3:bytes` object (in Python 3).
+        Defaults to :data:`None`. When you provide a :func:`python2:unicode`
+        object (in Python 2) or a :class:`python3:str` object (in Python 3) as
+        input it will be encoded using :attr:`encoding`. To avoid the automatic
+        conversion you can simply pass a :class:`python2:str` object (in Python
+        2) or a :class:`python3:bytes` object (in Python 3).
 
         The conversion logic is implemented in the :attr:`encoded_input`
         attribute.
@@ -483,6 +495,8 @@ class ExternalCommand(PropertyManager):
     @property
     def is_finished(self):
         """
+        Whether the external command has finished execution.
+
         :data:`True` once the external command has been started and has since
         finished, :data:`False` when the external command hasn't been started
         yet or is still running.
@@ -492,6 +506,8 @@ class ExternalCommand(PropertyManager):
     @property
     def is_running(self):
         """
+        Whether the external command is currently running.
+
         :data:`True` while the external command is running, :data:`False` when
         the external command hasn't been started yet or has already finished.
         """
@@ -500,6 +516,8 @@ class ExternalCommand(PropertyManager):
     @property
     def is_terminated(self):
         """
+        Whether the external command has been terminated.
+
         :data:`True` if the external command was terminated using
         :data:`signal.SIGTERM` (e.g. by :func:`terminate()`),
         :data:`False` otherwise.
@@ -522,18 +540,21 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def merge_streams(self):
         """
-        Whether to merge the standard output and error streams (a boolean,
-        defaults to :data:`False`). If this option is enabled :attr:`stdout`
-        will contain the external command's output on both streams.
+        Whether to merge the standard output and error streams.
+
+        A boolean, defaults to :data:`False`. If this option is enabled
+        :attr:`stdout` will contain the external command's output on both
+        streams.
         """
         return False
 
     @property
     def output(self):
-        r"""
-        The value of :attr:`stdout` decoded using :attr:`encoding`. This is a
-        :func:`python2:unicode` object (in Python 2) or a :class:`python3:str`
-        object (in Python 3).
+        ur"""
+        The value of :attr:`stdout` decoded using :attr:`encoding`.
+
+        This is a :func:`python2:unicode` object (in Python 2) or a
+        :class:`python3:str` object (in Python 3).
 
         This is only available when :attr:`capture` is :data:`True`. If
         :attr:`capture` is not :data:`True` then :attr:`output` will be
@@ -565,14 +586,18 @@ class ExternalCommand(PropertyManager):
     @property
     def returncode(self):
         """
-        The return code of the external command (an integer). When the external
-        command hasn't finished yet :data:`None` is returned.
+        The return code of the external command (an integer).
+
+        When the external command hasn't finished yet :data:`None` is
+        returned.
         """
         return self.subprocess.poll() if self.subprocess else None
 
     @mutable_property
     def silent(self):
         """
+        Whether the external command's output should be silenced.
+
         If this is :data:`True` (not the default) any output of the external
         command is silenced by redirecting the output streams to
         :data:`os.devnull`.
@@ -585,9 +610,10 @@ class ExternalCommand(PropertyManager):
     @property
     def stderr(self):
         """
-        The output of the external command on its standard error stream, a
-        :class:`python2:str` object (in Python 2) or a :class:`python3:bytes`
-        object (in Python 3).
+        The output of the external command on its standard error stream.
+
+        This is a :class:`python2:str` object (in Python 2) or a
+        :class:`python3:bytes` object (in Python 3).
 
         This is only available when :attr:`capture_stderr` is :data:`True`. If
         :attr:`capture_stderr` is not :data:`True` then :attr:`stderr` will be
@@ -598,9 +624,10 @@ class ExternalCommand(PropertyManager):
     @property
     def stdout(self):
         """
-        The output of the external command on its standard output stream, a
-        :class:`python2:str` object (in Python 2) or a :class:`python3:bytes`
-        object (in Python 3).
+        The output of the external command on its standard output stream.
+
+        This is a :class:`python2:str` object (in Python 2) or a
+        :class:`python3:bytes` object (in Python 3).
 
         This is only available when :attr:`capture` is :data:`True`. If
         :attr:`capture` is not :data:`True` then :attr:`stdout` will be
@@ -611,8 +638,10 @@ class ExternalCommand(PropertyManager):
     @property
     def succeeded(self):
         """
+        Whether the external command succeeded.
+
         :data:`True` if :attr:`returncode` is zero, :data:`False` if
-        :attr:`returncode` is set but not zero, :data:`None` when the external
+        :attr:`returncode` is a nonzero number, :data:`None` when the external
         command hasn't been started or is still running.
         """
         return self.returncode == 0 if self.is_finished else None
@@ -620,6 +649,8 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def sudo(self):
         """
+        Whether ``sudo`` should be used to gain superuser privileges.
+
         If this option is :data:`True` (not the default) and the current
         process doesn't have `superuser privileges`_ the external command is
         run with ``sudo`` to ensure that the external command runs with
@@ -630,6 +661,8 @@ class ExternalCommand(PropertyManager):
     @property
     def was_started(self):
         """
+        Whether the external command has already been started.
+
         :data:`True` once :func:`start()` has been called to start executing
         the external command, :data:`False` when :func:`start()` hasn't been
         called yet.
@@ -735,9 +768,10 @@ class ExternalCommand(PropertyManager):
 
     def terminate(self):
         """
-        Terminate a running process using :func:`subprocess.Popen.terminate()`.
+        Terminate a running process.
 
-        Calls :func:`wait()` after terminating the process so that the external
+        Uses the :func:`subprocess.Popen.terminate()` function. Calls
+        :func:`wait()` after terminating the process so that the external
         command's output is loaded and temporary resources are cleaned up. The
         value of :attr:`check` is overridden to :data:`False` during the call
         to :func:`terminate()` (if you're terminating an external command you
@@ -751,7 +785,9 @@ class ExternalCommand(PropertyManager):
 
     def load_output(self):
         """
-        Reads the contents of the temporary file created by :func:`start()`
+        Load output captured from the standard output/error streams.
+
+        Reads the contents of the temporary file(s) created by :func:`start()`
         (when :attr:`async` and :attr:`capture` are both set) into memory so
         that the output doesn't get lost when the temporary file is cleaned up
         by :func:`cleanup()`.
@@ -776,8 +812,10 @@ class ExternalCommand(PropertyManager):
 
     def check_errors(self, check=None):
         """
-        Raise :attr:`error_type` when :attr:`check` is set and the external
-        command failed.
+        Raise an exception if the external command failed.
+
+        This raises :attr:`error_type` when :attr:`check` is set and the
+        external command failed.
 
         :param check: Override the value of :attr:`check` for the duration of
                       this call. Defaults to :data:`None` which means
@@ -799,8 +837,12 @@ class ExternalCommand(PropertyManager):
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
         """
-        Terminate the external command if it is still running, cleanup after
-        the external command and check for errors.
+        Automatically terminate and clean up after the external command.
+
+        Terminates the external command if it is still running (using
+        :func:`terminate()`), cleans up (using :func:`cleanup()`) and checks
+        for errors (using :func:`check_errors()`, only if an exception is not
+        already being handled).
         """
         if self.was_started:
             if self.is_running:
@@ -928,9 +970,12 @@ def which(program):
 class ExternalCommandFailed(Exception):
 
     """
-    Raised by :func:`execute()`, :func:`~ExternalCommand.start()` and
-    :func:`~ExternalCommand.wait()` when an external command exits with a
-    nonzero status code. Exposes the following attributes:
+    Raised when an external command exits with a nonzero status code.
+
+    This exception is raised by :func:`execute()`,
+    :func:`~ExternalCommand.start()` and :func:`~ExternalCommand.wait()` when
+    an external command exits with a nonzero status code. Exposes the following
+    attributes:
 
     .. attribute:: command
 
@@ -938,6 +983,11 @@ class ExternalCommandFailed(Exception):
     """
 
     def __init__(self, command):
+        """
+        Initialize an :class:`ExternalCommandFailed` object.
+
+        :param command: The :class:`ExternalCommand` object.
+        """
         self.command = command
         super(ExternalCommandFailed, self).__init__(command.error_message)
 

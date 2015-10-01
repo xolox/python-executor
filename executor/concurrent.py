@@ -1,12 +1,11 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 25, 2015
+# Last Change: October 1, 2015
 # URL: https://executor.readthedocs.org
 
 """
-The :mod:`executor.concurrent` module
-=====================================
+Support for concurrent external command execution.
 
 The :mod:`executor.concurrent` module defines the :class:`CommandPool` class
 which makes it easy to prepare a large number of external commands, group them
@@ -52,10 +51,11 @@ class CommandPool(object):
     @mutable_property
     def concurrency(self):
         """
-        The number of external commands that the pool is allowed to run
-        simultaneously (an integer above 0). This defaults to the return value
-        of :func:`multiprocessing.cpu_count()` (which may not make much sense
-        if your commands are I/O bound instead of CPU bound).
+        The number of external commands that the pool is allowed to run simultaneously.
+
+        This is a positive integer number. It defaults to the return value of
+        :func:`multiprocessing.cpu_count()` (which may not make much sense if
+        your commands are I/O bound instead of CPU bound).
         """
         return multiprocessing.cpu_count()
 
@@ -82,8 +82,10 @@ class CommandPool(object):
     @property
     def results(self):
         """
-        A dictionary of external command identifiers as keys (refer to
-        :func:`add()`) and :class:`~executor.ExternalCommand` objects as
+        A mapping of identifiers to external command objects.
+
+        This is a dictionary with external command identifiers as keys (refer
+        to :func:`add()`) and :class:`~executor.ExternalCommand` objects as
         values. The :class:`~executor.ExternalCommand` objects provide access
         to the return codes and/or output of the finished commands.
         """

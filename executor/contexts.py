@@ -5,8 +5,7 @@
 # URL: https://executor.readthedocs.org
 
 r"""
-The :mod:`executor.contexts` module
-==================================
+Dependency injection for command execution contexts.
 
 The :mod:`~executor.contexts` module defines the :class:`LocalContext` and
 :class:`RemoteContext` classes. Both of these classes support the same API for
@@ -125,7 +124,7 @@ class AbstractContext(object):
 
     def merge_options(self, overrides):
         """
-        This method can be used by subclasses to easily merge default options and overrides.
+        Merge default options and overrides into a single dictionary.
 
         :param overrides: A dictionary with any keyword arguments given to
                           :func:`execute()` or :func:`start_interactive_shell()`.
@@ -266,10 +265,12 @@ class AbstractContext(object):
         raise NotImplementedError()
 
     def __enter__(self):
+        """Initialize a new "undo stack" (refer to :func:`cleanup()`)."""
         self.undo_stack.append([])
         return self
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """Execute any commands on the "undo stack" (refer to :func:`cleanup()`)."""
         old_scope = self.undo_stack.pop()
         while old_scope:
             command, options = old_scope.pop()
@@ -282,15 +283,19 @@ class LocalContext(AbstractContext):
 
     @property
     def cpu_count(self):
+        """Refer to :attr:`AbstractContext.cpu_count`."""
         return multiprocessing.cpu_count()
 
     def prepare_command(self, command, options):
+        """Refer to :attr:`AbstractContext.prepare_command`."""
         return ExternalCommand(*command, **self.merge_options(options))
 
     def prepare_interactive_shell(self, options):
+        """Refer to :attr:`AbstractContext.prepare_interactive_shell`."""
         return ExternalCommand(DEFAULT_SHELL, **self.merge_options(options))
 
     def __str__(self):
+        """Render a human friendly string representation of the context."""
         return "local system (%s)" % socket.gethostname()
 
 
@@ -310,12 +315,15 @@ class RemoteContext(AbstractContext):
 
     @property
     def cpu_count(self):
+        """Refer to :attr:`AbstractContext.cpu_count`."""
         return int(self.capture('nproc'))
 
     def prepare_command(self, command, options):
+        """Refer to :attr:`AbstractContext.prepare_command`."""
         return RemoteCommand(self.ssh_alias, *command, **self.merge_options(options))
 
     def prepare_interactive_shell(self, options):
+        """Refer to :attr:`AbstractContext.prepare_interactive_shell`."""
         # Force pseudo-tty allocation using `ssh -t', but take care not to
         # destroy custom `ssh_command' values provided by callers.
         options = self.merge_options(options)
@@ -325,4 +333,5 @@ class RemoteContext(AbstractContext):
         return RemoteCommand(self.ssh_alias, DEFAULT_SHELL, **options)
 
     def __str__(self):
+        """Render a human friendly string representation of the context."""
         return "remote system (%s)" % self.ssh_alias

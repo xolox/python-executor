@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-# Setup script for the `executor' package.
-#
+"""Setup script for the `executor` package."""
+
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: May 25, 2015
 # URL: https://executor.readthedocs.org

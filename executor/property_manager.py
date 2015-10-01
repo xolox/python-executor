@@ -5,8 +5,7 @@
 # URL: https://executor.readthedocs.org
 
 """
-The :mod:`executor.property_manager` module
-===========================================
+Custom computed properties implemented using descriptors.
 
 This module is used by the :mod:`executor` module to implement several types of
 computed properties:
@@ -55,8 +54,11 @@ nothing = object()
 class PropertyManager(object):
 
     """
-    Support for required properties, setting of properties in the constructor
-    and generating a useful textual representation of objects with properties.
+    Superclass for classes that use the computed properties from this module.
+
+    Provides support for required properties, setting of properties in the
+    constructor and generating a useful textual representation of objects with
+    properties.
     """
 
     def __init__(self, **kw):
@@ -90,8 +92,10 @@ class PropertyManager(object):
     @property
     def missing_properties(self):
         """
-        A list of strings with the names of required properties that either
-        haven't been set or are set to :data:`None`.
+        The names of required properties that are missing.
+
+        This is a list of strings with the names of required properties that
+        either haven't been set or are set to :data:`None`.
         """
         return sorted(n for n in self.required_properties if getattr(self, n, None) is None)
 
@@ -113,9 +117,11 @@ class PropertyManager(object):
 
     def __repr__(self):
         """
-        Generate a user friendly textual representation of an object that uses
-        computed properties (:class:`property`, :class:`mutable_property` and/or
-        :class:`default_property`).
+        Render a human friendly string representation of computed properties.
+
+        Generates a user friendly textual representation for objects that use
+        computed properties (:class:`property`, :class:`mutable_property`
+        and/or :class:`default_property`).
         """
         fields = []
         for name in dir(self):
@@ -138,6 +144,13 @@ class custom_property(property):
     """
 
     def __init__(self, func, name=None, doc=None):
+        """
+        Initialize a :class:`custom_property` object.
+
+        :param func: The method that computes the property's value.
+        :param name: The name of the property.
+        :param doc: The documentation of the property.
+        """
         super(custom_property, self).__init__(self, func)
         self.__name__ = name or func.__name__
         self.__module__ = func.__module__
@@ -146,10 +159,17 @@ class custom_property(property):
         self.patch_documentation()
 
     def get_note(self):
+        """Get a description of the property for the documentation."""
         text = "The :attr:`%s` property is a :class:`.%s` object."
         return text % (self.__name__, self.__class__.__name__)
 
     def patch_documentation(self):
+        """
+        Patch the documentation of the property.
+
+        Calls :func:`get_note()` for each superclass of the property to get a
+        combined description of the property's usage/behavior.
+        """
         if self.__doc__ and isinstance(self.__doc__, basestring):
             blocks = [textwrap.dedent(self.__doc__)]
             # Collect documentation notes from super/subclasses.
@@ -164,6 +184,7 @@ class custom_property(property):
             self.__doc__ = "\n\n".join(blocks)
 
     def __get__(self, obj, type=None):
+        """Get the computed value of the property."""
         if obj is None:
             return self
         else:
@@ -186,9 +207,11 @@ class assignable_property(custom_property):
     """
 
     def get_note(self):
+        """Get a description of the property for the documentation."""
         return "You can set it using normal attribute assignment syntax."
 
     def __get__(self, obj, type=None):
+        """Get the assigned or computed value of the property."""
         if obj is None:
             return self
         elif self.__name__ in obj.__dict__:
@@ -197,6 +220,7 @@ class assignable_property(custom_property):
             return self.func(obj)
 
     def __set__(self, obj, value):
+        """Override the computed value of the property."""
         obj.__dict__[self.__name__] = value
 
 
@@ -222,9 +246,11 @@ class resetable_property(custom_property):
     """
 
     def get_note(self):
+        """Get a description of the property for the documentation."""
         return "You can reset it to its default value using :keyword:`del` or :func:`delattr()`."
 
     def __delete__(self, obj):
+        """Reset the assigned value of a property, reverting back to the computed value."""
         obj.__dict__.pop(self.__name__)
 
 
@@ -240,6 +266,7 @@ class required_property(assignable_property):
     """
 
     def get_note(self):
+        """Get a description of the property for the documentation."""
         text = ("You're required to provide a value for this property by"
                 " calling the constructor of the class that defines the"
                 " property with a keyword argument named `%s`.")
@@ -264,9 +291,11 @@ class cached_property(resetable_property):
     """
 
     def get_note(self):
+        """Get a description of the property for the documentation."""
         return "Its value is computed once (the first time the property is accessed) and the result is cached."
 
     def __get__(self, obj, type=None):
+        """Get the cached or computed value of the property."""
         if obj is None:
             return self
         value = obj.__dict__.get(self.__name__, nothing)

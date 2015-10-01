@@ -5,8 +5,7 @@
 # URL: https://executor.readthedocs.org
 
 """
-The :mod:`executor.ssh.client` module
-=====================================
+Remote command execution using SSH.
 
 The :mod:`executor.ssh.client` module defines the :class:`RemoteCommand` class
 and the :func:`foreach()` function which make it easy to run a remote command
@@ -107,9 +106,7 @@ def foreach(hosts, *command, **options):
 
 class RemoteCommand(ExternalCommand):
 
-    """
-    :class:`RemoteCommand` objects use the SSH client program to execute remote commands.
-    """
+    """:class:`RemoteCommand` objects use the SSH client program to execute remote commands."""
 
     def __init__(self, ssh_alias, *command, **options):
         """
@@ -139,9 +136,9 @@ class RemoteCommand(ExternalCommand):
     @mutable_property
     def batch_mode(self):
         """
-        Controls the SSH client option ``BatchMode`` (a boolean, defaults to
-        :data:`True`). The following description is quoted from `man
-        ssh_config`_:
+        Control the SSH client option ``BatchMode`` (a boolean, defaults to :data:`True`).
+
+        The following description is quoted from `man ssh_config`_:
 
           If set to "yes", passphrase/password querying will be disabled. In
           addition, the ``ServerAliveInterval`` option will be set to 300
@@ -161,8 +158,10 @@ class RemoteCommand(ExternalCommand):
     @property
     def command_line(self):
         """
-        The SSH client command to connect to the remote host and execute
-        :attr:`~.ExternalCommand.command` (a list of strings).
+        The complete SSH client command including the remote command.
+
+        This is a list of strings with the SSH client command to connect to the
+        remote host and execute :attr:`~.ExternalCommand.command`.
         """
         ssh_command = list(self.ssh_command)
         if self.identity_file:
@@ -191,8 +190,9 @@ class RemoteCommand(ExternalCommand):
     @mutable_property
     def connect_timeout(self):
         """
-        Controls the SSH client option ``ConnectTimeout`` (an integer). The
-        following description is quoted from `man ssh_config`_:
+        Control the SSH client option ``ConnectTimeout`` (an integer).
+
+        The following description is quoted from `man ssh_config`_:
 
           Specifies the timeout (in seconds) used when connecting to the SSH
           server, instead of using the default system TCP timeout. This value
@@ -208,6 +208,8 @@ class RemoteCommand(ExternalCommand):
     @property
     def directory(self):
         """
+        Set the remote working directory.
+
         When you set this property you change the remote working directory,
         however reading back the property you'll just get
         :data:`.DEFAULT_WORKING_DIRECTORY`. This is because
@@ -223,10 +225,7 @@ class RemoteCommand(ExternalCommand):
 
     @property
     def error_message(self):
-        """
-        A user friendly explanation of how the remote command failed (a string
-        or :data:`None`).
-        """
+        """A user friendly explanation of how the remote command failed (a string or :data:`None`)."""
         if self.error_type is RemoteConnectFailed:
             text = "SSH connection to %s failed! (command: %s)"
             return text % (self.ssh_alias, quote(self.command_line))
@@ -237,6 +236,8 @@ class RemoteCommand(ExternalCommand):
     @property
     def error_type(self):
         """
+        An exception class applicable to the kind of failure detected or :data:`None`.
+
         :class:`RemoteConnectFailed` when :attr:`~.ExternalCommand.returncode`
         is set and matches :data:`SSH_ERROR_STATUS`, :class:`RemoteCommandFailed`
         when :attr:`~.ExternalCommand.returncode` is set and not zero,
@@ -251,8 +252,7 @@ class RemoteCommand(ExternalCommand):
     @property
     def have_superuser_privileges(self):
         """
-        :data:`True` if :attr:`ssh_user` is set to 'root', :data:`False`
-        otherwise.
+        :data:`True` if :attr:`ssh_user` is set to 'root', :data:`False` otherwise.
 
         There's no easy way for :class:`RemoteCommand` to determine whether any
         given SSH alias logs into a remote system with `superuser privileges`_
@@ -265,15 +265,14 @@ class RemoteCommand(ExternalCommand):
 
     @mutable_property
     def identity_file(self):
-        """
-        The pathname of the identity file used to connect to the remote host (a
-        string or :data:`None`).
-        """
+        """The pathname of the identity file used to connect to the remote host (a string or :data:`None`)."""
 
     @property
     def ignore_known_hosts(self):
         """
-        :data:`True` if host key checking is completely disabled:
+        Whether host key checking is disabled.
+
+        This is :data:`True` if host key checking is completely disabled:
 
         - :attr:`known_hosts_file` is set to :data:`os.devnull`
         - :attr:`strict_host_key_checking` is set to :data:`False`
@@ -302,8 +301,9 @@ class RemoteCommand(ExternalCommand):
     @mutable_property
     def log_level(self):
         """
-        Controls the SSH client option ``LogLevel`` (a string, defaults to
-        'info'). The following description is quoted from `man ssh_config`_:
+        Control the SSH client option ``LogLevel`` (a string, defaults to 'info').
+
+        The following description is quoted from `man ssh_config`_:
 
           Gives the verbosity level that is used when logging messages from
           ``ssh``. The possible values are: QUIET, FATAL, ERROR, INFO, VERBOSE,
@@ -315,44 +315,37 @@ class RemoteCommand(ExternalCommand):
 
     @required_property
     def ssh_alias(self):
-        """
-        The SSH alias of the remote host on which :attr:`~.ExternalCommand.command`
-        should be executed (a string).
-        """
+        """The SSH alias of the remote host on which :attr:`~.ExternalCommand.command` should be executed (a string)."""
 
     @mutable_property
     def ssh_command(self):
         """
-        The command used to run the SSH client program (a list of strings,
-        defaults to a list containing :data:`SSH_PROGRAM_NAME`). The
-        :attr:`batch_mode`, :attr:`connect_timeout`, :attr:`log_level`,
-        :attr:`ssh_alias` and :attr:`strict_host_key_checking` properties also
-        influence the SSH client command line used (see
+        The command used to run the SSH client program.
+
+        This is a list of strings, by default the list contains just
+        :data:`SSH_PROGRAM_NAME`. The :attr:`batch_mode`, :attr:`connect_timeout`,
+        :attr:`log_level`, :attr:`ssh_alias` and :attr:`strict_host_key_checking`
+        properties also influence the SSH client command line used (see
         :attr:`~.ExternalCommand.command_line`).
         """
         return [SSH_PROGRAM_NAME]
 
     @mutable_property
     def ssh_user(self):
-        """
-        The username on the remote system (defaults to :data:`None` which means
-        the SSH client program decides).
-        """
+        """The username on the remote system (defaults to :data:`None` which means the SSH client program decides)."""
 
     @mutable_property
     def port(self):
-        """
-        The port number of the SSH server (defaults to :data:`None` which means
-        the SSH client program decides).
-        """
+        """The port number of the SSH server (defaults to :data:`None` which means the SSH client program decides)."""
 
     @mutable_property
     def strict_host_key_checking(self):
         """
-        Controls the SSH client option ``StrictHostKeyChecking`` and accepts
-        the values :data:`True` and :data:`False` and the strings 'yes', 'no'
-        and 'ask'. The following description is quoted from `man
-        ssh_config`_:
+        Control the SSH client option ``StrictHostKeyChecking``.
+
+        This property accepts the values :data:`True` and :data:`False` and the
+        strings 'yes', 'no' and 'ask'. The following description is quoted from
+        `man ssh_config`_:
 
           If this flag is set to "yes", ``ssh`` will never automatically add
           host keys to the ``~/.ssh/known_hosts`` file, and refuses to connect
@@ -380,8 +373,9 @@ class RemoteCommand(ExternalCommand):
     @mutable_property
     def known_hosts_file(self, value=None):
         """
-        Controls the SSH client option ``UserKnownHostsFile`` (a string). The
-        following description is quoted from `man ssh_config`_:
+        Control the SSH client option ``UserKnownHostsFile`` (a string).
+
+        The following description is quoted from `man ssh_config`_:
 
           Specifies one or more files to use for the user host key database,
           separated by whitespace. The default is ``~/.ssh/known_hosts``,
@@ -421,8 +415,10 @@ class RemoteCommandPool(CommandPool):
 
 
 class RemoteCommandFailed(ExternalCommandFailed):
+
     """Raised by :func:`foreach()` when a remote command executed over SSH fails."""
 
 
 class RemoteConnectFailed(ExternalCommandFailed):
+
     """Raised by :func:`foreach()` when an SSH connection itself fails (not the remote command)."""

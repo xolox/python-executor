@@ -1,8 +1,10 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 1, 2015
+# Last Change: October 2, 2015
 # URL: https://executor.readthedocs.org
+
+"""Automated tests for the `executor` package."""
 
 # Standard library modules.
 import logging
@@ -48,7 +50,10 @@ from executor.ssh.server import SSHServer
 
 class ExecutorTestCase(unittest.TestCase):
 
+    """Container for `executor` tests (methods)."""
+
     def setUp(self):
+        """Set up (colored) logging to the terminal."""
         try:
             # Optional external dependency.
             import coloredlogs
@@ -58,13 +63,16 @@ class ExecutorTestCase(unittest.TestCase):
             logging.basicConfig(level=logging.DEBUG)
 
     def test_argument_validation(self):
+        """Make sure the external command constructor requires a command argument."""
         self.assertRaises(TypeError, ExternalCommand)
 
     def test_program_searching(self):
+        """Make sure which() works as expected."""
         self.assertTrue(which('python'))
         self.assertFalse(which('a-program-name-that-no-one-would-ever-use'))
 
     def test_status_code_checking(self):
+        """Make sure that status code handling is sane."""
         self.assertTrue(execute('true'))
         self.assertFalse(execute('false', check=False))
         self.assertRaises(ExternalCommandFailed, execute, 'false')
@@ -80,9 +88,11 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertEqual(e.returncode, 42)
 
     def test_stdin(self):
+        """Make sure standard input can be provided to external commands."""
         self.assertEqual(execute('tr', 'a-z', 'A-Z', input='test', capture=True), 'TEST')
 
     def test_stdout(self):
+        """Make sure standard output of external commands can be captured."""
         self.assertEqual(execute('echo', 'this is a test', capture=True), 'this is a test')
         self.assertEqual(execute('echo', '-e', r'line 1\nline 2', capture=True), 'line 1\nline 2\n')
         # I don't know how to test for the effect of silent=True in a practical
@@ -92,6 +102,7 @@ class ExecutorTestCase(unittest.TestCase):
         self.assertTrue(execute('echo', 'this is a test', silent=True))
 
     def test_stderr(self):
+        """Make sure standard error of external commands can be captured."""
         stdout_value = 'this goes to standard output'
         stderr_value = 'and this goes to the standard error stream'
         shell_command = 'echo %s; echo %s >&2' % (stdout_value, stderr_value)
@@ -101,6 +112,7 @@ class ExecutorTestCase(unittest.TestCase):
         assert stderr_value in cmd.decoded_stderr
 
     def test_merged_streams(self):
+        """Make sure standard output/error of external commands can be captured together."""
         stdout_value = 'this goes to standard output'
         stderr_value = 'and this goes to the standard error stream'
         shell_command = 'echo %s; echo %s >&2' % (stdout_value, stderr_value)
@@ -112,6 +124,7 @@ class ExecutorTestCase(unittest.TestCase):
         assert stderr_value not in (cmd.decoded_stderr or '')
 
     def test_working_directory(self):
+        """Make sure the working directory of external commands can be set."""
         directory = tempfile.mkdtemp()
         try:
             self.assertEqual(execute('echo $PWD', capture=True, directory=directory), directory)
@@ -119,6 +132,7 @@ class ExecutorTestCase(unittest.TestCase):
             os.rmdir(directory)
 
     def test_fakeroot_option(self):
+        """Make sure ``fakeroot`` can be used."""
         filename = os.path.join(tempfile.gettempdir(), 'executor-%s-fakeroot-test' % os.getpid())
         self.assertTrue(execute('touch', filename, fakeroot=True))
         try:
@@ -131,6 +145,7 @@ class ExecutorTestCase(unittest.TestCase):
             os.unlink(filename)
 
     def test_sudo_option(self):
+        """Make sure ``fakeroot`` can be used."""
         filename = os.path.join(tempfile.gettempdir(), 'executor-%s-sudo-test' % os.getpid())
         self.assertTrue(execute('touch', filename))
         try:
@@ -143,6 +158,7 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertTrue(execute('rm', filename, sudo=True))
 
     def test_environment_variable_handling(self):
+        """Make sure environment variables can be overridden."""
         # Check that environment variables of the current process are passed on to subprocesses.
         self.assertEqual(execute('echo $PATH', capture=True), os.environ['PATH'])
         # Test that environment variable overrides can be given to external commands.
@@ -153,6 +169,7 @@ class ExecutorTestCase(unittest.TestCase):
                          override_value)
 
     def test_simple_async_cmd(self):
+        """Make sure commands can be executed asynchronously."""
         cmd = ExternalCommand('sleep 4', async=True)
         # Make sure we're starting from a sane state.
         assert not cmd.was_started
@@ -183,6 +200,7 @@ class ExecutorTestCase(unittest.TestCase):
         assert cmd.returncode == 0
 
     def test_async_with_input(self):
+        """Make sure asynchronous commands can be provided standard input."""
         random_file = os.path.join(tempfile.gettempdir(), 'executor-%s-async-input-test' % os.getpid())
         random_value = str(random.random())
         cmd = ExternalCommand('cat > %s' % quote(random_file), async=True, input=random_value)
@@ -198,6 +216,7 @@ class ExecutorTestCase(unittest.TestCase):
                 os.unlink(random_file)
 
     def test_async_with_output(self):
+        """Make sure asynchronous command output can be captured."""
         random_value = str(random.random())
         cmd = ExternalCommand('echo %s' % quote(random_value), async=True, capture=True)
         cmd.start()
@@ -205,6 +224,7 @@ class ExecutorTestCase(unittest.TestCase):
         assert cmd.output == random_value
 
     def test_repr(self):
+        """Make sure that repr() on external commands gives sane output."""
         cmd = ExternalCommand('echo 42',
                               async=True,
                               capture=True,
@@ -230,6 +250,7 @@ class ExecutorTestCase(unittest.TestCase):
         retry(assert_finished, 10)
 
     def test_command_pool(self):
+        """Make sure command pools actually run multiple commands in parallel."""
         num_commands = 10
         sleep_time = 4
         pool = CommandPool(5)
@@ -241,6 +262,7 @@ class ExecutorTestCase(unittest.TestCase):
         assert timer.elapsed_time < (num_commands * sleep_time)
 
     def test_ssh_command_lines(self):
+        """Make sure SSH client command lines are correctly generated."""
         # Construct a remote command using as much defaults as possible and
         # validate the resulting SSH client program command line.
         cmd = RemoteCommand('localhost', 'true', ssh_user='some-random-user')
@@ -289,6 +311,7 @@ class ExecutorTestCase(unittest.TestCase):
             tokenize_command_line(RemoteCommand('localhost', 'date', ssh_user='root', sudo=True))
 
     def test_ssh_unreachable(self):
+        """Make sure a specific exception is raised when ``ssh`` fails to connect."""
         # Make sure invalid SSH aliases raise the expected type of exception.
         self.assertRaises(
             RemoteConnectFailed,
@@ -296,6 +319,7 @@ class ExecutorTestCase(unittest.TestCase):
         )
 
     def test_remote_working_directory(self):
+        """Make sure remote working directories can be set."""
         with SSHServer(async=True) as server:
             some_random_directory = tempfile.mkdtemp()
             cmd = RemoteCommand('127.0.0.1',
@@ -307,11 +331,13 @@ class ExecutorTestCase(unittest.TestCase):
             assert cmd.output == some_random_directory
 
     def test_remote_error_handling(self):
+        """Make sure remote commands preserve exit codes."""
         with SSHServer(async=True) as server:
             cmd = RemoteCommand('127.0.0.1', 'exit 42', **server.client_options)
             self.assertRaises(RemoteCommandFailed, cmd.start)
 
     def test_foreach(self):
+        """Make sure remote command pools work."""
         with SSHServer(async=True) as server:
             ssh_aliases = ['127.0.0.%i' % i for i in (1, 2, 3, 4, 5, 6, 7, 8)]
             results = foreach(ssh_aliases, 'echo $SSH_CONNECTION',
@@ -321,13 +347,16 @@ class ExecutorTestCase(unittest.TestCase):
             assert len(ssh_aliases) == len(set(cmd.output for cmd in results))
 
     def test_local_context(self):
+        """Test a local command context."""
         self.check_context(LocalContext())
 
     def test_remote_context(self):
+        """Test a remote command context."""
         with SSHServer(async=True) as server:
             self.check_context(RemoteContext('127.0.0.1', **server.client_options))
 
     def check_context(self, context):
+        """Test a command execution context (whether local or remote)."""
         # Make sure __str__() does something useful.
         assert 'system' in str(context)
         # Test context.execute() and cleanup().
@@ -445,10 +474,12 @@ class CustomPropertyTestCase(unittest.TestCase):
 
 
 def tokenize_command_line(cmd):
+    """Tokenize a command line string into a list of strings."""
     return sum(map(shlex.split, cmd.command_line), [])
 
 
 def retry(func, timeout):
+    """Retry a function until it no longer raises assertion errors or time runs out before then."""
     time_started = time.time()
     while (time.time() - time_started) < timeout:
         try:

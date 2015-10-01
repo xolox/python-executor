@@ -1,12 +1,11 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 25, 2015
+# Last Change: October 1, 2015
 # URL: https://executor.readthedocs.org
 
 """
-The :mod:`executor.ssh.server` module
-=====================================
+OpenSSH server automation for testing.
 
 The :mod:`executor.ssh.server` module defines the :class:`SSHServer` class
 which can be used to start temporary OpenSSH servers that are isolated enough
@@ -72,10 +71,7 @@ class SSHServer(ExternalCommand):
 
     @property
     def is_accepting_connections(self):
-        """
-        :data:`True` if the SSH server is running and accepting connections,
-        :data:`False` otherwise.
-        """
+        """:data:`True` if the SSH server is running and accepting connections, :data:`False` otherwise."""
         if self.is_running:
             try:
                 address = ('localhost', self.port)
@@ -95,11 +91,15 @@ class SSHServer(ExternalCommand):
     @property
     def client_options(self):
         """
-        Keyword arguments for :class:`.RemoteCommand` to make it connect with
-        the OpenSSH server (assuming the remote command connects to an IP
-        address in the 127.0.0.0/24 range).
+        OpenSSH client options required to connect with the server.
+
+        This is a dictionary of keyword arguments for :class:`.RemoteCommand`
+        to make it connect with the OpenSSH server (assuming the remote command
+        connects to an IP address in the 127.0.0.0/24 range).
         """
-        return dict(identity_file=self.client_key_file, ignore_known_hosts=True, port=self.port)
+        return dict(identity_file=self.client_key_file,
+                    ignore_known_hosts=True,
+                    port=self.port)
 
     def start(self, **options):
         """
@@ -195,7 +195,10 @@ class SSHServer(ExternalCommand):
 
 
 class TimeoutError(ExternalCommandFailed):
+
     """
-    Raised by :func:`~SSHServer.wait_until_accepting_connections()` when the SSH
-    server doesn't start accepting connections within a reasonable time.
+    Raised when the OpenSSH server doesn't initialize quickly enough.
+
+    This exception is raised by :func:`~SSHServer.wait_until_accepting_connections()`
+    when the SSH server doesn't start accepting connections within a reasonable time.
     """

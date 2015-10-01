@@ -1,15 +1,11 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 24, 2015
+# Last Change: October 1, 2015
 # URL: https://executor.readthedocs.org
 
 """
-The :mod:`executor.compat` module
-=================================
-
-Simple tools to make it easier to write Python code that is compatible with
-Python 2 as well as Python 3.
+Some aliases to make it easier to support both Python 2 and 3.
 
 .. class:: basestring
 
