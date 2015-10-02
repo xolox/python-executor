@@ -141,7 +141,7 @@ class CommandPool(object):
             directory = os.path.dirname(pathname)
             if not os.path.isdir(directory):
                 os.makedirs(directory)
-            handle = open(pathname, 'wb')
+            handle = open(pathname, 'ab')
             command.stdout_file = handle
             command.stderr_file = handle
         self.commands.append((identifier, command))
