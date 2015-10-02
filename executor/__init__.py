@@ -57,7 +57,7 @@ from executor.property_manager import (
 )
 
 # Semi-standard module versioning.
-__version__ = '4.5'
+__version__ = '4.6'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)

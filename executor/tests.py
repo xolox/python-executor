@@ -11,6 +11,7 @@ import logging
 import os
 import random
 import shlex
+import shutil
 import socket
 import tempfile
 import time
@@ -335,6 +336,24 @@ class ExecutorTestCase(unittest.TestCase):
         assert all(cmd.returncode == 0 for cmd in results.values())
         assert timer.elapsed_time < (num_commands * sleep_time)
 
+    def test_command_pool_logs_directory(self):
+        """Make sure command pools can log output of commands in a directory."""
+        directory = tempfile.mkdtemp()
+        identifiers = [1, 2, 3, 4, 5]
+        try:
+            pool = CommandPool(concurrency=5, logs_directory=directory)
+            for i in identifiers:
+                pool.add(identifier=i, command=ExternalCommand('echo %i' % i))
+            pool.run()
+            files = os.listdir(directory)
+            assert sorted(files) == sorted(['%s.log' % i for i in identifiers])
+            for filename in files:
+                with open(os.path.join(directory, filename)) as handle:
+                    contents = handle.read()
+                assert filename == ('%s.log' % contents.strip())
+        finally:
+            shutil.rmtree(directory)
+
     def test_ssh_command_lines(self):
         """Make sure SSH client command lines are correctly generated."""
         # Construct a remote command using as much defaults as possible and
@@ -396,13 +415,16 @@ class ExecutorTestCase(unittest.TestCase):
         """Make sure remote working directories can be set."""
         with SSHServer(async=True) as server:
             some_random_directory = tempfile.mkdtemp()
-            cmd = RemoteCommand('127.0.0.1',
-                                'pwd',
-                                capture=True,
-                                directory=some_random_directory,
-                                **server.client_options)
-            cmd.start()
-            assert cmd.output == some_random_directory
+            try:
+                cmd = RemoteCommand('127.0.0.1',
+                                    'pwd',
+                                    capture=True,
+                                    directory=some_random_directory,
+                                    **server.client_options)
+                cmd.start()
+                assert cmd.output == some_random_directory
+            finally:
+                shutil.rmtree(some_random_directory)
 
     def test_remote_error_handling(self):
         """Make sure remote commands preserve exit codes."""

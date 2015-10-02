@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 1, 2015
+# Last Change: October 2, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -16,6 +16,7 @@ simultaneously and wait for all external commands to finish.
 # Standard library modules.
 import logging
 import multiprocessing
+import os
 
 # Modules included in our package.
 from executor.property_manager import mutable_property
@@ -37,16 +38,18 @@ class CommandPool(object):
     :func:`run()`.
     """
 
-    def __init__(self, concurrency=None):
+    def __init__(self, concurrency=None, logs_directory=None):
         """
         Construct a :class:`CommandPool` object.
 
         :param concurrency: Override the value of :attr:`concurrency`.
+        :param logs_directory: Override the value of :attr:`logs_directory`.
         """
         self.collected = set()
         self.commands = []
         if concurrency:
             self.concurrency = concurrency
+        self.logs_directory = logs_directory
 
     @mutable_property
     def concurrency(self):
@@ -58,6 +61,23 @@ class CommandPool(object):
         your commands are I/O bound instead of CPU bound).
         """
         return multiprocessing.cpu_count()
+
+    @mutable_property
+    def logs_directory(self):
+        """
+        The pathname of a directory where captured output is stored (a string).
+
+        If this property is set to the pathname of a directory (before any
+        external commands have been started) the merged output of each external
+        command is captured and stored in a log file in this directory. The
+        directory will be created if it doesn't exist yet.
+
+        Output will start appearing in the log files before the external
+        commands are finished, this enables `tail -f`_ to inspect the progress
+        of commands that are still running and emitting output.
+
+        .. _tail -f: https://en.wikipedia.org/wiki/Tail_(Unix)#File_monitoring
+        """
 
     @property
     def is_finished(self):
@@ -91,7 +111,7 @@ class CommandPool(object):
         """
         return dict(self.commands)
 
-    def add(self, command, identifier=None):
+    def add(self, command, identifier=None, log_file=None):
         """
         Add an external command to the pool of commands.
 
@@ -101,6 +121,9 @@ class CommandPool(object):
                            value). When this parameter is not provided the
                            identifier is set to the number of commands in the
                            pool plus one (i.e. the first command gets id 1).
+        :param log_file: Override the default log file name for the command
+                         (the identifier with ``.log`` appended) in case
+                         :attr:`logs_directory` is set.
 
         The :attr:`~executor.ExternalCommand.async` property of command objects
         is automatically set to :data:`True` when they're added to a
@@ -111,6 +134,16 @@ class CommandPool(object):
         command.async = True
         if identifier is None:
             identifier = len(self.commands) + 1
+        if self.logs_directory:
+            if not log_file:
+                log_file = '%s.log' % identifier
+            pathname = os.path.join(self.logs_directory, log_file)
+            directory = os.path.dirname(pathname)
+            if not os.path.isdir(directory):
+                os.makedirs(directory)
+            handle = open(pathname, 'wb')
+            command.stdout_file = handle
+            command.stderr_file = handle
         self.commands.append((identifier, command))
 
     def run(self):
