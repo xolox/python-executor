@@ -1,7 +1,7 @@
 # Makefile for executor.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 1, 2015
+# Last Change: October 2, 2015
 # URL: https://github.com/xolox/python-executor
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -28,7 +28,7 @@ install:
 	test -x "$(VIRTUAL_ENV)/bin/pip" || ($(ACTIVATE) && easy_install pip)
 	test -x "$(VIRTUAL_ENV)/bin/pip-accel" || ($(ACTIVATE) && pip install pip-accel)
 	$(ACTIVATE) && pip uninstall -y executor || true
-	$(ACTIVATE) && pip install --no-deps --editable .
+	$(ACTIVATE) && pip-accel install --editable .
 
 reset:
 	rm -Rf "$(VIRTUAL_ENV)"

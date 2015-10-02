@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 1, 2015
+# Last Change: October 2, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -67,6 +67,8 @@ def foreach(hosts, *command, **options):
                     :func:`foreach()`.
     :param concurrency: The value of :attr:`.CommandPool.concurrency` to use
                         (defaults to :data:`DEFAULT_CONCURRENCY`).
+    :param logs_directory: The value of :attr:`.CommandPool.logs_directory` to
+                           use (defaults to :data:`None`).
     :param options: Additional keyword arguments can be used to conveniently
                     override the default values of the writable properties of
                     the :class:`RemoteCommand` objects constructed by
@@ -83,14 +85,16 @@ def foreach(hosts, *command, **options):
              ``check=False`` to disable raising of this exception.
     """
     hosts = list(hosts)
-    # Remove the concurrency value from the options.
+    # Remove the concurrency and logs_directory values from the options.
     concurrency = options.pop('concurrency', DEFAULT_CONCURRENCY)
+    logs_directory = options.pop('logs_directory', None)
     # Capture the output of remote commands by default (unless the caller
     # passed capture=False).
     options.setdefault('capture', True)
     # Create a command pool.
     timer = Timer()
-    pool = RemoteCommandPool(concurrency)
+    pool = RemoteCommandPool(concurrency=concurrency,
+                             logs_directory=logs_directory)
     hosts_pluralized = pluralize(len(hosts), "host")
     logger.debug("Preparing to run remote command on %s (%s) with a concurrency of %i: %s",
                  hosts_pluralized, concatenate(hosts), concurrency, quote(command))
@@ -403,15 +407,17 @@ class RemoteCommandPool(CommandPool):
               of course change in the future.
     """
 
-    def __init__(self, concurrency=DEFAULT_CONCURRENCY):
+    def __init__(self, concurrency=DEFAULT_CONCURRENCY, **options):
         """
         Construct a :class:`RemoteCommandPool` object.
 
         :param concurrency: Override the value of :attr:`concurrency` (an
                             integer, defaults to :data:`DEFAULT_CONCURRENCY`
                             for remote command pools).
+        :param options: Any additional keyword arguments are passed on
+                        to the :class:`.CommandPool` constructor.
         """
-        super(RemoteCommandPool, self).__init__(concurrency)
+        super(RemoteCommandPool, self).__init__(concurrency, **options)
 
 
 class RemoteCommandFailed(ExternalCommandFailed):

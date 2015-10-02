@@ -442,6 +442,21 @@ class ExecutorTestCase(unittest.TestCase):
             assert sorted(ssh_aliases) == sorted(cmd.ssh_alias for cmd in results)
             assert len(ssh_aliases) == len(set(cmd.output for cmd in results))
 
+    def test_foreach_with_logging(self):
+        """Make sure remote command pools can log output."""
+        directory = tempfile.mkdtemp()
+        try:
+            ssh_aliases = ['127.0.0.%i' % i for i in (1, 2, 3, 4, 5, 6, 7, 8)]
+            with SSHServer(async=True) as server:
+                foreach(ssh_aliases, 'echo $SSH_CONNECTION',
+                        concurrency=3, logs_directory=directory,
+                        capture=True, **server.client_options)
+            log_files = os.listdir(directory)
+            assert len(log_files) == len(ssh_aliases)
+            assert all(os.path.getsize(os.path.join(directory, fn)) > 0 for fn in log_files)
+        finally:
+            shutil.rmtree(directory)
+
     def test_local_context(self):
         """Test a local command context."""
         self.check_context(LocalContext())
