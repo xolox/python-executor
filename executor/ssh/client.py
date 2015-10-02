@@ -100,7 +100,8 @@ def foreach(hosts, *command, **options):
                  hosts_pluralized, concatenate(hosts), concurrency, quote(command))
     # Populate the pool with remote commands to execute.
     for ssh_alias in hosts:
-        pool.add(RemoteCommand(ssh_alias, *command, **options))
+        pool.add(identifier=ssh_alias,
+                 command=RemoteCommand(ssh_alias, *command, **options))
     # Run all commands in the pool.
     pool.run()
     # Report the results to the caller.
