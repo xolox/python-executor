@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 2, 2015
+# Last Change: October 4, 2015
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
@@ -31,14 +31,6 @@ from executor import (
 )
 from executor.concurrent import CommandPool
 from executor.contexts import LocalContext, RemoteContext
-from executor.property_manager import (
-    assignable_property,
-    cached_property,
-    custom_property,
-    mutable_property,
-    PropertyManager,
-    required_property,
-)
 from executor.ssh.client import (
     DEFAULT_CONNECT_TIMEOUT,
     foreach,
@@ -486,102 +478,6 @@ class ExecutorTestCase(unittest.TestCase):
         assert not os.path.isfile(random_file)
         # Test context.capture().
         assert context.capture('hostname') == socket.gethostname()
-
-
-class CustomPropertyTestCase(unittest.TestCase):
-
-    """Tests for the custom properties defined in the :mod:`~executor.property_manager` module."""
-
-    def test_custom_property(self):
-        """Test that :class:`.custom_property` works just like :class:`property`."""
-        class test_class(object):
-            @custom_property
-            def test_property(self):
-                return random.random()
-        # Test that custom properties can be recognized as properties.
-        assert isinstance(test_class.test_property, property)
-        # Test that custom properties are recomputed every time.
-        obj = test_class()
-        assert obj.test_property != obj.test_property
-
-    def test_assignable_property(self):
-        """Test that :class:`.assignable_property` supports assignment."""
-        class test_class(object):
-            @assignable_property
-            def test_property(self):
-                return 'default'
-        # Test that assignable properties can be recognized as properties.
-        assert isinstance(test_class.test_property, property)
-        # Test that assignable properties have a default value.
-        obj = test_class()
-        assert obj.test_property == 'default'
-        # Test that assignable properties can be assigned a new value.
-        obj = test_class()
-        obj.test_property = 'changed'
-        assert obj.test_property == 'changed'
-
-    def test_required_property(self):
-        """Test that :class:`.required_property` performs validation."""
-        class test_class(PropertyManager):
-            @required_property
-            def test_property(self):
-                """A very important property."""
-        # Test that required properties must be set.
-        self.assertRaises(TypeError, test_class)
-        # Test that required properties can be set in the constructor.
-        obj = test_class(test_property='default')
-        assert obj.test_property == 'default'
-        # Test that required properties support assignment.
-        obj = test_class(test_property='default')
-        obj.test_property = 'changed'
-        assert obj.test_property == 'changed'
-        # Test that required objects can't be deleted.
-        obj = test_class(test_property='default')
-        self.assertRaises(AttributeError, delattr, obj, 'test_property')
-
-    def test_mutable_property(self):
-        """Test that :class:`mutable_property` supports assignment and deletion."""
-        class test_class(object):
-            @mutable_property
-            def test_property(self):
-                return 'default'
-        # Test that mutable properties can be recognized as properties.
-        assert isinstance(test_class.test_property, property)
-        # Test that mutable properties have a default value.
-        obj = test_class()
-        assert obj.test_property == 'default'
-        # Test that mutable properties can be reset to their default value.
-        obj = test_class()
-        obj.test_property = 'changed'
-        assert obj.test_property == 'changed'
-        del obj.test_property
-        assert obj.test_property == 'default'
-
-    def test_cached_property(self):
-        """Test that :class:`.cached_property` caches its result."""
-        class test_class(object):
-            @cached_property
-            def test_property(self):
-                return random.random()
-        # Test that cached properties can be recognized as properties.
-        assert isinstance(test_class.test_property, property)
-        # Test that cached properties are not recomputed.
-        obj = test_class()
-        some_value = obj.test_property
-        assert some_value == obj.test_property
-        # Test that cached properties can be reset.
-        del obj.test_property
-        assert some_value != obj.test_property
-
-    def test_property_injection(self):
-        """Test that :class:`.PropertyManager` enables property injection but raises an error for unknown properties."""
-        class test_class(PropertyManager):
-            @mutable_property
-            def test_property(self):
-                return 'default'
-        assert test_class().test_property == 'default'
-        assert test_class(test_property='injected').test_property == 'injected'
-        self.assertRaises(TypeError, test_class, random_keyword_argument=True)
 
 
 def tokenize_command_line(cmd):

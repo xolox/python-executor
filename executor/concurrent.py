@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 2, 2015
+# Last Change: October 4, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -18,11 +18,9 @@ import logging
 import multiprocessing
 import os
 
-# Modules included in our package.
-from executor.property_manager import mutable_property
-
 # External dependencies.
 from humanfriendly import pluralize, Spinner, Timer
+from property_manager import mutable_property
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)

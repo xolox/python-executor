@@ -11,8 +11,6 @@ the `executor` package. The following modules are available:
 - :mod:`executor.contexts`
 - :mod:`executor.ssh.client`
 - :mod:`executor.ssh.server`
-- :mod:`executor.property_manager`
-- :mod:`executor.compat`
 
 The :mod:`executor` module
 ==========================
@@ -42,16 +40,4 @@ The :mod:`executor.ssh.server` module
 =====================================
 
 .. automodule:: executor.ssh.server
-   :members:
-
-The :mod:`executor.property_manager` module
-===========================================
-
-.. automodule:: executor.property_manager
-   :members:
-
-The :mod:`executor.compat` module
-=================================
-
-.. automodule:: executor.compat
    :members:

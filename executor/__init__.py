@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 2, 2015
+# Last Change: October 4, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -48,16 +48,20 @@ import signal
 import subprocess
 import tempfile
 
-# Modules included in our package.
-from executor.compat import str
-from executor.property_manager import (
-    mutable_property,
-    PropertyManager,
-    required_property,
-)
+# External dependencies.
+from property_manager import PropertyManager, mutable_property, required_property
+
+# Define an alias for Unicode strings that's unambiguous
+# whether we are running under Python 2 or Python 3.
+try:
+    # This will raise a NameError exception in Python 3.
+    unicode
+except NameError:
+    # In Python 3 all strings are Unicode strings.
+    unicode = str
 
 # Semi-standard module versioning.
-__version__ = '4.9'
+__version__ = '5.0'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -408,7 +412,7 @@ class ExternalCommand(PropertyManager):
         :class:`python3:bytes` object (in Python 3).
         """
         return (self.input.encode(self.encoding)
-                if isinstance(self.input, str)
+                if isinstance(self.input, unicode)
                 else self.input)
 
     @mutable_property
