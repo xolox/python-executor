@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 4, 2015
+# Last Change: October 5, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -115,7 +115,7 @@ class RemoteCommand(ExternalCommand):
 
     def __init__(self, ssh_alias, *command, **options):
         """
-        Construct a :class:`RemoteCommand` object.
+        Initialize a :class:`RemoteCommand` object.
 
         :param ssh_alias: Used to set :attr:`ssh_alias`.
         :param command: Any additional positional arguments are converted to a
@@ -410,7 +410,7 @@ class RemoteCommandPool(CommandPool):
 
     def __init__(self, concurrency=DEFAULT_CONCURRENCY, **options):
         """
-        Construct a :class:`RemoteCommandPool` object.
+        Initialize a :class:`RemoteCommandPool` object.
 
         :param concurrency: Override the value of :attr:`concurrency` (an
                             integer, defaults to :data:`DEFAULT_CONCURRENCY`

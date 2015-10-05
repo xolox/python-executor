@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 4, 2015
+# Last Change: October 5, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -234,7 +234,7 @@ class ExternalCommand(PropertyManager):
 
     def __init__(self, *command, **options):
         """
-        Construct an :class:`ExternalCommand` object.
+        Initialize an :class:`ExternalCommand` object.
 
         :param command: Any positional arguments are converted to a list and
                         used to set :attr:`command`.
@@ -784,7 +784,7 @@ class ExternalCommand(PropertyManager):
                 kw['stderr'] = self.stderr_stream.fd
             else:
                 kw['stderr'] = subprocess.PIPE
-        # Construct the subprocess object.
+        # Create the subprocess object.
         self.logger.debug("Executing external command: %s", quote(kw['args']))
         self.subprocess = subprocess.Popen(**kw)
         # Synchronously wait for the external command to end?

@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 1, 2015
+# Last Change: October 5, 2015
 # URL: https://executor.readthedocs.org
 
 r"""
@@ -83,7 +83,7 @@ class AbstractContext(object):
 
     def __init__(self, **options):
         """
-        Construct an :class:`AbstractContext` object.
+        Initialize an :class:`AbstractContext` object.
 
         :param options: Any keyword arguments are passed on to all
                         :class:`.ExternalCommand` objects constructed
@@ -305,7 +305,7 @@ class RemoteContext(AbstractContext):
 
     def __init__(self, ssh_alias, **options):
         """
-        Construct a :class:`RemoteContext` object.
+        Initialize a :class:`RemoteContext` object.
 
         :param ssh_alias: The SSH alias of the remote system (a string).
         :param options: Refer to :func:`AbstractContext.__init__()`.

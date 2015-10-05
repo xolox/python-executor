@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 1, 2015
+# Last Change: October 5, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -46,7 +46,7 @@ class SSHServer(ExternalCommand):
 
     def __init__(self, **options):
         """
-        Construct an :class:`SSHServer` object.
+        Initialize an :class:`SSHServer` object.
 
         :param options: All keyword arguments are passed on to
                         :func:`executor.ExternalCommand.__init__()`.

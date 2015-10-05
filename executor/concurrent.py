@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 4, 2015
+# Last Change: October 5, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -38,7 +38,7 @@ class CommandPool(object):
 
     def __init__(self, concurrency=None, logs_directory=None):
         """
-        Construct a :class:`CommandPool` object.
+        Initialize a :class:`CommandPool` object.
 
         :param concurrency: Override the value of :attr:`concurrency`.
         :param logs_directory: Override the value of :attr:`logs_directory`.
