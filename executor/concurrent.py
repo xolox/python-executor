@@ -176,7 +176,7 @@ class CommandPool(object):
                      pluralize(self.num_commands, "command"),
                      timer)
         # Report the results to the caller.
-        return dict(self.commands)
+        return self.results
 
     def spawn(self):
         """
