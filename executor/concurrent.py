@@ -148,7 +148,8 @@ class CommandPool(object):
         """
         Keep spawning commands and collecting results until all commands have run.
 
-        :return: The value of :attr:`results`.
+        :returns: The value of :attr:`results`.
+        :raises: Any exceptions raised by :func:`collect()`.
 
         This method calls :func:`spawn()` and :func:`collect()` in a loop until
         all commands registered using :func:`add()` have run and finished. If
@@ -199,15 +200,26 @@ class CommandPool(object):
         """
         Collect the exit codes and output of finished commands.
 
-        :returns: The number of external commands that was collected by this
+        :returns: The number of external commands that were collected by this
                   invocation of :func:`collect()` (an integer).
+        :raises: :exc:`.ExternalCommandFailed`, :exc:`.RemoteCommandFailed` and
+                 :exc:`.RemoteConnectFailed` can be raised if commands in the
+                 pool have :attr:`~.ExternalCommand.check` set to
+                 :data:`True`.
+
+        .. warning:: If an exception is raised then commands that are still
+                     running will not be aborted!
         """
-        num_finished = 0
+        num_collected = 0
         for identifier, command in self.commands:
             if identifier not in self.collected and command.is_finished:
-                command.wait()
-                num_finished += 1
+                # Update our bookkeeping before wait() gets a chance to
+                # raise an exception in case an external command failed.
                 self.collected.add(identifier)
-        if num_finished > 0:
-            logger.debug("Collected %i external commands ..", num_finished)
-        return num_finished
+                # Load the command output and cleanup temporary resources.
+                # If an exception is raised we propagate it to the caller.
+                command.wait()
+                num_collected += 1
+        if num_collected > 0:
+            logger.debug("Collected %i external commands ..", num_collected)
+        return num_collected

@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 4, 2015
+# Last Change: October 5, 2015
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
@@ -328,6 +328,26 @@ class ExecutorTestCase(unittest.TestCase):
         assert all(cmd.returncode == 0 for cmd in results.values())
         assert timer.elapsed_time < (num_commands * sleep_time)
 
+    def test_command_pool_resumable(self):
+        """Make sure command pools can be resumed after raising exceptions."""
+        pool = CommandPool()
+        # Prepare two commands that will both raise an exception.
+        c1 = ExternalCommand('exit 1', check=True)
+        c2 = ExternalCommand('exit 42', check=True)
+        # Add the commands to the pool and start them.
+        pool.add(c1)
+        pool.add(c2)
+        pool.spawn()
+        # Wait for both commands to finish.
+        while not pool.is_finished:
+            time.sleep(0.1)
+        # The first call to collect() should raise an exception about `exit 1'.
+        e1 = intercept(pool.collect)
+        assert e1.command is c1
+        # The second call to collect() should raise an exception about `exit 42'.
+        e2 = intercept(pool.collect)
+        assert e2.command is c2
+
     def test_command_pool_logs_directory(self):
         """Make sure command pools can log output of commands in a directory."""
         directory = tempfile.mkdtemp()
@@ -351,7 +371,6 @@ class ExecutorTestCase(unittest.TestCase):
         # Construct a remote command using as much defaults as possible and
         # validate the resulting SSH client program command line.
         cmd = RemoteCommand('localhost', 'true', ssh_user='some-random-user')
-        cmd.logger.debug("Command line: %s", cmd.command_line)
         for token in (
                 'ssh', '-o', 'BatchMode=yes',
                        '-o', 'ConnectTimeout=%i' % DEFAULT_CONNECT_TIMEOUT,
@@ -478,6 +497,16 @@ class ExecutorTestCase(unittest.TestCase):
         assert not os.path.isfile(random_file)
         # Test context.capture().
         assert context.capture('hostname') == socket.gethostname()
+
+
+def intercept(func, *args, **kw):
+    """Intercept and return a raised exception."""
+    try:
+        func(*args, **kw)
+    except Exception as e:
+        return e
+    else:
+        assert False, "Expected exception to be raised, but nothing happened! :-s"
 
 
 def tokenize_command_line(cmd):
