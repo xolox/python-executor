@@ -348,6 +348,26 @@ class ExecutorTestCase(unittest.TestCase):
         e2 = intercept(pool.collect)
         assert e2.command is c2
 
+    def test_command_pool_termination(self):
+        """Make sure command pools can be terminated on failure."""
+        pool = CommandPool()
+        # Include a command that just sleeps for a minute.
+        sleep_cmd = ExternalCommand('sleep 60')
+        pool.add(sleep_cmd)
+        # Include a command that immediately exits with a nonzero return code.
+        pool.add(ExternalCommand('exit 1', check=True))
+        # Start the command pool and terminate it as soon as the control flow
+        # returns to us (because `exit 1' causes an exception to be raised).
+        try:
+            pool.run()
+            assert False, "Assumed CommandPool.run() to raise ExternalCommandFailed!"
+        except ExternalCommandFailed:
+            pass
+        finally:
+            pool.terminate()
+        # Make sure the sleep command was terminated.
+        assert sleep_cmd.is_terminated
+
     def test_command_pool_logs_directory(self):
         """Make sure command pools can log output of commands in a directory."""
         directory = tempfile.mkdtemp()

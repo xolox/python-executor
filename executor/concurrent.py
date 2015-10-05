@@ -208,7 +208,9 @@ class CommandPool(object):
                  :data:`True`.
 
         .. warning:: If an exception is raised then commands that are still
-                     running will not be aborted!
+                     running will not be aborted! If this concerns you then
+                     consider calling :func:`terminate()` from a
+                     :keyword:`finally` block.
         """
         num_collected = 0
         for identifier, command in self.commands:
@@ -223,3 +225,22 @@ class CommandPool(object):
         if num_collected > 0:
             logger.debug("Collected %i external commands ..", num_collected)
         return num_collected
+
+    def terminate(self):
+        """
+        Terminate any commands that are currently running.
+
+        :returns: The number of commands that were terminated (an integer).
+
+        If :func:`terminate()` successfully terminates commands, you then call
+        :func:`collect()` and the :attr:`.check` property of a terminated
+        command is :data:`True` you will get an exception because terminated
+        commands (by definition) report a nonzero :attr:`.returncode`.
+        """
+        num_terminated = 0
+        for identifier, command in self.commands:
+            if command.terminate():
+                num_terminated += 1
+        if num_terminated > 0:
+            logger.debug("Terminated %i external commands ..", num_terminated)
+        return num_terminated

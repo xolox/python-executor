@@ -61,7 +61,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '5.0.1'
+__version__ = '5.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -832,6 +832,10 @@ class ExternalCommand(PropertyManager):
         """
         Terminate a running process.
 
+        :returns: :data:`True` if the process was terminated, :data:`False`
+                  otherwise (e.g. because :func:`start()` was never called or
+                  the process just finished).
+
         Uses the :func:`subprocess.Popen.terminate()` function. Calls
         :func:`wait()` after terminating the process so that the external
         command's output is loaded and temporary resources are cleaned up. The
@@ -844,6 +848,9 @@ class ExternalCommand(PropertyManager):
             self.logger.debug("Terminating external command: %s", quote(self.command_line))
             self.subprocess.terminate()
             self.wait(check=False)
+            return True
+        else:
+            return False
 
     def load_output(self):
         """
