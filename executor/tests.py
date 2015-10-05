@@ -361,8 +361,9 @@ class ExecutorTestCase(unittest.TestCase):
         try:
             pool.run()
             assert False, "Assumed CommandPool.run() to raise ExternalCommandFailed!"
-        except ExternalCommandFailed:
-            pass
+        except ExternalCommandFailed as e:
+            # Make sure the exception was properly tagged.
+            assert e.pool == pool
         # Make sure the sleep command was terminated.
         assert sleep_cmd.is_terminated
 

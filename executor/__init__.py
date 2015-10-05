@@ -61,7 +61,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '6.0'
+__version__ = '6.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -1070,17 +1070,26 @@ class ExternalCommandFailed(Exception):
 
     .. attribute:: command
 
-       The :class:`ExternalCommand` object.
+       The :class:`ExternalCommand` object that triggered the exception.
+
+    .. attribute:: pool
+
+       The :class:`.CommandPool` object that triggered the exception
+       (:data:`None` when the command wasn't part of a pool).
     """
 
-    def __init__(self, command):
+    def __init__(self, command, pool=None):
         """
         Initialize an :class:`ExternalCommandFailed` object.
 
-        :param command: The :class:`ExternalCommand` object.
+        :param command: The :class:`ExternalCommand` object that triggered the
+                        exception.
+        :param pool: The :class:`.CommandPool` object that triggered the
+                     exception (optional).
         """
-        self.command = command
         super(ExternalCommandFailed, self).__init__(command.error_message)
+        self.command = command
+        self.pool = None
 
     @property
     def returncode(self):

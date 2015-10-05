@@ -19,6 +19,7 @@ import multiprocessing
 import os
 
 # External dependencies.
+from executor import ExternalCommandFailed
 from humanfriendly import format, pluralize, Spinner, Timer
 from property_manager import mutable_property
 
@@ -214,8 +215,9 @@ class CommandPool(object):
                   invocation of :func:`collect()` (an integer).
         :raises: :exc:`.ExternalCommandFailed`, :exc:`.RemoteCommandFailed` and
                  :exc:`.RemoteConnectFailed` can be raised if commands in the
-                 pool have :attr:`~.ExternalCommand.check` set to
-                 :data:`True`.
+                 pool have :attr:`~.ExternalCommand.check` set to :data:`True`.
+                 The :attr:`~.ExternalCommandFailed.pool` attribute of the
+                 exception will be set to the pool.
 
         .. warning:: If an exception is raised, commands that are still running
                      will not be terminated! If this concerns you then consider
@@ -225,12 +227,17 @@ class CommandPool(object):
         num_collected = 0
         for identifier, command in self.commands:
             if identifier not in self.collected and command.is_finished:
-                # Update our bookkeeping before wait() gets a chance to
-                # raise an exception in case an external command failed.
-                self.collected.add(identifier)
-                # Load the command output and cleanup temporary resources.
-                # If an exception is raised we propagate it to the caller.
-                command.wait()
+                try:
+                    # Load the command output and cleanup temporary resources.
+                    command.wait()
+                except ExternalCommandFailed as e:
+                    # Tag the exception object with the pool it came from.
+                    e.pool = self
+                    # Propagate the exception to the caller.
+                    raise
+                finally:
+                    # Update our bookkeeping even if wait() raised an exception.
+                    self.collected.add(identifier)
                 num_collected += 1
         if num_collected > 0:
             logger.debug("Collected %s ..", pluralize(num_collected, "external command"))
