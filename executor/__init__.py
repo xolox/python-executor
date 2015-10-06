@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 5, 2015
+# Last Change: October 6, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -49,7 +49,7 @@ import subprocess
 import tempfile
 
 # External dependencies.
-from property_manager import PropertyManager, mutable_property, required_property
+from property_manager import PropertyManager, mutable_property, required_property, writable_property
 
 # Define an alias for Unicode strings that's unambiguous
 # whether we are running under Python 2 or Python 3.
@@ -61,7 +61,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '6.1'
+__version__ = '6.2'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -1065,17 +1065,7 @@ class ExternalCommandFailed(Exception):
 
     This exception is raised by :func:`execute()`,
     :func:`~ExternalCommand.start()` and :func:`~ExternalCommand.wait()` when
-    an external command exits with a nonzero status code. Exposes the following
-    attributes:
-
-    .. attribute:: command
-
-       The :class:`ExternalCommand` object that triggered the exception.
-
-    .. attribute:: pool
-
-       The :class:`.CommandPool` object that triggered the exception
-       (:data:`None` when the command wasn't part of a pool).
+    an external command exits with a nonzero status code.
     """
 
     def __init__(self, command, pool=None):
@@ -1091,12 +1081,25 @@ class ExternalCommandFailed(Exception):
         self.command = command
         self.pool = None
 
+    @writable_property(usage_notes=False)
+    def command(self):
+        """The :class:`ExternalCommand` object that triggered the exception."""
+
+    @writable_property(usage_notes=False)
+    def pool(self):
+        """
+        The :class:`.CommandPool` object that triggered the exception.
+
+        This property will be :data:`None` when the exception wasn't raised
+        from a command pool.
+        """
+
     @property
     def returncode(self):
-        """Shortcut for :attr:`ExternalCommand.returncode`."""
+        """Shortcut for the external command's :attr:`~ExternalCommand.returncode`."""
         return self.command.returncode
 
     @property
     def error_message(self):
-        """Shortcut for :attr:`ExternalCommand.error_message`."""
+        """Shortcut for the external command's :attr:`~ExternalCommand.error_message`."""
         return self.command.error_message

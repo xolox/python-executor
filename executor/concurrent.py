@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 5, 2015
+# Last Change: October 6, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -21,13 +21,13 @@ import os
 # External dependencies.
 from executor import ExternalCommandFailed
 from humanfriendly import format, pluralize, Spinner, Timer
-from property_manager import mutable_property
+from property_manager import PropertyManager, mutable_property
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
 
 
-class CommandPool(object):
+class CommandPool(PropertyManager):
 
     """
     Execute multiple external commands concurrently.
@@ -37,18 +37,21 @@ class CommandPool(object):
     :func:`run()`.
     """
 
-    def __init__(self, concurrency=None, logs_directory=None):
+    def __init__(self, concurrency=None, **options):
         """
         Initialize a :class:`CommandPool` object.
 
         :param concurrency: Override the value of :attr:`concurrency`.
         :param logs_directory: Override the value of :attr:`logs_directory`.
         """
+        # Initialize instance variables.
         self.collected = set()
         self.commands = []
+        # Transform `concurrency' from a positional into a keyword argument.
         if concurrency:
-            self.concurrency = concurrency
-        self.logs_directory = logs_directory
+            options['concurrency'] = concurrency
+        # Set writable properties based on keyword arguments.
+        super(CommandPool, self).__init__(**options)
 
     @mutable_property
     def concurrency(self):
@@ -78,6 +81,19 @@ class CommandPool(object):
         .. _tail -f: https://en.wikipedia.org/wiki/Tail_(Unix)#File_monitoring
         """
 
+    @mutable_property
+    def delay_checks(self):
+        """
+        Whether to postpone raising an exception until all commands have run (a boolean).
+
+        If this option is :data:`True` (not the default) and a command with
+        :attr:`.check` set to :data:`True` fails the command pool's execution
+        is not aborted, instead all commands will be allowed to run. After all
+        commands have finished a :exc:`CommandPoolFailed` exception will be
+        raised that tells you which command(s) failed.
+        """
+        return False
+
     @property
     def is_finished(self):
         """:data:`True` if all commands in the pool have finished, :data:`False` otherwise."""
@@ -92,6 +108,11 @@ class CommandPool(object):
     def num_finished(self):
         """The number of commands in the pool that have already finished (an integer)."""
         return sum(cmd.is_finished for id, cmd in self.commands)
+
+    @property
+    def num_failed(self):
+        """The number of commands in the pool that failed (an integer)."""
+        return sum(cmd.failed for id, cmd in self.commands)
 
     @property
     def num_running(self):
@@ -178,6 +199,8 @@ class CommandPool(object):
                     ))
                     spinner.sleep()
         except Exception:
+            if self.num_running > 0:
+                logger.warning("Command pool raised exception, terminating running commands!")
             # Terminate commands that are still running.
             self.terminate()
             # Re-raise the exception to the caller.
@@ -213,11 +236,17 @@ class CommandPool(object):
 
         :returns: The number of external commands that were collected by this
                   invocation of :func:`collect()` (an integer).
-        :raises: :exc:`.ExternalCommandFailed`, :exc:`.RemoteCommandFailed` and
-                 :exc:`.RemoteConnectFailed` can be raised if commands in the
-                 pool have :attr:`~.ExternalCommand.check` set to :data:`True`.
-                 The :attr:`~.ExternalCommandFailed.pool` attribute of the
-                 exception will be set to the pool.
+        :raises: If :attr:`delay_checks` is :data:`True`:
+                  After all external commands have started and finished, if any
+                  commands that have :attr:`~.ExternalCommand.check` set to
+                  :data:`True` failed :exc:`CommandPoolFailed` is raised.
+                 If :attr:`delay_checks` is :data:`False`:
+                  The exceptions :exc:`.ExternalCommandFailed`,
+                  :exc:`.RemoteCommandFailed` and :exc:`.RemoteConnectFailed`
+                  can be raised if a command in the pool that has
+                  :attr:`~.ExternalCommand.check` set to :data:`True` fails.
+                  The :attr:`~.ExternalCommandFailed.pool` attribute of the
+                  exception will be set to the pool.
 
         .. warning:: If an exception is raised, commands that are still running
                      will not be terminated! If this concerns you then consider
@@ -229,7 +258,7 @@ class CommandPool(object):
             if identifier not in self.collected and command.is_finished:
                 try:
                     # Load the command output and cleanup temporary resources.
-                    command.wait()
+                    command.wait(check=False if self.delay_checks else None)
                 except ExternalCommandFailed as e:
                     # Tag the exception object with the pool it came from.
                     e.pool = self
@@ -241,6 +270,9 @@ class CommandPool(object):
                 num_collected += 1
         if num_collected > 0:
             logger.debug("Collected %s ..", pluralize(num_collected, "external command"))
+        # Check if delayed error checking was requested and is applicable.
+        if self.delay_checks and self.is_finished and any(cmd.failed for id, cmd in self.commands):
+            raise CommandPoolFailed(pool=self)
         return num_collected
 
     def terminate(self):
@@ -261,3 +293,42 @@ class CommandPool(object):
         if num_terminated > 0:
             logger.warning("Terminated %s ..", pluralize(num_terminated, "external command"))
         return num_terminated
+
+
+class CommandPoolFailed(Exception):
+
+    """
+    Raised by :func:`~CommandPool.collect()` when not all commands succeeded.
+
+    This exception is only raised when :attr:`~CommandPool.delay_checks` is
+    :data:`True`.
+    """
+
+    def __init__(self, pool):
+        """
+        Initialize a :class:`CommandPoolFailed` object.
+
+        :param pool: The :class:`CommandPool` object that triggered the
+                     exception.
+        """
+        self.pool = pool
+        super(CommandPoolFailed, self).__init__(self.error_message)
+
+    @property
+    def commands(self):
+        """
+        A list of :class:`ExternalCommand` objects that *failed unexpectedly*.
+
+        The resulting list includes only commands where :attr:`.check` and
+        :attr:`.failed` are both :data:`True`.
+        """
+        return [cmd for id, cmd in self.pool.commands if cmd.check and cmd.failed]
+
+    @property
+    def error_message(self):
+        """An error message that explains which commands *failed unexpectedly* (a string)."""
+        summary = format("%i out of %s failed unexpectedly:",
+                         self.pool.num_failed,
+                         pluralize(self.pool.num_commands, "command"))
+        details = "\n".join(" - %s" % cmd.error_message for cmd in self.commands)
+        return summary + "\n\n" + details

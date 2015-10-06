@@ -3,7 +3,7 @@
 """Setup script for the `executor` package."""
 
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 4, 2015
+# Last Change: October 6, 2015
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -43,6 +43,6 @@ setup(name='executor',
       packages=find_packages(),
       install_requires=[
           'humanfriendly >= 1.19',
-          'property-manager >= 1.0',
+          'property-manager >= 1.2',
       ],
       test_suite='executor.tests')

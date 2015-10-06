@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 5, 2015
+# Last Change: October 6, 2015
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
@@ -29,7 +29,7 @@ from executor import (
     quote,
     which,
 )
-from executor.concurrent import CommandPool
+from executor.concurrent import CommandPool, CommandPoolFailed
 from executor.contexts import LocalContext, RemoteContext
 from executor.ssh.client import (
     DEFAULT_CONNECT_TIMEOUT,
@@ -367,23 +367,40 @@ class ExecutorTestCase(unittest.TestCase):
         # Make sure the sleep command was terminated.
         assert sleep_cmd.is_terminated
 
+    def test_command_pool_delay_checks(self):
+        """Make sure command pools can delay error checking until all commands have finished."""
+        pool = CommandPool(delay_checks=True)
+        # Include a command that fails immediately.
+        pool.add(ExternalCommand('exit 1', check=True))
+        # Include some commands that just sleep for a while.
+        pool.add(ExternalCommand('sleep 1', check=True))
+        pool.add(ExternalCommand('sleep 2', check=True))
+        pool.add(ExternalCommand('sleep 3', check=True))
+        # Make sure the expected exception is raised.
+        self.assertRaises(CommandPoolFailed, pool.run)
+        # Make sure all commands were started.
+        assert all(cmd.was_started for id, cmd in pool.commands)
+        # Make sure all commands finished.
+        assert all(cmd.is_finished for id, cmd in pool.commands)
+
     def test_command_pool_logs_directory(self):
         """Make sure command pools can log output of commands in a directory."""
-        directory = tempfile.mkdtemp()
+        root_directory = tempfile.mkdtemp()
+        sub_directory = os.path.join(root_directory, 'does-not-exist-yet')
         identifiers = [1, 2, 3, 4, 5]
         try:
-            pool = CommandPool(concurrency=5, logs_directory=directory)
+            pool = CommandPool(concurrency=5, logs_directory=sub_directory)
             for i in identifiers:
                 pool.add(identifier=i, command=ExternalCommand('echo %i' % i))
             pool.run()
-            files = os.listdir(directory)
+            files = os.listdir(sub_directory)
             assert sorted(files) == sorted(['%s.log' % i for i in identifiers])
             for filename in files:
-                with open(os.path.join(directory, filename)) as handle:
+                with open(os.path.join(sub_directory, filename)) as handle:
                     contents = handle.read()
                 assert filename == ('%s.log' % contents.strip())
         finally:
-            shutil.rmtree(directory)
+            shutil.rmtree(root_directory)
 
     def test_ssh_command_lines(self):
         """Make sure SSH client command lines are correctly generated."""
