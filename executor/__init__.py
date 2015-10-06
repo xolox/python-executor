@@ -61,7 +61,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '7.0'
+__version__ = '7.0.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)

@@ -131,6 +131,16 @@ class CommandPool(PropertyManager):
         """
         return dict(self.commands)
 
+    @property
+    def unexpected_failures(self):
+        """
+        A list of :class:`ExternalCommand` objects that *failed unexpectedly*.
+
+        The resulting list includes only commands where :attr:`.check` and
+        :attr:`.failed` are both :data:`True`.
+        """
+        return [cmd for id, cmd in self.commands if cmd.check and cmd.failed]
+
     def add(self, command, identifier=None, log_file=None):
         """
         Add an external command to the pool of commands.
@@ -271,7 +281,7 @@ class CommandPool(PropertyManager):
         if num_collected > 0:
             logger.debug("Collected %s ..", pluralize(num_collected, "external command"))
         # Check if delayed error checking was requested and is applicable.
-        if self.delay_checks and self.is_finished and any(cmd.failed for id, cmd in self.commands):
+        if self.delay_checks and self.is_finished and self.unexpected_failures:
             raise CommandPoolFailed(pool=self)
         return num_collected
 
@@ -316,13 +326,8 @@ class CommandPoolFailed(Exception):
 
     @property
     def commands(self):
-        """
-        A list of :class:`ExternalCommand` objects that *failed unexpectedly*.
-
-        The resulting list includes only commands where :attr:`.check` and
-        :attr:`.failed` are both :data:`True`.
-        """
-        return [cmd for id, cmd in self.pool.commands if cmd.check and cmd.failed]
+        """A shortcut for :attr:`.unexpected_failures`."""
+        return self.pool.unexpected_failures
 
     @property
     def error_message(self):
