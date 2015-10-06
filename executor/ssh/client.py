@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 5, 2015
+# Last Change: October 6, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -65,9 +65,11 @@ def foreach(hosts, *command, **options):
                     to set the :attr:`~.ExternalCommand.command` property of
                     the :class:`RemoteCommand` objects constructed by
                     :func:`foreach()`.
-    :param concurrency: The value of :attr:`.CommandPool.concurrency` to use
+    :param concurrency: The value of :attr:`.concurrency` to use
                         (defaults to :data:`DEFAULT_CONCURRENCY`).
-    :param logs_directory: The value of :attr:`.CommandPool.logs_directory` to
+    :param delay_checks: The value of :attr:`.delay_checks` to use
+                         (defaults to :data:`True`).
+    :param logs_directory: The value of :attr:`.logs_directory` to
                            use (defaults to :data:`None`).
     :param options: Additional keyword arguments can be used to conveniently
                     override the default values of the writable properties of
@@ -76,24 +78,60 @@ def foreach(hosts, *command, **options):
                     details).
     :returns: The list of :class:`RemoteCommand` objects constructed by
               :func:`foreach()`.
-    :raises: :exc:`RemoteCommandFailed` when an SSH connection was successful
-             but the remote command failed (the exit code of the ``ssh``
-             command was neither zero nor 255). Use the keyword argument
-             ``check=False`` to disable raising of this exception.
-    :raises: :exc:`RemoteConnectFailed` when an SSH connection failed (the exit
-             code of the ``ssh`` command is 255). Use the keyword argument
-             ``check=False`` to disable raising of this exception.
+    :raises: Any of the following exceptions can be raised:
+
+             - :exc:`.CommandPoolFailed` if :attr:`.delay_checks` is enabled
+               (the default) and a command in the pool that has :attr:`.check`
+               enabled (the default) fails.
+             - :exc:`RemoteCommandFailed` if :attr:`.delay_checks` is disabled
+               (not the default) and an SSH connection was successful but the
+               remote command failed (the exit code of the ``ssh`` command was
+               neither zero nor 255). Use the keyword argument ``check=False``
+               to disable raising of this exception.
+             - :exc:`RemoteConnectFailed` if :attr:`.delay_checks` is disabled
+               (not the default) and an SSH connection failed (the exit code of
+               the ``ssh`` command is 255). Use the keyword argument
+               ``check=False`` to disable raising of this exception.
+
+    .. note:: The :func:`foreach()` function enables the :attr:`.check` and
+              :attr:`.delay_checks` options by default in an attempt to make it
+              easy to do "the right thing". My assumption here is that if you
+              are running *the same command* on multiple remote hosts:
+
+              - You definitely want to know when a remote command has failed,
+                ideally without manually checking the :attr:`.succeeded`
+                property of each command.
+
+              - Regardless of whether some remote commands fail you want to
+                know that the command was at least executed on all hosts,
+                otherwise your cluster of hosts will end up in a very
+                inconsistent state.
+
+              - If remote commands fail and an exception is raised the
+                exception message should explain *which* remote commands
+                failed.
+
+              If these assumptions are incorrect then you can use the keyword
+              arguments ``check=False`` and/or ``delay_checks=False`` to opt
+              out of "doing the right thing" ;-)
     """
     hosts = list(hosts)
-    # Remove the concurrency and logs_directory values from the options.
+    # Separate command pool options from command options.
     concurrency = options.pop('concurrency', DEFAULT_CONCURRENCY)
+    delay_checks = options.pop('delay_checks', True)
     logs_directory = options.pop('logs_directory', None)
-    # Capture the output of remote commands by default (unless the caller
-    # passed capture=False).
-    options.setdefault('capture', True)
+    # Capture the output of remote commands by default
+    # (unless the caller requested capture=False).
+    if options.get('capture') is not False:
+        options['capture'] = True
+    # Enable error checking of remote commands by default
+    # (unless the caller requested check=False).
+    if options.get('check') is not False:
+        options['check'] = True
     # Create a command pool.
     timer = Timer()
     pool = RemoteCommandPool(concurrency=concurrency,
+                             delay_checks=delay_checks,
                              logs_directory=logs_directory)
     hosts_pluralized = pluralize(len(hosts), "host")
     logger.debug("Preparing to run remote command on %s (%s) with a concurrency of %i: %s",
