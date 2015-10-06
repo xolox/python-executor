@@ -383,6 +383,16 @@ class ExecutorTestCase(unittest.TestCase):
         # Make sure all commands finished.
         assert all(cmd.is_finished for id, cmd in pool.commands)
 
+    def test_command_pool_delay_checks_noop(self):
+        """Make sure command pools with delayed error checking don't raise when ``check=False``."""
+        pool = CommandPool(delay_checks=True)
+        # Include a command that fails immediately.
+        pool.add(ExternalCommand('exit 1', check=False))
+        # Run the command pool without catching exceptions; we don't except any.
+        pool.run()
+        # Make sure the command failed even though the exception wasn't raised.
+        assert all(cmd.failed for id, cmd in pool.commands)
+
     def test_command_pool_logs_directory(self):
         """Make sure command pools can log output of commands in a directory."""
         root_directory = tempfile.mkdtemp()
