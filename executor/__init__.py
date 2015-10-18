@@ -727,13 +727,16 @@ class ExternalCommand(PropertyManager):
     @mutable_property
     def virtual_environment(self):
         """
-        The Python virtual environment to activate before running the command.
+        The `Python virtual environment`_ to activate before running the command.
 
         If this option is set to the directory of a Python virtual environment
-        (a string) then the external command will be prefixed by a ``source``
-        command that evaluates the ``bin/activate`` script in the Python
-        virtual environment before executing the user defined external
+        (a string) then the external command will be prefixed by a `source
+        shell command`_ that evaluates the ``bin/activate`` script in the
+        Python virtual environment before executing the user defined external
         command.
+
+        .. _Python virtual environment: http://docs.python-guide.org/en/latest/dev/virtualenvs/
+        .. _source shell command: https://en.wikipedia.org/wiki/Source_(command)
         """
 
     @property
