@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 6, 2015
+# Last Change: October 18, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -61,7 +61,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '7.0.1'
+__version__ = '7.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -192,9 +192,9 @@ class ExternalCommand(PropertyManager):
      The :attr:`async`, :attr:`capture`, :attr:`capture_stderr`, :attr:`check`,
      :attr:`directory`, :attr:`encoding`, :attr:`environment`,
      :attr:`fakeroot`, :attr:`input`, :attr:`logger`, :attr:`merge_streams`,
-     :attr:`silent`, :attr:`stdout_file`, :attr:`stderr_file` and :attr:`sudo`
-     properties allow you to configure how the external command will be run
-     (before it is started).
+     :attr:`silent`, :attr:`stdout_file`, :attr:`stderr_file`, :attr:`sudo` and
+     :attr:`virtual_environment` properties allow you to configure how the
+     external command will be run (before it is started).
 
     **Computed properties**
      The :attr:`command`, :attr:`command_line`, :attr:`decoded_stderr`,
@@ -352,12 +352,22 @@ class ExternalCommand(PropertyManager):
           semicolons, ampersands and pipes can be used (and all the usual
           caveats apply :-).
 
+        - If :attr:`virtual_environment` is set the command is converted to a
+          shell command line and prefixed by the applicable ``source ...``
+          command.
+
         - If :attr:`fakeroot` or :attr:`sudo` is set the respective command
           name may be prefixed to the command line generated here.
         """
         command_line = list(self.command)
+        if self.virtual_environment:
+            # Prepare to execute the command inside a Python virtual environment.
+            activate_script = os.path.join(self.virtual_environment, 'bin', 'activate')
+            shell_command = command_line[0] if len(command_line) == 1 else quote(command_line)
+            command_line = ['source %s && %s' % (quote(activate_script), shell_command)]
         if len(command_line) == 1:
-            command_line = [DEFAULT_SHELL, '-c'] + command_line
+            # Prepare to execute a shell command.
+            command_line = [DEFAULT_SHELL, '-c', command_line[0]]
         if (self.fakeroot or self.sudo) and not self.have_superuser_privileges:
             if self.sudo:
                 # Superuser privileges requested by caller.
@@ -713,6 +723,18 @@ class ExternalCommand(PropertyManager):
         superuser privileges.
         """
         return False
+
+    @mutable_property
+    def virtual_environment(self):
+        """
+        The Python virtual environment to activate before running the command.
+
+        If this option is set to the directory of a Python virtual environment
+        (a string) then the external command will be prefixed by a ``source``
+        command that evaluates the ``bin/activate`` script in the Python
+        virtual environment before executing the user defined external
+        command.
+        """
 
     @property
     def was_started(self):

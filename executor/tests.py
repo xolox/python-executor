@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 6, 2015
+# Last Change: October 18, 2015
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
@@ -197,6 +197,29 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertEqual(execute('echo $PWD', capture=True, directory=directory), directory)
         finally:
             os.rmdir(directory)
+
+    def test_virtual_environment_option(self):
+        """Make sure Python virtual environments can be used."""
+        directory = tempfile.mkdtemp()
+        virtual_environment = os.path.join(directory, 'environment')
+        try:
+            # Create a virtual environment to run the command in.
+            execute('virtualenv', virtual_environment)
+            # This is the expected value of `sys.executable'.
+            expected_executable = os.path.join(virtual_environment, 'bin', 'python')
+            # Get the actual value of `sys.executable' by running a Python
+            # interpreter inside the virtual environment.
+            actual_executable = execute('python', '-c', 'import sys; print(sys.executable)',
+                                        capture=True, virtual_environment=virtual_environment)
+            # Make sure the values match.
+            assert os.path.samefile(expected_executable, actual_executable)
+            # Make sure that shell commands are also supported (command line
+            # munging inside executor is a bit tricky and I specifically got
+            # this wrong on the first attempt :-).
+            output = execute('echo $VIRTUAL_ENV', capture=True, virtual_environment=virtual_environment)
+            assert os.path.samefile(virtual_environment, output)
+        finally:
+            shutil.rmtree(directory)
 
     def test_fakeroot_option(self):
         """Make sure ``fakeroot`` can be used."""
