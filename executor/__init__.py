@@ -61,7 +61,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '7.1'
+__version__ = '7.1.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -1093,7 +1093,7 @@ class ExternalCommandFailed(Exception):
     an external command exits with a nonzero status code.
     """
 
-    def __init__(self, command, pool=None):
+    def __init__(self, command, pool=None, error_message=None):
         """
         Initialize an :class:`ExternalCommandFailed` object.
 
@@ -1101,10 +1101,16 @@ class ExternalCommandFailed(Exception):
                         exception.
         :param pool: The :class:`.CommandPool` object that triggered the
                      exception (optional).
+        :param error_message: An error message to override the default message
+                              taken from :attr:`~ExternalCommand.error_message`.
         """
-        super(ExternalCommandFailed, self).__init__(command.error_message)
+        # Initialize instance properties.
         self.command = command
         self.pool = None
+        if error_message:
+            self.error_message = error_message
+        # Initialize the superclass.
+        super(ExternalCommandFailed, self).__init__(self.error_message)
 
     @writable_property(usage_notes=False)
     def command(self):
@@ -1124,7 +1130,13 @@ class ExternalCommandFailed(Exception):
         """Shortcut for the external command's :attr:`~ExternalCommand.returncode`."""
         return self.command.returncode
 
-    @property
+    @writable_property(usage_notes=False)
     def error_message(self):
-        """Shortcut for the external command's :attr:`~ExternalCommand.error_message`."""
+        """
+        An error message explaining what went wrong (a string).
+
+        Defaults to :attr:`~ExternalCommand.error_message` but can be
+        overridden using the keyword argument of the same name to
+        :func:`__init__()`.
+        """
         return self.command.error_message

@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 5, 2015
+# Last Change: October 18, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -144,7 +144,7 @@ class SSHServer(ExternalCommand):
             while not self.is_accepting_connections:
                 if timer.elapsed_time > timeout:
                     msg = "SSH server didn't start accepting connections within timeout of %s!"
-                    raise TimeoutError(msg % format_timespan(timeout))
+                    raise TimeoutError(command=self, error_message=msg % format_timespan(timeout))
                 spinner.step(label="Waiting for SSH server to accept connections")
                 spinner.sleep()
         logger.debug("Waited %s after startup for SSH server to accept connections.", timer)
