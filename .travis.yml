@@ -9,6 +9,7 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install --yes openssh-server
 install:
+  - pip install --requirement=requirements-flake8.txt
   - pip install coveralls
   - LC_ALL=C pip install .
 script:
