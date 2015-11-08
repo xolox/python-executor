@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 6, 2015
+# Last Change: November 8, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -25,7 +25,14 @@ from humanfriendly import concatenate, pluralize, Timer
 from property_manager import mutable_property, required_property
 
 # Modules included in our package.
-from executor import DEFAULT_WORKING_DIRECTORY, ExternalCommand, ExternalCommandFailed, quote
+from executor import (
+    COMMAND_NOT_FOUND_STATUS,
+    DEFAULT_WORKING_DIRECTORY,
+    CommandNotFound,
+    ExternalCommand,
+    ExternalCommandFailed,
+    quote,
+)
 from executor.concurrent import CommandPool
 
 # Initialize a logger.
@@ -48,7 +55,7 @@ SSH_PROGRAM_NAME = 'ssh'
 
 SSH_ERROR_STATUS = 255
 """
-The exit status used by the ``ssh`` program if an error occurred.
+The exit status used by the ``ssh`` program if an error occurred (an integer).
 
 Used by :attr:`RemoteCommand.error_message` and
 :attr:`RemoteCommand.error_type` to distinguish when the ``ssh`` program itself
@@ -266,7 +273,7 @@ class RemoteCommand(ExternalCommand):
     def directory(self, value):
         self.remote_directory = value
 
-    @property
+    @mutable_property
     def error_message(self):
         """A user friendly explanation of how the remote command failed (a string or :data:`None`)."""
         if self.error_type is RemoteConnectFailed:
@@ -276,7 +283,7 @@ class RemoteCommand(ExternalCommand):
             text = "External command on %s failed with exit code %s! (SSH command: %s)"
             return text % (self.ssh_alias, self.returncode, quote(self.command_line))
 
-    @property
+    @mutable_property
     def error_type(self):
         """
         An exception class applicable to the kind of failure detected or :data:`None`.
@@ -286,11 +293,12 @@ class RemoteCommand(ExternalCommand):
         when :attr:`~.ExternalCommand.returncode` is set and not zero,
         :data:`None` otherwise.
         """
-        if self.returncode is not None:
-            if self.returncode == SSH_ERROR_STATUS:
-                return RemoteConnectFailed
-            elif self.returncode != 0:
-                return RemoteCommandFailed
+        if self.returncode == SSH_ERROR_STATUS:
+            return RemoteConnectFailed
+        elif self.returncode == COMMAND_NOT_FOUND_STATUS:
+            return RemoteCommandNotFound
+        elif self.returncode not in (None, 0):
+            return RemoteCommandFailed
 
     @property
     def have_superuser_privileges(self):
@@ -459,11 +467,16 @@ class RemoteCommandPool(CommandPool):
         super(RemoteCommandPool, self).__init__(concurrency, **options)
 
 
-class RemoteCommandFailed(ExternalCommandFailed):
-
-    """Raised by :func:`foreach()` when a remote command executed over SSH fails."""
-
-
 class RemoteConnectFailed(ExternalCommandFailed):
 
-    """Raised by :func:`foreach()` when an SSH connection itself fails (not the remote command)."""
+    """Raised by :class:`RemoteCommand` when an SSH connection itself fails (not the remote command)."""
+
+
+class RemoteCommandFailed(ExternalCommandFailed):
+
+    """Raised by :class:`RemoteCommand` when a remote command executed over SSH fails."""
+
+
+class RemoteCommandNotFound(RemoteCommandFailed, CommandNotFound):
+
+    """Raised by :class:`RemoteCommand` when a remote command returns :data:`.COMMAND_NOT_FOUND_STATUS`."""

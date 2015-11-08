@@ -41,6 +41,7 @@ Classes and functions
 """
 
 # Standard library modules.
+import errno
 import logging
 import os
 import pipes
@@ -50,6 +51,7 @@ import sys
 import tempfile
 
 # External dependencies.
+from humanfriendly import format
 from property_manager import PropertyManager, mutable_property, required_property, writable_property
 
 # Define an alias for Unicode strings that's unambiguous
@@ -62,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '7.2'
+__version__ = '7.3'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -96,11 +98,17 @@ you're free to customize it if you really want to write your shell commands in
 ``fish`` or ``zsh`` syntax :-).
 """
 
+COMMAND_NOT_FOUND_STATUS = 127
+"""The exit status used by shells when a command is not found (an integer)."""
+
 DEFAULT_WORKING_DIRECTORY = os.curdir
 """
 The default working directory for external commands (a string). Defaults to the
 working directory of the current process using :data:`os.curdir`.
 """
+
+COMMAND_NOT_FOUND_CODES = (errno.ENOENT,)
+"""Numeric error codes returned when a command isn't available on the system (a tuple of integers)."""
 
 IS_WINDOWS = sys.platform.startswith('win')
 
@@ -449,17 +457,28 @@ class ExternalCommand(PropertyManager):
         """
         return {}
 
-    @property
+    @mutable_property
     def error_message(self):
         """A string describing how the external command failed or :data:`None`."""
-        if self.error_type is ExternalCommandFailed:
-            text = "External command failed with exit code %s! (command: %s)"
-            return text % (self.returncode, quote(self.command_line))
+        if self.error_type is CommandNotFound:
+            return format("External command isn't available! (command: %s, search path: %s)",
+                          quote(self.command_line), get_search_path())
+        elif self.error_type is ExternalCommandFailed:
+            return format("External command failed with exit code %s! (command: %s)",
+                          self.returncode, quote(self.command_line))
 
-    @property
+    @mutable_property
     def error_type(self):
-        """:exc:`ExternalCommandFailed` when :attr:`returncode` is a nonzero number, :data:`None` otherwise."""
-        if self.is_finished and self.failed:
+        """
+        An appropriate exception class or :data:`None` (when no error occurred).
+
+        :class:`CommandNotFound` if the external command exits with return code
+        :data:`COMMAND_NOT_FOUND_STATUS` or :exc:`ExternalCommandFailed` if the
+        external command exits with any other nonzero return code.
+        """
+        if self.returncode == COMMAND_NOT_FOUND_STATUS:
+            return CommandNotFound
+        elif self.returncode not in (None, 0):
             return ExternalCommandFailed
 
     @property
@@ -467,11 +486,14 @@ class ExternalCommand(PropertyManager):
         """
         Whether the external command has failed.
 
-        :data:`True` if :attr:`returncode` is a nonzero number, :data:`False`
-        if :attr:`returncode` is zero, :data:`None` when the external command
-        hasn't been started or is still running.
+        - :data:`True` if :attr:`returncode` is a nonzero number
+          or :attr:`error_type` is set (e.g. because the external
+          command doesn't exist).
+        - :data:`False` if :attr:`returncode` is zero.
+        - :data:`None` when the external command hasn't been started or is
+          still running.
         """
-        return (not self.succeeded) if self.is_finished else None
+        return (not self.succeeded) if self.succeeded is not None else None
 
     @mutable_property
     def fakeroot(self):
@@ -522,7 +544,7 @@ class ExternalCommand(PropertyManager):
         finished, :data:`False` when the external command hasn't been started
         yet or is still running.
         """
-        return self.subprocess.poll() is not None if self.subprocess else False
+        return self.error_type is not None or self.returncode is not None
 
     @property
     def is_running(self):
@@ -709,11 +731,17 @@ class ExternalCommand(PropertyManager):
         """
         Whether the external command succeeded.
 
-        :data:`True` if :attr:`returncode` is zero, :data:`False` if
-        :attr:`returncode` is a nonzero number, :data:`None` when the external
-        command hasn't been started or is still running.
+        - :data:`True` if :attr:`returncode` is zero.
+        - :data:`False` if :attr:`returncode` is a nonzero number
+          or :attr:`error_type` is set (e.g. because the external
+          command doesn't exist).
+        - :data:`None` when the external command hasn't been started or is
+          still running.
         """
-        return self.returncode == 0 if self.is_finished else None
+        if self.is_finished:
+            return self.returncode == 0
+        else:
+            return None
 
     @mutable_property
     def sudo(self):
@@ -742,7 +770,7 @@ class ExternalCommand(PropertyManager):
         .. _source shell command: https://en.wikipedia.org/wiki/Source_(command)
         """
 
-    @property
+    @mutable_property
     def was_started(self):
         """
         Whether the external command has already been started.
@@ -751,7 +779,7 @@ class ExternalCommand(PropertyManager):
         the external command, :data:`False` when :func:`start()` hasn't been
         called yet.
         """
-        return self.subprocess is not None
+        return self.error_type is not None or self.subprocess is not None
 
     def start(self):
         """
@@ -796,14 +824,26 @@ class ExternalCommand(PropertyManager):
             kw['stderr'] = self.null_device if kw['stderr'] is None else kw['stderr']
         # Create the subprocess object.
         self.logger.debug("Executing external command: %s", quote(kw['args']))
-        self.subprocess = subprocess.Popen(**kw)
+        # Clear previous values (if any).
+        delattr(self, 'error_type')
+        self.subprocess = None
+        try:
+            self.subprocess = subprocess.Popen(**kw)
+        except OSError as e:
+            if e.errno in COMMAND_NOT_FOUND_CODES:
+                # Enable uniform error handling.
+                self.error_type = CommandNotFound
+            else:
+                # Don't swallow exceptions we can't handle.
+                raise
         # Synchronously wait for the external command to end?
         if not self.async:
             # Feed the external command its input, capture the external
             # command's output, cleanup resources and check for errors.
-            stdout, stderr = self.subprocess.communicate(input=self.encoded_input)
-            self.stdout_stream.override(stdout)
-            self.stderr_stream.override(stderr)
+            if self.subprocess:
+                stdout, stderr = self.subprocess.communicate(input=self.encoded_input)
+                self.stdout_stream.override(stdout)
+                self.stderr_stream.override(stderr)
             self.wait()
 
     def wait(self, check=None):
@@ -832,7 +872,7 @@ class ExternalCommand(PropertyManager):
         """
         if not self.was_started:
             self.start()
-        if not self.is_finished:
+        if self.was_started and not self.is_finished:
             self.subprocess.wait()
         self.load_output()
         self.cleanup()
@@ -1165,7 +1205,7 @@ def is_executable(filename, mode=os.F_OK | os.X_OK):
     return os.path.exists(filename) and os.access(filename, mode) and not os.path.isdir(filename)
 
 
-class ExternalCommandFailed(Exception):
+class ExternalCommandFailed(Exception, PropertyManager):
 
     """
     Raised when an external command exits with a nonzero status code.
@@ -1175,26 +1215,20 @@ class ExternalCommandFailed(Exception):
     an external command exits with a nonzero status code.
     """
 
-    def __init__(self, command, pool=None, error_message=None):
+    def __init__(self, command, **options):
         """
         Initialize an :class:`ExternalCommandFailed` object.
 
         :param command: The :class:`ExternalCommand` object that triggered the
                         exception.
-        :param pool: The :class:`.CommandPool` object that triggered the
-                     exception (optional).
+        :param kw: Keyword arguments are passed on to :func:`.PropertyManager.__init__()`.
         :param error_message: An error message to override the default message
                               taken from :attr:`~ExternalCommand.error_message`.
         """
-        # Initialize instance properties.
-        self.command = command
-        self.pool = None
-        if error_message:
-            self.error_message = error_message
-        # Initialize the superclass.
-        super(ExternalCommandFailed, self).__init__(self.error_message)
+        PropertyManager.__init__(self, command=command, **options)
+        Exception.__init__(self, self.error_message)
 
-    @writable_property(usage_notes=False)
+    @required_property(usage_notes=False)
     def command(self):
         """The :class:`ExternalCommand` object that triggered the exception."""
 
@@ -1222,3 +1256,28 @@ class ExternalCommandFailed(Exception):
         :func:`__init__()`.
         """
         return self.command.error_message
+
+
+class CommandNotFound(ExternalCommandFailed, OSError):
+
+    """
+    Raised when an external command is not available on the system.
+
+    This exception is raised by :func:`execute()`,
+    :func:`~ExternalCommand.start()` and :func:`~ExternalCommand.wait()` when
+    an external command can't be started because the command isn't available.
+
+    It inherits from :exc:`ExternalCommandFailed` to enable uniform error
+    handling but it also inherits from :exc:`~exceptions.OSError` for
+    backwards compatibility (see :attr:`errno` and :attr:`strerror`).
+    """
+
+    @property
+    def errno(self):
+        """The numeric error code :data:`~errno.ENOENT` from :mod:`errno` (an integer)."""
+        return errno.ENOENT
+
+    @property
+    def strerror(self):
+        """The text corresponding to :attr:`errno` (a string)."""
+        return os.strerror(self.errno)

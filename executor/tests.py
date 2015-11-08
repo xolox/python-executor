@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 18, 2015
+# Last Change: November 8, 2015
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
@@ -23,9 +23,10 @@ from humanfriendly import Timer
 
 # Modules included in our package.
 from executor import (
-    execute,
+    CommandNotFound,
     ExternalCommand,
     ExternalCommandFailed,
+    execute,
     quote,
     which,
 )
@@ -33,17 +34,17 @@ from executor.concurrent import CommandPool, CommandPoolFailed
 from executor.contexts import LocalContext, RemoteContext
 from executor.ssh.client import (
     DEFAULT_CONNECT_TIMEOUT,
-    foreach,
     RemoteCommand,
     RemoteCommandFailed,
     RemoteConnectFailed,
+    foreach,
 )
 from executor.ssh.server import SSHServer
 
 
 class ExecutorTestCase(unittest.TestCase):
 
-    """Container for `executor` tests (methods)."""
+    """Container for the `executor` test suite."""
 
     def setUp(self):
         """Set up (colored) logging to the terminal."""
@@ -55,44 +56,58 @@ class ExecutorTestCase(unittest.TestCase):
         except ImportError:
             logging.basicConfig(level=logging.DEBUG)
 
+    def assertRaises(self, type, callable, *args, **kw):
+        """Replacement for :func:`unittest.TestCase.assertRaises()` that returns the exception."""
+        try:
+            callable(*args, **kw)
+        except Exception as e:
+            if isinstance(e, type):
+                # Return the expected exception as a regular return value.
+                return e
+            else:
+                # Don't swallow exceptions we can't handle.
+                raise
+        else:
+            assert False, "Expected an exception to be raised!"
+
     def test_argument_validation(self):
         """Make sure the external command constructor requires a command argument."""
         self.assertRaises(TypeError, ExternalCommand)
 
     def test_program_searching(self):
         """Make sure which() works as expected."""
-        self.assertTrue(which('python'))
-        self.assertFalse(which('a-program-name-that-no-one-would-ever-use'))
+        assert which('python')
+        assert not which('a-program-name-that-no-one-would-ever-use')
 
     def test_status_code_checking(self):
         """Make sure that status code handling is sane."""
-        self.assertTrue(execute('true'))
-        self.assertFalse(execute('false', check=False))
+        assert execute('true') is True
+        assert execute('false', check=False) is False
+        # Make sure execute('false') raises an exception.
         self.assertRaises(ExternalCommandFailed, execute, 'false')
-        try:
-            execute('exit 42')
-            # Make sure the previous line raised an exception.
-            self.assertTrue(False)
-        except Exception as e:
-            # Make sure the expected type of exception was raised.
-            self.assertTrue(isinstance(e, ExternalCommandFailed))
-            # Make sure the exception has the expected properties.
-            self.assertEqual(e.command.command_line, ['bash', '-c', 'exit 42'])
-            self.assertEqual(e.returncode, 42)
+        # Make sure execute('exit 42') raises an exception.
+        e = self.assertRaises(ExternalCommandFailed, execute, 'exit 42')
+        # Make sure the exception has the expected properties.
+        self.assertEqual(e.command.command_line, ['bash', '-c', 'exit 42'])
+        self.assertEqual(e.returncode, 42)
+        # Make sure CommandNotFound exceptions work for shell commands.
+        self.assertRaises(CommandNotFound, execute, 'a-program-name-that-no-one-would-ever-use')
+        # Make sure CommandNotFound exceptions work for non-shell commands.
+        self.assertRaises(CommandNotFound, execute, 'a-program-name-that-no-one-would-ever-use', 'just-an-argument')
 
     def test_stdin(self):
         """Make sure standard input can be provided to external commands."""
-        self.assertEqual(execute('tr', 'a-z', 'A-Z', input='test', capture=True), 'TEST')
+        assert execute('tr', 'a-z', 'A-Z', input='test', capture=True) == 'TEST'
 
     def test_stdout(self):
         """Make sure standard output of external commands can be captured."""
-        self.assertEqual(execute('echo', 'this is a test', capture=True), 'this is a test')
-        self.assertEqual(execute('echo', '-e', r'line 1\nline 2', capture=True), 'line 1\nline 2\n')
+        assert execute('echo', 'this is a test', capture=True) == 'this is a test'
+        assert execute('echo', '-e', r'line 1\nline 2', capture=True) == 'line 1\nline 2\n'
         # I don't know how to test for the effect of silent=True in a practical
         # way without creating the largest test in this test suite :-). The
         # least I can do is make sure the keyword argument is accepted and the
         # code runs without exceptions in supported environments.
-        self.assertTrue(execute('echo', 'this is a test', silent=True))
+        assert execute('echo', 'this is a test', silent=True) is True
 
     def test_stderr(self):
         """Make sure standard error of external commands can be captured."""
@@ -365,10 +380,10 @@ class ExecutorTestCase(unittest.TestCase):
         while not pool.is_finished:
             time.sleep(0.1)
         # The first call to collect() should raise an exception about `exit 1'.
-        e1 = intercept(pool.collect)
+        e1 = intercept(ExternalCommandFailed, pool.collect)
         assert e1.command is c1
         # The second call to collect() should raise an exception about `exit 42'.
-        e2 = intercept(pool.collect)
+        e2 = intercept(ExternalCommandFailed, pool.collect)
         assert e2.command is c2
 
     def test_command_pool_termination(self):
@@ -568,11 +583,11 @@ class ExecutorTestCase(unittest.TestCase):
         assert context.capture('hostname') == socket.gethostname()
 
 
-def intercept(func, *args, **kw):
+def intercept(exc_type, func, *args, **kw):
     """Intercept and return a raised exception."""
     try:
         func(*args, **kw)
-    except Exception as e:
+    except exc_type as e:
         return e
     else:
         assert False, "Expected exception to be raised, but nothing happened! :-s"
