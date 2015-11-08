@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 6, 2015
+# Last Change: November 8, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -20,6 +20,7 @@ import os
 
 # External dependencies.
 from executor import ExternalCommandFailed
+from executor import logger as parent_logger
 from humanfriendly import format, pluralize, Spinner, Timer
 from property_manager import PropertyManager, mutable_property
 
@@ -63,6 +64,19 @@ class CommandPool(PropertyManager):
         your commands are I/O bound instead of CPU bound).
         """
         return multiprocessing.cpu_count()
+
+    @mutable_property
+    def logger(self):
+        """
+        The :class:`logging.Logger` object to use.
+
+        If you are using Python's :mod:`logging` module and you find it
+        confusing that command pool execution is logged under the
+        :mod:`executor.concurrent` name space instead of the name space of the
+        application or library using :mod:`executor` you can set this attribute
+        to inject a custom (and more appropriate) logger.
+        """
+        return logger
 
     @mutable_property
     def logs_directory(self):
@@ -162,6 +176,8 @@ class CommandPool(PropertyManager):
         (I'm not sure why you'd want to do that though :-).
         """
         command.async = True
+        if command.logger == parent_logger:
+            command.logger = self.logger
         if identifier is None:
             identifier = len(self.commands) + 1
         if self.logs_directory:
