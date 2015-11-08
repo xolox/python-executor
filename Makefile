@@ -1,12 +1,15 @@
 # Makefile for executor.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 2, 2015
+# Last Change: November 8, 2015
 # URL: https://github.com/xolox/python-executor
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
 VIRTUAL_ENV ?= $(WORKON_HOME)/executor
-ACTIVATE = . $(VIRTUAL_ENV)/bin/activate
+PYTHON = "$(VIRTUAL_ENV)/bin/python"
+ACTIVATE = . "$(VIRTUAL_ENV)/bin/activate"
+MAKE := $(MAKE) --no-print-directory
+SHELL = bash
 
 default:
 	@echo 'Makefile for executor'
@@ -24,41 +27,58 @@ default:
 	@echo
 
 install:
-	test -d "$(VIRTUAL_ENV)" || virtualenv "$(VIRTUAL_ENV)"
-	test -x "$(VIRTUAL_ENV)/bin/pip" || ($(ACTIVATE) && easy_install pip)
-	test -x "$(VIRTUAL_ENV)/bin/pip-accel" || ($(ACTIVATE) && pip install pip-accel)
-	$(ACTIVATE) && pip uninstall -y executor || true
-	$(ACTIVATE) && pip-accel install --editable .
+	@ $(MAKE) install_command PROGRAM=python COMMAND="virtualenv $(VIRTUAL_ENV)"
+	@ $(MAKE) install_command PROGRAM=pip COMMAND="easy_install pip"
+	@ $(MAKE) install_command PROGRAM=pip-accel COMMAND="pip install --quiet pip-accel"
+	@ $(MAKE) is_installed &> /dev/null || $(MAKE) --no-print-directory editable
+
+install_command:
+	@ test -x "$(VIRTUAL_ENV)/bin/$(PROGRAM)" || $(MAKE) run_command COMMAND="$(COMMAND)"
+
+is_installed:
+	$(ACTIVATE) && $(PYTHON) -c "import executor, pkg_resources; pkg_resources.get_distribution('executor')"
+
+editable:
+	- $(ACTIVATE) && pip uninstall --quiet --yes executor &>/dev/null
+	pip-accel install --quiet --editable "$(PWD)"
+
+run_command:
+	$(ACTIVATE) && $(COMMAND)
+
+dependency:
+	@ $(MAKE) install_command PROGRAM=$(PROGRAM) COMMAND="pip-accel install --quiet $(PACKAGE)"
 
 reset:
 	rm -Rf "$(VIRTUAL_ENV)"
-	make --no-print-directory clean install
+	$(MAKE) clean
 
 test: install
-	test -x "$(VIRTUAL_ENV)/bin/tox" || ($(ACTIVATE) && pip-accel install tox)
-	$(ACTIVATE) && tox
+	@ $(MAKE) dependency PROGRAM=detox PACKAGE=detox
+	@ if ! sudo -n true &> /dev/null; then sudo -p "Please enable password-less sudo under detox: " true; fi
+	@ $(ACTIVATE) && time detox
 
 coverage: install
-	test -x "$(VIRTUAL_ENV)/bin/coverage" || ($(ACTIVATE) && pip-accel install coverage)
+	@ $(MAKE) dependency PROGRAM=coverage PACKAGE=coverage
 	$(ACTIVATE) && coverage run setup.py test
 	$(ACTIVATE) && coverage report
 	$(ACTIVATE) && coverage html
 
 check: install
-	@test -x "$(VIRTUAL_ENV)/bin/flake8" || ($(ACTIVATE) && pip-accel install flake8-pep257)
-	@$(ACTIVATE) && flake8
+	@ $(MAKE) dependency PROGRAM=flake8 PACKAGE=flake8-pep257
+	$(ACTIVATE) && flake8
 
 docs: install
-	test -x "$(VIRTUAL_ENV)/bin/sphinx-build" || ($(ACTIVATE) && pip-accel install sphinx)
-	$(ACTIVATE) && cd docs && sphinx-build -b html -d build/doctrees . build/html
+	@ $(MAKE) dependency PROGRAM=sphinx-build PACKAGE=sphinx
+	@ $(ACTIVATE) && cd docs && sphinx-build -b html -d build/doctrees . build/html
 
 publish:
 	git push origin && git push --tags origin
-	make clean && python setup.py sdist upload
+	$(MAKE) clean && $(PYTHON) setup.py sdist upload
 
 clean:
-	rm -Rf *.egg *.egg-info .coverage build dist docs/build htmlcov
-	find -depth -type d -name __pycache__ -exec rm -Rf {} \;
-	find -type f -name '*.pyc' -delete
+	@- rm -Rf *.egg *.egg-info .cache .coverage .tox build dist docs/build htmlcov
+	@- find -depth -type d -name __pycache__ -exec rm -Rf {} \;
+	@- find -type f -name '*.pyc' -delete
+	@ $(MAKE) install
 
-.PHONY: default install reset test coverage check docs publish clean
+.PHONY: default install install_command is_installed editable run_command dependency reset test coverage check docs publish clean
