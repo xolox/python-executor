@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 18, 2015
+# Last Change: November 8, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -46,6 +46,7 @@ import os
 import pipes
 import signal
 import subprocess
+import sys
 import tempfile
 
 # External dependencies.
@@ -61,7 +62,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '7.1.1'
+__version__ = '7.2'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -100,6 +101,8 @@ DEFAULT_WORKING_DIRECTORY = os.curdir
 The default working directory for external commands (a string). Defaults to the
 working directory of the current process using :data:`os.curdir`.
 """
+
+IS_WINDOWS = sys.platform.startswith('win')
 
 
 def execute(*command, **options):
@@ -1057,7 +1060,7 @@ def quote(*args):
     return ' '.join(map(quote, value))
 
 
-def which(program):
+def which(program, mode=os.F_OK | os.X_OK, path=None):
     """
     Find the pathname(s) of a program on the executable search path (``$PATH``).
 
@@ -1076,11 +1079,82 @@ def which(program):
 
     """
     matches = []
-    for directory in os.environ['PATH'].split(':'):
-        pathname = os.path.join(directory, program)
-        if os.access(pathname, os.X_OK):
-            matches.append(pathname)
+    if os.path.dirname(program):
+        # Compatibility with shutil.which(): Don't traverse the executable
+        # search path when we're given a path with a directory part (instead
+        # look up the file directly).
+        if is_executable(program, mode):
+            matches.append(program)
+    else:
+        extensions = get_path_extensions()
+        for directory in get_search_path(path):
+            pathname = os.path.join(directory, program)
+            for ext in extensions:
+                extended_pathname = os.path.abspath(pathname + ext)
+                if extended_pathname not in matches and is_executable(extended_pathname, mode):
+                    matches.append(extended_pathname)
     return matches
+
+
+def get_search_path(path=None):
+    """
+    Get the executable search path (``$PATH``).
+
+    :param path: Override the value of ``$PATH`` (a string or :data:`None`).
+    :returns: A list of strings with pathnames of directories.
+
+    The executable search path is constructed as follows:
+
+    1. The search path is taken from the environment variable ``$PATH``.
+    2. If ``$PATH`` isn't defined the value of :data:`os.defpath` is used.
+    3. The search path is split on :data:`os.pathsep` to get a list.
+    4. On Windows the current directory is prepended to the list.
+    5. Duplicate directories are removed from the list.
+    """
+    if path is None:
+        # Fall back to the current or default path.
+        path = os.environ.get('PATH', os.defpath)
+    directories = path.split(os.pathsep) if path else []
+    if IS_WINDOWS:
+        # Prepend the current working directory to the path.
+        directories.insert(0, os.getcwd())
+    # Filter out duplicate directory pathnames.
+    unique_directories = []
+    for directory in directories:
+        directory = os.path.abspath(directory)
+        if directory not in unique_directories:
+            unique_directories.append(directory)
+    return unique_directories
+
+
+def get_path_extensions(extensions=None):
+    """
+    Get the executable search path extensions (``$PATHEXT``).
+
+    :returns: A list of strings with unique path extensions (on Windows)
+              or a list containing an empty string (on other platforms).
+    """
+    if extensions is None:
+        # Get the path extensions defined by the environment (on Windows).
+        extensions = os.environ.get('PATHEXT', '') if IS_WINDOWS else ''
+    # Filter out duplicate path extensions.
+    unique_extensions = []
+    for ext in extensions.split(os.pathsep):
+        normalized_extension = ext.lower()
+        if normalized_extension not in unique_extensions:
+            unique_extensions.append(normalized_extension)
+    return unique_extensions
+
+
+def is_executable(filename, mode=os.F_OK | os.X_OK):
+    """
+    Check whether the given file is executable.
+
+    :param filename: A relative or absolute pathname (a string).
+    :returns: :data:`True` if the file is executable,
+              :data:`False` otherwise.
+    """
+    return os.path.exists(filename) and os.access(filename, mode) and not os.path.isdir(filename)
 
 
 class ExternalCommandFailed(Exception):
