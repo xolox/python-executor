@@ -508,7 +508,7 @@ class ExecutorTestCase(unittest.TestCase):
 
     def test_remote_working_directory(self):
         """Make sure remote working directories can be set."""
-        with SSHServer(async=True) as server:
+        with SSHServer() as server:
             some_random_directory = tempfile.mkdtemp()
             try:
                 cmd = RemoteCommand('127.0.0.1',
@@ -523,13 +523,13 @@ class ExecutorTestCase(unittest.TestCase):
 
     def test_remote_error_handling(self):
         """Make sure remote commands preserve exit codes."""
-        with SSHServer(async=True) as server:
+        with SSHServer() as server:
             cmd = RemoteCommand('127.0.0.1', 'exit 42', **server.client_options)
             self.assertRaises(RemoteCommandFailed, cmd.start)
 
     def test_foreach(self):
         """Make sure remote command pools work."""
-        with SSHServer(async=True) as server:
+        with SSHServer() as server:
             ssh_aliases = ['127.0.0.%i' % i for i in (1, 2, 3, 4, 5, 6, 7, 8)]
             results = foreach(ssh_aliases, 'echo $SSH_CONNECTION',
                               concurrency=3, capture=True,
@@ -542,7 +542,7 @@ class ExecutorTestCase(unittest.TestCase):
         directory = tempfile.mkdtemp()
         try:
             ssh_aliases = ['127.0.0.%i' % i for i in (1, 2, 3, 4, 5, 6, 7, 8)]
-            with SSHServer(async=True) as server:
+            with SSHServer() as server:
                 foreach(ssh_aliases, 'echo $SSH_CONNECTION',
                         concurrency=3, logs_directory=directory,
                         capture=True, **server.client_options)
@@ -558,7 +558,7 @@ class ExecutorTestCase(unittest.TestCase):
 
     def test_remote_context(self):
         """Test a remote command context."""
-        with SSHServer(async=True) as server:
+        with SSHServer() as server:
             self.check_context(RemoteContext('127.0.0.1', **server.client_options))
 
     def check_context(self, context):

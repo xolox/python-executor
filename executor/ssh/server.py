@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 18, 2015
+# Last Change: November 8, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -14,6 +14,7 @@ test remote command execution).
 """
 
 # Standard library modules.
+import itertools
 import logging
 import os
 import random
@@ -22,10 +23,11 @@ import socket
 import tempfile
 
 # Modules included in our package.
-from executor import execute, ExternalCommand, ExternalCommandFailed, which
+from executor import ExternalCommand, execute, which
 
 # External dependencies.
-from humanfriendly import format_timespan, Spinner, Timer
+from humanfriendly import Spinner, Timer, format_timespan, pluralize
+from property_manager import lazy_property, mutable_property
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -34,7 +36,124 @@ SSHD_PROGRAM_NAME = 'sshd'
 """The name of the SSH server executable (a string)."""
 
 
-class SSHServer(ExternalCommand):
+class EphemeralTCPServer(ExternalCommand):
+
+    """
+    Make it easy to launch ephemeral TCP servers.
+
+    The :class:`EphemeralTCPServer` class makes it easy to allocate an
+    `ephemeral port number`_ that is not (yet) in use.
+
+    .. _ephemeral port number: \
+        http://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers#Dynamic.2C_private_or_ephemeral_ports
+    """
+
+    @property
+    def async(self):
+        """Ephemeral TCP servers always set :attr:`.ExternalCommand.async` to :data:`True`."""
+        return True
+
+    @mutable_property
+    def scheme(self):
+        """A URL scheme that indicates the purpose of the ephemeral port (a string, defaults to 'tcp')."""
+        return 'tcp'
+
+    @mutable_property
+    def hostname(self):
+        """The host name or IP address to connect to (a string, defaults to ``localhost``)."""
+        return 'localhost'
+
+    @lazy_property
+    def port_number(self):
+        """A dynamically selected port number that was not in use at the moment it was selected (an integer)."""
+        logger.debug("Looking for a free ephemeral port (for %s traffic) ..", self.scheme.upper())
+        for i in itertools.count(1):
+            port_number = random.randint(49152, 65535)
+            if not self.is_connected(port_number):
+                logger.debug("Took %s to select free ephemeral port (%s).",
+                             pluralize(i, "attempt"), self.render_location(port_number))
+                return port_number
+
+    @mutable_property
+    def connect_timeout(self):
+        """The timeout in seconds for connection attempts (a number, defaults to 2)."""
+        return 2
+
+    @mutable_property
+    def wait_timeout(self):
+        """The timeout in seconds for :func:`wait_until_connected()` (a number, defaults to 30)."""
+        return 30
+
+    def start(self, **options):
+        """
+        Start the TCP server and wait for it to start accepting connections.
+
+        :param options: Any keyword arguments are passed to :func:`~.ExternalCommand.start()`.
+        :raises: Any exceptions raised by :func:`wait_until_connected()`
+                 and :func:`~.ExternalCommand.start()`.
+
+        If the TCP server doesn't start accepting connections within the
+        configured timeout (see :attr:`wait_timeout`) the process will be
+        terminated and the timeout exception will be propagated.
+        """
+        if not self.was_started:
+            logger.debug("Preparing to start %s server ..", self.scheme.upper())
+            super(EphemeralTCPServer, self).start(**options)
+            try:
+                self.wait_until_connected()
+            except TimeoutError:
+                self.terminate()
+                raise
+
+    def wait_until_connected(self, port_number=None):
+        """
+        Wait until the TCP server starts accepting connections.
+
+        :param port_number: The port number to check (an integer, defaults to
+                            the computed value of :attr:`port_number`).
+        :raises: :exc:`TimeoutError` when the SSH server isn't fast enough to
+                 initialize.
+        """
+        timer = Timer()
+        if port_number is None:
+            port_number = self.port_number
+        location = self.render_location(port_number)
+        with Spinner(timer=timer) as spinner:
+            while not self.is_connected(port_number):
+                if timer.elapsed_time > self.wait_timeout:
+                    msg = "Server didn't start accepting connections within timeout of %s!"
+                    raise TimeoutError(msg % format_timespan(self.wait_timeout))
+                spinner.step(label="Waiting for server to accept connections (%s)" % location)
+                spinner.sleep()
+        logger.debug("Waited %s for server to accept connections (%s).", timer, location)
+
+    def is_connected(self, port_number=None):
+        """
+        Check whether the TCP server is accepting connections.
+
+        :param port_number: The port number to check (an integer, defaults to
+                            the computed value of :attr:`port_number`).
+        :returns: :data:`True` if the TCP server is accepting connections,
+                  :data:`False` otherwise.
+        """
+        if port_number is None:
+            port_number = self.port_number
+        location = self.render_location(port_number)
+        logger.debug("Checking whether %s is accepting connections ..", location)
+        try:
+            socket.create_connection((self.hostname, port_number), self.connect_timeout)
+            logger.debug("Yes %s is accepting connections.", location)
+            return True
+        except Exception:
+            logger.debug("No %s isn't accepting connections.", location)
+            return False
+
+    def render_location(self, port_number):
+        """Render a human friendly representation of an :class:`EphemeralPort` object."""
+        return "%s://%s:%i" % (self.scheme, self.hostname, port_number)
+
+
+class SSHServer(EphemeralTCPServer):
 
     """
     Subclass of :class:`.ExternalCommand` that manages a temporary SSH server.
@@ -61,32 +180,18 @@ class SSHServer(ExternalCommand):
         self.config_file = os.path.join(self.temporary_directory, 'config')
         """The pathname of the generated OpenSSH server configuration file (a string)."""
         self.host_key_file = os.path.join(self.temporary_directory, 'host-key')
-        """The pathname of the generated OpenSSH host key file (a string)."""
-        # http://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers#Dynamic.2C_private_or_ephemeral_ports
-        self.port = random.randint(49152, 65535)
         """The random port number on which the SSH server will listen (an integer)."""
         # Initialize the superclass.
-        command = [self.sshd_path, '-D', '-f', self.config_file]
-        super(SSHServer, self).__init__(*command, logger=logger, **options)
-
-    @property
-    def is_accepting_connections(self):
-        """:data:`True` if the SSH server is running and accepting connections, :data:`False` otherwise."""
-        if self.is_running:
-            try:
-                address = ('localhost', self.port)
-                socket.create_connection(address, 2)
-                return True
-            except Exception:
-                pass
-        return False
+        super(SSHServer, self).__init__(
+            self.sshd_path, '-D', '-f', self.config_file,
+            scheme='ssh', logger=logger, **options
+        )
 
     @property
     def sshd_path(self):
-        """The absolute pathname of :data:`SSHD_PROGRAM_NAME` (a string or :data:`None`)."""
-        matches = which(SSHD_PROGRAM_NAME)
-        if matches:
-            return matches[0]
+        """The absolute pathname of :data:`SSHD_PROGRAM_NAME` (a string)."""
+        executables = which(SSHD_PROGRAM_NAME)
+        return executables[0] if executables else SSHD_PROGRAM_NAME
 
     @property
     def client_options(self):
@@ -99,23 +204,17 @@ class SSHServer(ExternalCommand):
         """
         return dict(identity_file=self.client_key_file,
                     ignore_known_hosts=True,
-                    port=self.port)
+                    port=self.port_number)
 
     def start(self, **options):
         """
-        Start the OpenSSH server.
+        Start the SSH server and wait for it to start accepting connections.
 
-        :param options: Any keyword arguments are passed to
-                        :func:`wait_until_accepting_connections()`.
-        :raises: :exc:`TimeoutError` when the SSH server isn't fast enough to
-                 initialize.
+        :param options: Any keyword arguments are passed to :func:`~.ExternalCommand.start()`.
+        :raises: Any exceptions raised by :func:`~.ExternalCommand.start()`.
 
-        The :func:`start()` method automatically calls the following methods:
-
-        1. :func:`generate_key_file()`
-        2. :func:`generate_config()`
-        3. :func:`executor.ExternalCommand.start()`.
-        4. :func:`wait_until_accepting_connections()`
+        The :func:`start()` method automatically calls the
+        :func:`generate_key_file()` and :func:`generate_config()` methods.
         """
         if not self.was_started:
             logger.debug("Preparing to start SSH server ..")
@@ -123,31 +222,6 @@ class SSHServer(ExternalCommand):
                 self.generate_key_file(key_file)
             self.generate_config()
             super(SSHServer, self).start()
-            try:
-                self.wait_until_accepting_connections(**options)
-            except TimeoutError:
-                self.terminate()
-                raise
-
-    def wait_until_accepting_connections(self, timeout=30):
-        """
-        Wait until the SSH server starts accepting connections.
-
-        :param timeout: If the SSH server doesn't start accepting connections
-                        within the given timeout (number of seconds) the
-                        attempt is aborted.
-        :raises: :exc:`TimeoutError` when the SSH server isn't fast enough to
-                 initialize.
-        """
-        timer = Timer()
-        with Spinner(timer=timer) as spinner:
-            while not self.is_accepting_connections:
-                if timer.elapsed_time > timeout:
-                    msg = "SSH server didn't start accepting connections within timeout of %s!"
-                    raise TimeoutError(command=self, error_message=msg % format_timespan(timeout))
-                spinner.step(label="Waiting for SSH server to accept connections")
-                spinner.sleep()
-        logger.debug("Waited %s after startup for SSH server to accept connections.", timer)
 
     def generate_key_file(self, filename):
         """
@@ -179,7 +253,7 @@ class SSHServer(ExternalCommand):
                 handle.write("LogLevel QUIET\n")
                 handle.write("PasswordAuthentication no\n")
                 handle.write("PidFile %s/sshd.pid\n" % self.temporary_directory)
-                handle.write("Port %i\n" % self.port)
+                handle.write("Port %i\n" % self.port_number)
                 handle.write("StrictModes no\n")
                 handle.write("UsePAM no\n")
                 handle.write("UsePrivilegeSeparation no\n")
@@ -194,11 +268,11 @@ class SSHServer(ExternalCommand):
         super(SSHServer, self).cleanup()
 
 
-class TimeoutError(ExternalCommandFailed):
+class TimeoutError(Exception):
 
     """
-    Raised when the OpenSSH server doesn't initialize quickly enough.
+    Raised when a TCP server doesn't start accepting connections quickly enough.
 
-    This exception is raised by :func:`~SSHServer.wait_until_accepting_connections()`
-    when the SSH server doesn't start accepting connections within a reasonable time.
+    This exception is raised by :func:`~EphemeralPort.wait_until_connected()`
+    when the TCP server doesn't start accepting connections within a reasonable time.
     """
