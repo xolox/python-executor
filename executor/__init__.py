@@ -779,39 +779,21 @@ class ExternalCommand(PropertyManager):
         # Prepare the input.
         if self.input is not None:
             if self.async:
-                self.stdin_stream.prepare(self.encoded_input)
+                self.stdin_stream.prepare_input(self.encoded_input)
                 kw['stdin'] = self.stdin_stream.fd
             else:
                 kw['stdin'] = subprocess.PIPE
-        # Silence the standard output and error streams?
-        if self.silent:
+        # Prepare to capture the standard output and/or error stream(s).
+        kw['stdout'] = self.stdout_stream.prepare_output(self.stdout_file, self.capture, self.async)
+        # Make it possible to merge stderr into stdout.
+        kw['stderr'] = (subprocess.STDOUT if self.merge_streams else
+                        self.stderr_stream.prepare_output(self.stderr_file, self.capture_stderr, self.async))
+        # Silence the standard output and/or error stream(s)?
+        if self.silent and any(kw.get(n) is None for n in ('stdout', 'stderr')):
             if self.null_device is None:
                 self.null_device = open(os.devnull, 'wb')
-            kw['stdout'] = self.null_device
-            kw['stderr'] = self.null_device
-        # Prepare to capture the standard output stream.
-        if self.stdout_file:
-            self.stdout_stream.redirect(self.stdout_file)
-            kw['stdout'] = self.stdout_stream.fd
-        elif self.capture:
-            if self.async:
-                self.stdout_stream.prepare()
-                kw['stdout'] = self.stdout_stream.fd
-            else:
-                kw['stdout'] = subprocess.PIPE
-        # Make it possible to merge stderr into stdout.
-        if self.merge_streams:
-            kw['stderr'] = subprocess.STDOUT
-        elif self.stderr_file:
-            self.stderr_stream.redirect(self.stderr_file)
-            kw['stderr'] = self.stderr_stream.fd
-        elif self.capture_stderr:
-            # Prepare to capture the standard error stream.
-            if self.async:
-                self.stderr_stream.prepare()
-                kw['stderr'] = self.stderr_stream.fd
-            else:
-                kw['stderr'] = subprocess.PIPE
+            kw['stdout'] = self.null_device if kw['stdout'] is None else kw['stdout']
+            kw['stderr'] = self.null_device if kw['stderr'] is None else kw['stderr']
         # Create the subprocess object.
         self.logger.debug("Executing external command: %s", quote(kw['args']))
         self.subprocess = subprocess.Popen(**kw)
@@ -968,6 +950,47 @@ class CachedStream(object):
         self.is_temporary_file = False
         self.kind = kind
 
+    def prepare_temporary_file(self):
+        """Prepare the stream's temporary file."""
+        if not (self.fd and self.filename):
+            self.is_temporary_file = True
+            self.fd, self.filename = tempfile.mkstemp(prefix='executor-', suffix='-%s.txt' % self.kind)
+            logger.debug("Connected %s stream to temporary file %s ..", self.kind, self.filename)
+
+    def prepare_input(self, contents=None):
+        """
+        Initialize an asynchronous input stream (using a temporary file).
+
+        :param contents: If you pass this argument the given string will be
+                         written to the temporary file.
+        """
+        if contents is not None:
+            self.prepare_temporary_file()
+            with open(self.filename, 'wb') as handle:
+                handle.write(contents)
+
+    def prepare_output(self, file, capture, async):
+        """
+        Initialize an (asynchronous) output stream.
+
+        :param file: A file handle or :data:`None`.
+        :param capture: :data:`True` if capturing is enabled, :data:`False` otherwise.
+        :param async: :data:`True` for asynchronous execution, :data:`False` otherwise.
+        :returns: A file descriptor, :data:`subprocess.PIPE` or :data:`None`.
+        """
+        if file is not None:
+            # Capture the stream to a user defined file.
+            self.redirect(file)
+            return self.fd
+        elif capture:
+            if async:
+                # Capture the stream to a temporary file.
+                self.prepare_temporary_file()
+                return self.fd
+            else:
+                # Capture the stream in memory.
+                return subprocess.PIPE
+
     def redirect(self, obj):
         """
         Capture the stream in a file provided by the caller.
@@ -986,21 +1009,6 @@ class CachedStream(object):
             msg = "Can't capture %s stream to file object without filename! ('name' attribute)"
             raise ValueError(msg % self.kind)
         logger.debug("Connected %s stream to file %s ..", self.kind, self.filename)
-
-    def prepare(self, contents=None):
-        """
-        Initialize the temporary file (and write the given string to it).
-
-        :param contents: If you pass this argument the given string will be
-                         written to the temporary file.
-        """
-        if not (self.fd and self.filename):
-            self.is_temporary_file = True
-            self.fd, self.filename = tempfile.mkstemp(prefix='executor-', suffix='-%s.txt' % self.kind)
-            logger.debug("Connected %s stream to temporary file %s ..", self.kind, self.filename)
-        if contents is not None:
-            with open(self.filename, 'wb') as handle:
-                handle.write(contents)
 
     def load(self):
         """
