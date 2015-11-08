@@ -26,7 +26,7 @@ import tempfile
 from executor import ExternalCommand, execute, which
 
 # External dependencies.
-from humanfriendly import Spinner, Timer, format_timespan, pluralize
+from humanfriendly import Spinner, Timer, format, format_timespan, pluralize
 from property_manager import lazy_property, mutable_property
 
 # Initialize a logger.
@@ -66,12 +66,13 @@ class EphemeralTCPServer(ExternalCommand):
     @lazy_property
     def port_number(self):
         """A dynamically selected port number that was not in use at the moment it was selected (an integer)."""
-        logger.debug("Looking for a free ephemeral port (for %s traffic) ..", self.scheme.upper())
+        self.logger.debug("Looking for a free ephemeral port (for %s traffic) ..", self.scheme.upper())
         for i in itertools.count(1):
             port_number = random.randint(49152, 65535)
             if not self.is_connected(port_number):
-                logger.debug("Took %s to select free ephemeral port (%s).",
-                             pluralize(i, "attempt"), self.render_location(port_number))
+                self.logger.debug("Took %s to select free ephemeral port (%s).",
+                                  pluralize(i, "attempt"),
+                                  self.render_location(port_number=port_number))
                 return port_number
 
     @mutable_property
@@ -97,7 +98,7 @@ class EphemeralTCPServer(ExternalCommand):
         terminated and the timeout exception will be propagated.
         """
         if not self.was_started:
-            logger.debug("Preparing to start %s server ..", self.scheme.upper())
+            self.logger.debug("Preparing to start %s server ..", self.scheme.upper())
             super(EphemeralTCPServer, self).start(**options)
             try:
                 self.wait_until_connected()
@@ -117,15 +118,15 @@ class EphemeralTCPServer(ExternalCommand):
         timer = Timer()
         if port_number is None:
             port_number = self.port_number
-        location = self.render_location(port_number)
+        location = self.render_location(port_number=port_number)
         with Spinner(timer=timer) as spinner:
             while not self.is_connected(port_number):
                 if timer.elapsed_time > self.wait_timeout:
-                    msg = "Server didn't start accepting connections within timeout of %s!"
-                    raise TimeoutError(msg % format_timespan(self.wait_timeout))
+                    msg = "%s server didn't start accepting connections within timeout of %s!"
+                    raise TimeoutError(msg % (self.scheme.upper(), format_timespan(self.wait_timeout)))
                 spinner.step(label="Waiting for server to accept connections (%s)" % location)
                 spinner.sleep()
-        logger.debug("Waited %s for server to accept connections (%s).", timer, location)
+        self.logger.debug("Waited %s for server to accept connections (%s).", timer, location)
 
     def is_connected(self, port_number=None):
         """
@@ -138,19 +139,22 @@ class EphemeralTCPServer(ExternalCommand):
         """
         if port_number is None:
             port_number = self.port_number
-        location = self.render_location(port_number)
-        logger.debug("Checking whether %s is accepting connections ..", location)
+        location = self.render_location(port_number=port_number)
+        self.logger.debug("Checking whether %s is accepting connections ..", location)
         try:
             socket.create_connection((self.hostname, port_number), self.connect_timeout)
-            logger.debug("Yes %s is accepting connections.", location)
+            self.logger.debug("Yes %s is accepting connections.", location)
             return True
         except Exception:
-            logger.debug("No %s isn't accepting connections.", location)
+            self.logger.debug("No %s isn't accepting connections.", location)
             return False
 
-    def render_location(self, port_number):
+    def render_location(self, scheme=None, hostname=None, port_number=None):
         """Render a human friendly representation of an :class:`EphemeralPort` object."""
-        return "%s://%s:%i" % (self.scheme, self.hostname, port_number)
+        return format("{scheme}://{host}:{port}",
+                      scheme=scheme or self.scheme,
+                      host=hostname or self.hostname,
+                      port=port_number or self.port_number)
 
 
 class SSHServer(EphemeralTCPServer):
@@ -217,7 +221,7 @@ class SSHServer(EphemeralTCPServer):
         :func:`generate_key_file()` and :func:`generate_config()` methods.
         """
         if not self.was_started:
-            logger.debug("Preparing to start SSH server ..")
+            self.logger.debug("Preparing to start SSH server ..")
             for key_file in (self.host_key_file, self.client_key_file):
                 self.generate_key_file(key_file)
             self.generate_config()
@@ -233,9 +237,9 @@ class SSHServer(EphemeralTCPServer):
         """
         if not os.path.isfile(filename):
             timer = Timer()
-            logger.debug("Generating SSH key file (%s) ..", filename)
+            self.logger.debug("Generating SSH key file (%s) ..", filename)
             execute('ssh-keygen', '-f', filename, '-N', '', '-t', 'rsa', silent=True, logger=self.logger)
-            logger.debug("Generated key file %s in %s.", filename, timer)
+            self.logger.debug("Generated key file %s in %s.", filename, timer)
 
     def generate_config(self):
         """
@@ -245,7 +249,7 @@ class SSHServer(EphemeralTCPServer):
         :func:`generate_config()`.
         """
         if not os.path.isfile(self.config_file):
-            logger.debug("Generating SSH server configuration (%s) ..", self.config_file)
+            self.logger.debug("Generating SSH server configuration (%s) ..", self.config_file)
             with open(self.config_file, 'w') as handle:
                 handle.write("AllowUsers %s\n" % os.environ['USER'])
                 handle.write("AuthorizedKeysFile %s.pub\n" % (self.client_key_file))
@@ -262,7 +266,7 @@ class SSHServer(EphemeralTCPServer):
         """Clean up :attr:`temporary_directory` after the test server finishes."""
         if self.temporary_directory:
             if os.path.isdir(self.temporary_directory):
-                logger.debug("Cleaning up temporary directory %s ..", self.temporary_directory)
+                self.logger.debug("Cleaning up temporary directory %s ..", self.temporary_directory)
                 shutil.rmtree(self.temporary_directory)
             self.temporary_directory = None
         super(SSHServer, self).cleanup()
