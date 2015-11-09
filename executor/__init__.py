@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 8, 2015
+# Last Change: November 10, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -64,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '7.5'
+__version__ = '7.6'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -949,8 +949,24 @@ class ExternalCommand(PropertyManager):
             raise self.error_type(self)
 
     def __enter__(self):
-        """Start the external command if it hasn't already been started."""
+        """
+        Start the external command if it hasn't already been started.
+
+        :returns: The :class:`ExternalCommand` object.
+
+        When you use an :class:`ExternalCommand` as a context manager in the
+        :keyword:`with` statement, the command is automatically started when
+        entering the context and terminated when leaving the context.
+
+        If the proces hasn't already been started yet :attr:`async` is
+        automatically set to :data:`True` (if it's not already :data:`True`),
+        otherwise the command will have finished execution by the time the body
+        of the :keyword:`with` statement is executed (which isn't really all
+        that useful :-).
+        """
         if not self.was_started:
+            if not self.async:
+                self.async = True
             self.start()
         return self
 
