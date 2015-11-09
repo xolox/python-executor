@@ -8,6 +8,7 @@ the current directory set to its containing dir.
 
 import os
 import sys
+import types
 
 # Add the 'executor' source distribution's root directory to the module path.
 sys.path.insert(0, os.path.abspath(os.pardir))
@@ -79,12 +80,26 @@ html_theme = 'default'
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'executordoc'
 
+# -- Customizations of the autodoc plug-in -------------------------------------
+
+# Sort members by the source order instead of alphabetically.
+autodoc_member_order = 'bysource'
+
 
 def setup(app):
-    """
-    Configure the autodoc extension not to skip ``__init__()`` members.
+    """Sphinx customizations applied through the API."""
+    app.connect('autodoc-skip-member', custom_skip_member)
 
-    Based on http://stackoverflow.com/a/5599712/788200.
-    """
-    app.connect('autodoc-skip-member', (lambda app, what, name, obj, skip, options:
-                                        False if name == '__init__' and obj.__doc__ else skip))
+
+def custom_skip_member(app, what, name, obj, skip, options):
+    """Inspired by http://stackoverflow.com/a/5599712/788200."""
+    if skip and obj.__doc__:
+        # If Sphinx would skip this object but it concerns a function or method
+        # that does have documentation we tell Sphinx to reconsider. This
+        # enables documentation of e.g. __init__(), __str__(), __unicode__(),
+        # __enter__(), __exit__(), etc. The isinstance() check makes sure we
+        # don't include things like __doc__, __module__ and __weakref__ in the
+        # documentation.
+        return not isinstance(obj, (types.FunctionType, types.MethodType))
+    else:
+        return skip
