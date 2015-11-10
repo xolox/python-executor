@@ -538,6 +538,10 @@ class ExternalCommand(ControllableProcess):
     features (e.g. asynchronous command execution that preserves the ability to
     provide input and capture output).
 
+    :class:`ExternalCommand` inherits from :class:`ControllableProcess` so all
+    of the process manipulation supported by :class:`ControllableProcess` is
+    also supported by :class:`ExternalCommand` objects.
+
     Because the :class:`ExternalCommand` class has a lot of properties and
     methods here is a summary:
 
@@ -560,9 +564,9 @@ class ExternalCommand(ControllableProcess):
      and what its output is.
 
     **Public methods**
-     The public methods :func:`start()`, :func:`wait()` and :func:`terminate()`
-     enable you to start external commands, wait for them to finish and
-     terminate them if they take too long.
+     The public methods :func:`start()`, :func:`wait()`, :func:`terminate()`
+     and :func:`kill()` enable you to start external commands, wait for them to
+     finish and terminate them if they take too long.
 
     **Internal methods**
      The internal methods :func:`check_errors()`, :func:`load_output()` and
