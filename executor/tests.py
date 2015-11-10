@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 8, 2015
+# Last Change: November 10, 2015
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
@@ -24,6 +24,7 @@ from humanfriendly import Timer
 # Modules included in our package.
 from executor import (
     CommandNotFound,
+    ControllableProcess,
     ExternalCommand,
     ExternalCommandFailed,
     execute,
@@ -327,6 +328,56 @@ class ExecutorTestCase(unittest.TestCase):
         cmd.start()
         cmd.wait()
         assert cmd.output == random_value
+
+    def test_suspend_and_resume_signals(self):
+        """Test the sending of ``SIGSTOP``, ``SIGCONT`` and ``SIGTERM`` signals."""
+        # Spawn a child that will live for a minute.
+        with ExternalCommand('sleep', '60', check=False) as child:
+            # Suspend the execution of the child process using SIGSTOP.
+            child.suspend()
+            # Test that the child process doesn't respond to SIGTERM once suspended.
+            child.terminate(wait=False)
+            assert child.is_running, "Child responded to signal even though it was suspended?!"
+            # Resume the execution of the child process using SIGCONT.
+            child.resume()
+            # Test that the child process responds to signals again after
+            # having been resumed, but give it a moment to terminate
+            # (significantly less time then the process is normally expected
+            # to run, otherwise there's no point in the test below).
+            child.kill(wait=True, timeout=5)
+            assert not child.is_running, "Child didn't respond to signal even though it was resumed?!"
+
+    def test_graceful_command_termination(self):
+        """Test graceful termination of commands."""
+        self.check_command_termination(method='terminate', proxy=False)
+
+    def test_graceful_process_termination(self):
+        """Test graceful termination of processes."""
+        self.check_command_termination(method='terminate', proxy=True)
+
+    def test_forceful_command_termination(self):
+        """Test forceful termination of commands."""
+        self.check_command_termination(method='kill', proxy=False)
+
+    def test_forceful_process_termination(self):
+        """Test forceful termination of commands."""
+        self.check_command_termination(method='kill', proxy=True)
+
+    def check_command_termination(self, method, proxy):
+        """Helper method for command/process termination tests."""
+        with ExternalCommand('sleep', '60', check=False) as cmd:
+            timer = Timer()
+            process = ControllableProcess(pid=cmd.pid) if proxy else cmd
+            # We use a positive but very low timeout so that all of the code
+            # involved gets a chance to run, but without slowing us down.
+            getattr(process, method)(timeout=0.1)
+            # Call ExternalCommand.wait() -> subprocess.Popen.wait() -> os.waitpid()
+            # so that the process (our own subprocess) is reclaimed because
+            # until we do so proc.is_running will be True ...
+            cmd.wait()
+            # Now we can verify our assertions.
+            assert not process.is_running, "Child still running despite graceful termination request!"
+            assert timer.elapsed_time < 10, "It look too long to terminate the child!"
 
     def test_repr(self):
         """Make sure that repr() on external commands gives sane output."""
