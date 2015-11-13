@@ -1,7 +1,7 @@
 # Makefile for executor.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 8, 2015
+# Last Change: November 13, 2015
 # URL: https://github.com/xolox/python-executor
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -66,6 +66,10 @@ coverage: install
 check: install
 	@ $(MAKE) dependency PROGRAM=flake8 PACKAGE=flake8-pep257
 	$(ACTIVATE) && flake8
+
+readme: install
+	test -x "$(VIRTUAL_ENV)/bin/cog.py" || pip-accel install --quiet cogapp
+	cog.py -r README.rst
 
 docs: install
 	@ $(MAKE) dependency PROGRAM=sphinx-build PACKAGE=sphinx

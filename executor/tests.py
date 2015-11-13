@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 10, 2015
+# Last Change: November 13, 2015
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
@@ -13,13 +13,15 @@ import random
 import shlex
 import shutil
 import socket
+import sys
 import tempfile
 import time
 import unittest
 import uuid
 
 # External dependencies.
-from humanfriendly import Timer
+from humanfriendly import Timer, dedent
+from humanfriendly.compat import StringIO
 
 # Modules included in our package.
 from executor import (
@@ -30,6 +32,13 @@ from executor import (
     execute,
     quote,
     which,
+)
+from executor.cli import (
+    CommandTimedOut,
+    apply_fudge_factor,
+    get_lock_path,
+    main,
+    run_command,
 )
 from executor.concurrent import CommandPool, CommandPoolFailed
 from executor.contexts import LocalContext, RemoteContext
@@ -633,6 +642,39 @@ class ExecutorTestCase(unittest.TestCase):
         # Test context.capture().
         assert context.capture('hostname') == socket.gethostname()
 
+    def test_cli_usage(self):
+        """Make sure the command line interface properly presents its usage message."""
+        for arguments in [], ['-h'], ['--help']:
+            with CaptureOutput() as stream:
+                assert run_cli(*arguments) == 0
+                assert "Usage: executor" in str(stream)
+
+    def test_cli_return_codes(self):
+        """Make sure the command line interface doesn't swallow exit codes."""
+        assert run_cli(*python_golf('import sys; sys.exit(0)')) == 0
+        assert run_cli(*python_golf('import sys; sys.exit(1)')) == 1
+        assert run_cli(*python_golf('import sys; sys.exit(42)')) == 42
+
+    def test_cli_fudge_factor(self, fudge_factor=5):
+        """Try to ensure that the fudge factor applies (a bit tricky to get right) ..."""
+        def fudge_factor_hammer():
+            timer = Timer()
+            assert run_cli('--fudge-factor=%i' % fudge_factor, *python_golf('import sys; sys.exit(0)')) == 0
+            assert timer.elapsed_time > (fudge_factor / 2.0)
+        retry(fudge_factor_hammer, 60)
+
+    def test_cli_exclusive_locking(self):
+        """Ensure that exclusive locking works as expected."""
+        run_cli('--exclusive', *python_golf('import sys; sys.exit(0)')) == 0
+
+    def test_cli_timeout(self):
+        """Ensure that external commands can be timed out."""
+        def timeout_hammer():
+            timer = Timer()
+            assert run_cli('--timeout=5', *python_golf('import time; time.sleep(10)')) != 0
+            assert timer.elapsed_time < 10
+        retry(timeout_hammer, 60)
+
 
 def intercept(exc_type, func, *args, **kw):
     """Intercept and return a raised exception."""
@@ -659,3 +701,45 @@ def retry(func, timeout):
         except AssertionError:
             if timeout_expired:
                 raise
+
+
+def python_golf(statements):
+    """Generate a Python command line."""
+    return sys.executable, '-c', dedent(statements)
+
+
+def run_cli(*arguments):
+    """Run the command line interface (in the same process)."""
+    saved_argv = sys.argv
+    try:
+        sys.argv = ['executor'] + list(arguments)
+        main()
+    except SystemExit as e:
+        return e.code
+    else:
+        return 0
+    finally:
+        sys.argv = saved_argv
+
+
+class CaptureOutput(object):
+
+    """Context manager that captures what's written to :data:`sys.stdout`."""
+
+    def __init__(self):
+        """Initialize a string IO object to be used as :data:`sys.stdout`."""
+        self.stream = StringIO()
+
+    def __enter__(self):
+        """Start capturing what's written to :data:`sys.stdout`."""
+        self.original_stdout = sys.stdout
+        sys.stdout = self.stream
+        return self
+
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """Stop capturing what's written to :data:`sys.stdout`."""
+        sys.stdout = self.original_stdout
+
+    def __str__(self):
+        """Get the text written to :data:`sys.stdout`."""
+        return self.stream.getvalue()

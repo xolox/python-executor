@@ -3,7 +3,7 @@
 """Setup script for the `executor` package."""
 
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 18, 2015
+# Last Change: November 13, 2015
 # URL: https://executor.readthedocs.org
 
 # Standard library modules.
@@ -41,9 +41,15 @@ setup(name='executor',
       author='Peter Odding',
       author_email='peter@peterodding.com',
       packages=find_packages(),
+      entry_points=dict(console_scripts=[
+          'executor = executor.cli:main',
+      ]),
       install_requires=[
+          'coloredlogs >= 3.5',
+          'fasteners >= 0.14.1',
           'humanfriendly >= 1.19',
           'property-manager >= 1.2',
+          'six >= 1.9.0',
       ],
       test_suite='executor.tests',
       tests_require=[

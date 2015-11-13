@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 10, 2015
+# Last Change: November 13, 2015
 # URL: https://executor.readthedocs.org
 
 """
@@ -64,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '7.7'
+__version__ = '8.0'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
