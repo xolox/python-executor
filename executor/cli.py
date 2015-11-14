@@ -1,7 +1,7 @@
 # Command line interface for the executor package.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 13, 2015
+# Last Change: November 14, 2015
 # URL: https://executor.readthedocs.org
 #
 # TODO Expose a clean way to interrupt the fudge factor of other processes.
@@ -258,6 +258,13 @@ class CommandTimedOut(ExternalCommandFailed):
     """Raised when a command exceeds the given timeout."""
 
     def __init__(self, command, timeout):
+        """
+        Initialize a :class:`CommandTimedOut` object.
+
+        :param command: The command that timed out (an
+                        :class:`~executor.ExternalCommand` object).
+        :param timeout: The timeout that was exceeded (a number).
+        """
         super(CommandTimedOut, self).__init__(
             command=command,
             error_message=format(

@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 13, 2015
+# Last Change: November 14, 2015
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
@@ -33,13 +33,7 @@ from executor import (
     quote,
     which,
 )
-from executor.cli import (
-    CommandTimedOut,
-    apply_fudge_factor,
-    get_lock_path,
-    main,
-    run_command,
-)
+from executor.cli import main
 from executor.concurrent import CommandPool, CommandPoolFailed
 from executor.contexts import LocalContext, RemoteContext
 from executor.ssh.client import (
