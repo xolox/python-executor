@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 8, 2015
+# Last Change: January 13, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -186,10 +186,9 @@ class SSHServer(EphemeralTCPServer):
         self.host_key_file = os.path.join(self.temporary_directory, 'host-key')
         """The random port number on which the SSH server will listen (an integer)."""
         # Initialize the superclass.
-        super(SSHServer, self).__init__(
-            self.sshd_path, '-D', '-f', self.config_file,
-            scheme='ssh', logger=logger, **options
-        )
+        options.setdefault('scheme', 'ssh')
+        options.setdefault('logger', logger)
+        super(SSHServer, self).__init__(self.sshd_path, '-D', '-f', self.config_file, **options)
 
     @property
     def sshd_path(self):

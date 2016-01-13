@@ -199,7 +199,8 @@ class RemoteCommand(ExternalCommand):
         self.ssh_alias = ssh_alias
         self.remote_directory = DEFAULT_WORKING_DIRECTORY
         # Initialize the super class.
-        super(RemoteCommand, self).__init__(*command, logger=logger, **options)
+        options.setdefault('logger', logger)
+        super(RemoteCommand, self).__init__(*command, **options)
 
     @mutable_property
     def batch_mode(self):
