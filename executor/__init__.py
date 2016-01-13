@@ -64,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '8.0.1'
+__version__ = '8.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -124,19 +124,10 @@ def execute(*command, **options):
                     of :class:`ExternalCommand`.
     :param options: All keyword arguments are passed on to the constructor of
                     :class:`ExternalCommand`.
-    :returns: The return value of this function depends on two options:
-
-              ==============================  ================================  =================================
-              :attr:`~ExternalCommand.async`  :attr:`~ExternalCommand.capture`  Return value
-              ==============================  ================================  =================================
-              :data:`False`                   :data:`False`                     :attr:`ExternalCommand.succeeded`
-              :data:`False`                   :data:`True`                      :attr:`ExternalCommand.output`
-              :data:`True`                    :data:`True`                      :class:`ExternalCommand` object
-              :data:`True`                    :data:`False`                     :class:`ExternalCommand` object
-              ==============================  ================================  =================================
+    :returns: Refer to :func:`execute_prepared()`.
     :raises: :exc:`ExternalCommandFailed` when the command exits with a
-             nonzero exit code (unless :attr:`~ExternalCommand.capture` is
-             :data:`False`).
+             nonzero exit code (and :attr:`~ExternalCommand.check` is
+             :data:`True`).
 
     If :attr:`~ExternalCommand.async` is :data:`True` then :func:`execute()`
     will automatically start the external command for you using
@@ -179,14 +170,38 @@ def execute(*command, **options):
     >>> execute('false', check=False)
     False
     """
-    cmd = ExternalCommand(*command, **options)
-    if cmd.async:
-        cmd.start()
-        return cmd
+    return execute_prepared(ExternalCommand(*command, **options))
+
+
+def execute_prepared(command):
+    """
+    The logic behind :func:`execute()` and :func:`.remote()`.
+
+    :param command: An :class:`ExternalCommand` object (or an object created
+                    from a subclass with a compatible interface like for
+                    example :class:`.RemoteCommand`).
+    :returns: The return value of this function depends on two options:
+
+              ==============================  ================================  =================================
+              :attr:`~ExternalCommand.async`  :attr:`~ExternalCommand.capture`  Return value
+              ==============================  ================================  =================================
+              :data:`False`                   :data:`False`                     :attr:`ExternalCommand.succeeded`
+              :data:`False`                   :data:`True`                      :attr:`ExternalCommand.output`
+              :data:`True`                    :data:`True`                      :class:`ExternalCommand` object
+              :data:`True`                    :data:`False`                     :class:`ExternalCommand` object
+              ==============================  ================================  =================================
+    :raises: See :func:`execute()` and :func:`.remote()`.
+    """
+    if command.async:
+        command.start()
+        return command
     else:
-        cmd.start()
-        cmd.wait()
-        return cmd.output if cmd.capture else cmd.succeeded
+        command.start()
+        command.wait()
+        if command.capture:
+            return command.output
+        else:
+            return command.succeeded
 
 
 class ControllableProcess(PropertyManager):

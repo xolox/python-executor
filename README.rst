@@ -7,10 +7,22 @@ executor: Programmer friendly subprocess wrapper
 .. image:: https://coveralls.io/repos/xolox/python-executor/badge.png?branch=master
    :target: https://coveralls.io/r/xolox/python-executor?branch=master
 
-The ``executor`` package is a simple wrapper for Python's subprocess_ module
+The `executor` package is a simple wrapper for Python's subprocess_ module
 that makes it very easy to handle subprocesses on UNIX systems with proper
-escaping of arguments and error checking. It's currently tested on Python 2.6,
-2.7, 3.4 and PyPy. For usage instructions please refer to the documentation_.
+escaping of arguments and error checking:
+
+ * An object oriented interface is used to execute commands using sane but
+   customizable (and well documented) defaults.
+
+ * Remote commands (executed over SSH_) are supported using the same object
+   oriented interface.
+
+ * There's also support for executing a group of commands concurrently in
+   what's called a "command pool". The concurrency level can be customized and
+   of course both local and remote commands are supported.
+
+The package is currently tested on Python 2.6, 2.7, 3.4 and PyPy. For usage
+instructions please refer to following sections and the documentation_.
 
 .. contents::
    :local:
@@ -183,7 +195,7 @@ DEBUG:executor:Executing external command: sudo bash -c 'echo peter-macbook > /e
 Running remote commands
 +++++++++++++++++++++++
 
-To run a command on a remote system using SSH you can use the RemoteCommand_
+To run a command on a remote system using SSH_ you can use the RemoteCommand_
 class, it works as follows:
 
 >>> from executor.ssh.client import RemoteCommand
@@ -236,5 +248,6 @@ This software is licensed under the `MIT license`_.
 .. _PyPI: https://pypi.python.org/pypi/executor
 .. _Read the Docs: https://executor.readthedocs.org/en/latest/#api-documentation
 .. _RemoteCommand: https://executor.readthedocs.org/en/latest/#executor.ssh.client.RemoteCommand
+.. _SSH: https://en.wikipedia.org/wiki/Secure_Shell
 .. _subprocess: https://docs.python.org/2/library/subprocess.html
 .. _virtual environments: http://docs.python-guide.org/en/latest/dev/virtualenvs/

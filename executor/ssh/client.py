@@ -31,6 +31,7 @@ from executor import (
     CommandNotFound,
     ExternalCommand,
     ExternalCommandFailed,
+    execute_prepared,
     quote,
 )
 from executor.concurrent import CommandPool
@@ -154,6 +155,23 @@ def foreach(hosts, *command, **options):
     return dict(pool.commands).values()
 
 
+def remote(ssh_alias, *command, **options):
+    """
+    Execute a remote command (similar to :func:`.execute()`).
+
+    :param ssh_alias: Used to set :attr:`RemoteCommand.ssh_alias`.
+    :param command: All positional arguments are passed to
+                    :func:`RemoteCommand.__init__()`.
+    :param options: All keyword arguments are passed to
+                    :func:`RemoteCommand.__init__()`.
+    :returns: Refer to :func:`.execute_prepared()`.
+    :raises: :exc:`RemoteCommandFailed` when the command exits with a
+             nonzero exit code (and :attr:`~.ExternalCommand.check` is
+             :data:`True`).
+    """
+    return execute_prepared(RemoteCommand(ssh_alias, *command, **options))
+
+
 class RemoteCommand(ExternalCommand):
 
     """:class:`RemoteCommand` objects use the SSH client program to execute remote commands."""
@@ -249,7 +267,7 @@ class RemoteCommand(ExternalCommand):
 
         Defaults to :data:`DEFAULT_CONNECT_TIMEOUT` so that non-interactive SSH
         connections created by :class:`RemoteCommand` don't hang indefinitely
-        when the remote system that doesn't respond (properly).
+        when the remote system doesn't respond properly.
         """
         return DEFAULT_CONNECT_TIMEOUT
 

@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 14, 2015
+# Last Change: January 13, 2016
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
@@ -40,10 +40,14 @@ from executor.ssh.client import (
     DEFAULT_CONNECT_TIMEOUT,
     RemoteCommand,
     RemoteCommandFailed,
+    RemoteCommandNotFound,
     RemoteConnectFailed,
     foreach,
+    remote,
 )
 from executor.ssh.server import SSHServer
+
+MISSING_COMMAND = 'a-program-name-that-no-one-would-ever-use'
 
 
 class ExecutorTestCase(unittest.TestCase):
@@ -81,7 +85,7 @@ class ExecutorTestCase(unittest.TestCase):
     def test_program_searching(self):
         """Make sure which() works as expected."""
         assert which('python')
-        assert not which('a-program-name-that-no-one-would-ever-use')
+        assert not which(MISSING_COMMAND)
 
     def test_status_code_checking(self):
         """Make sure that status code handling is sane."""
@@ -95,9 +99,9 @@ class ExecutorTestCase(unittest.TestCase):
         self.assertEqual(e.command.command_line, ['bash', '-c', 'exit 42'])
         self.assertEqual(e.returncode, 42)
         # Make sure CommandNotFound exceptions work for shell commands.
-        self.assertRaises(CommandNotFound, execute, 'a-program-name-that-no-one-would-ever-use')
+        self.assertRaises(CommandNotFound, execute, MISSING_COMMAND)
         # Make sure CommandNotFound exceptions work for non-shell commands.
-        self.assertRaises(CommandNotFound, execute, 'a-program-name-that-no-one-would-ever-use', 'just-an-argument')
+        self.assertRaises(CommandNotFound, execute, MISSING_COMMAND, 'just-an-argument')
 
     def test_stdin(self):
         """Make sure standard input can be provided to external commands."""
@@ -557,21 +561,28 @@ class ExecutorTestCase(unittest.TestCase):
         # Make sure invalid SSH aliases raise the expected type of exception.
         self.assertRaises(
             RemoteConnectFailed,
-            lambda: RemoteCommand('this.domain.surely.wont.exist.right', 'date', silent=True).start(),
+            remote, 'this.domain.surely.wont.exist.right', 'date', silent=True,
         )
+
+    def test_remote_command_missing(self):
+        """Make sure a specific exception is raised when a remote command is missing."""
+        with SSHServer() as server:
+            self.assertRaises(
+                RemoteCommandNotFound,
+                remote, '127.0.0.1', MISSING_COMMAND,
+                **server.client_options
+            )
 
     def test_remote_working_directory(self):
         """Make sure remote working directories can be set."""
         with SSHServer() as server:
             some_random_directory = tempfile.mkdtemp()
             try:
-                cmd = RemoteCommand('127.0.0.1',
-                                    'pwd',
-                                    capture=True,
-                                    directory=some_random_directory,
-                                    **server.client_options)
-                cmd.start()
-                assert cmd.output == some_random_directory
+                output = remote('127.0.0.1', 'pwd',
+                                capture=True,
+                                directory=some_random_directory,
+                                **server.client_options)
+                assert output == some_random_directory
             finally:
                 shutil.rmtree(some_random_directory)
 
