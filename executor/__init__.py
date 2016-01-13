@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 14, 2015
+# Last Change: January 13, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -153,9 +153,10 @@ def execute(*command, **options):
     >>> execute('true')
     True
 
-    If an external command exits with a nonzero status code an exception is raised,
-    this makes it easy to do the right thing (never forget to check the status code
-    of an external command without having to write a lot of repetitive code):
+    However when an external command exits with a nonzero status code an
+    exception is raised, this is intended to "make it easy to do the right
+    thing" (never forget to check the status code of an external command
+    without having to write a lot of repetitive code):
 
     >>> execute('false')
     Traceback (most recent call last):
@@ -169,11 +170,11 @@ def execute(*command, **options):
         raise ExternalCommandFailed(self)
     executor.ExternalCommandFailed: External command failed with exit code 1! (command: false)
 
-    The exceptions raised by :func:`execute()` expose
-    :attr:`~ExternalCommandFailed.command` and
+    What's also useful to know is that exceptions raised by :func:`execute()`
+    expose :attr:`~ExternalCommandFailed.command` and
     :attr:`~ExternalCommandFailed.returncode` attributes. If you know a command
-    is likely to exit with a nonzero status code and you want
-    :func:`execute()` to simply return a boolean you can do this instead:
+    is likely to exit with a nonzero status code and you want :func:`execute()`
+    to simply return a boolean you can do this instead:
 
     >>> execute('false', check=False)
     False
