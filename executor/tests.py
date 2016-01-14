@@ -1,12 +1,13 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 13, 2016
+# Last Change: January 14, 2016
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
 
 # Standard library modules.
+import datetime
 import logging
 import os
 import random
@@ -335,6 +336,15 @@ class ExecutorTestCase(unittest.TestCase):
         cmd.start()
         cmd.wait()
         assert cmd.output == random_value
+
+    def test_callback_evaluation(self):
+        """Make sure result processing callbacks work as expected."""
+        result = execute('echo', str(time.time()), callback=self.coerce_timestamp)
+        assert isinstance(result, datetime.datetime)
+
+    def coerce_timestamp(self, cmd):
+        """Callback for :func:`test_callback_evaluation()`."""
+        return datetime.datetime.fromtimestamp(float(cmd.output))
 
     def test_suspend_and_resume_signals(self):
         """Test the sending of ``SIGSTOP``, ``SIGCONT`` and ``SIGTERM`` signals."""

@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 13, 2016
+# Last Change: January 14, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -64,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '8.1.1'
+__version__ = '8.2'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -180,16 +180,19 @@ def execute_prepared(command):
     :param command: An :class:`ExternalCommand` object (or an object created
                     from a subclass with a compatible interface like for
                     example :class:`.RemoteCommand`).
-    :returns: The return value of this function depends on two options:
+    :returns: The return value of this function depends on several options:
 
-              ==============================  ================================  =================================
-              :attr:`~ExternalCommand.async`  :attr:`~ExternalCommand.capture`  Return value
-              ==============================  ================================  =================================
-              :data:`False`                   :data:`False`                     :attr:`ExternalCommand.succeeded`
-              :data:`False`                   :data:`True`                      :attr:`ExternalCommand.output`
-              :data:`True`                    :data:`True`                      :class:`ExternalCommand` object
-              :data:`True`                    :data:`False`                     :class:`ExternalCommand` object
-              ==============================  ================================  =================================
+              - If :attr:`~ExternalCommand.async` is :data:`True` the
+                constructed :class:`ExternalCommand` object is returned.
+
+              - If :attr:`~ExternalCommand.callback` is set the value of
+                :attr:`~ExternalCommand.result` is returned.
+
+              - If :attr:`~ExternalCommand.capture` is :data:`True` the value
+                of :attr:`ExternalCommand.output` is returned.
+
+              - By default the value of :attr:`~ExternalCommand.succeeded` is
+                returned.
     :raises: See :func:`execute()` and :func:`.remote()`.
     """
     if command.async:
@@ -198,7 +201,9 @@ def execute_prepared(command):
     else:
         command.start()
         command.wait()
-        if command.capture:
+        if command.callback:
+            return command.result
+        elif command.capture:
             return command.output
         else:
             return command.succeeded
@@ -562,10 +567,11 @@ class ExternalCommand(ControllableProcess):
     methods here is a summary:
 
     **Writable properties**
-     The :attr:`async`, :attr:`capture`, :attr:`capture_stderr`, :attr:`check`,
-     :attr:`directory`, :attr:`encoding`, :attr:`environment`,
-     :attr:`fakeroot`, :attr:`input`, :attr:`logger`, :attr:`merge_streams`,
-     :attr:`silent`, :attr:`stdout_file`, :attr:`stderr_file`, :attr:`sudo` and
+     The :attr:`async`, :attr:`callback`, :attr:`capture`,
+     :attr:`capture_stderr`, :attr:`check`, :attr:`directory`,
+     :attr:`encoding`, :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
+     :attr:`logger`, :attr:`merge_streams`, :attr:`silent`,
+     :attr:`stdout_file`, :attr:`stderr_file`, :attr:`sudo` and
      :attr:`virtual_environment` properties allow you to configure how the
      external command will be run (before it is started).
 
@@ -574,10 +580,10 @@ class ExternalCommand(ControllableProcess):
      :attr:`decoded_stdout`, :attr:`encoded_input`, :attr:`error_message`,
      :attr:`error_type`, :attr:`failed`, :attr:`have_superuser_privileges`,
      :attr:`is_finished`, :attr:`is_running`, :attr:`is_terminated`,
-     :attr:`output`, :attr:`returncode`, :attr:`stderr`, :attr:`stdout`,
-     :attr:`succeeded` and :attr:`was_started` properties allow you to inspect
-     if and how the external command was started, what its current status is
-     and what its output is.
+     :attr:`output`, :attr:`result`, :attr:`returncode`, :attr:`stderr`,
+     :attr:`stdout`, :attr:`succeeded` and :attr:`was_started` properties allow
+     you to inspect if and how the external command was started, what its
+     current status is and what its output is.
 
     **Public methods**
      The public methods :func:`start()`, :func:`wait()`, :func:`terminate()`
@@ -667,6 +673,10 @@ class ExternalCommand(ControllableProcess):
         """
         return False
 
+    @writable_property
+    def callback(self):
+        """Optional callback used to generate the value of :attr:`result`."""
+
     @mutable_property
     def capture(self):
         """
@@ -679,8 +689,12 @@ class ExternalCommand(ControllableProcess):
         The standard error stream will not be captured, use :attr:`capture_stderr`
         for that. You can also silence the standard error stream using the
         :attr:`silent` option.
+
+        If :attr:`callback` is set :attr:`capture` defaults to :data:`True`
+        (but you can still set :attr:`capture` to :data:`False` if that is what
+        you want).
         """
-        return False
+        return True if self.callback else False
 
     @mutable_property
     def capture_stderr(self):
@@ -963,6 +977,21 @@ class ExternalCommand(ControllableProcess):
         if text_output is not None:
             stripped_output = text_output.strip()
             return stripped_output if '\n' not in stripped_output else text_output
+
+    @property
+    def result(self):
+        """
+        The result of calling the value given by :attr:`callback`.
+
+        If the command hasn't been started yet :func:`start()` is called
+        automatically.
+
+        If :attr:`callback` isn't set :data:`None` is returned.
+        """
+        if self.callback:
+            if not self.is_finished:
+                self.wait()
+            return self.callback(self)
 
     @property
     def returncode(self):
