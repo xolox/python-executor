@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 14, 2016
+# Last Change: January 16, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -675,7 +675,13 @@ class ExternalCommand(ControllableProcess):
 
     @writable_property
     def callback(self):
-        """Optional callback used to generate the value of :attr:`result`."""
+        """
+        Optional callback used to generate the value of :attr:`result`.
+
+        The :attr:`callback` and :attr:`result` properties were created for use
+        in command pools, where it can be useful to define how to process
+        (parse) a command's output when the command is constructed.
+        """
 
     @mutable_property
     def capture(self):
@@ -983,10 +989,9 @@ class ExternalCommand(ControllableProcess):
         """
         The result of calling the value given by :attr:`callback`.
 
-        If the command hasn't been started yet :func:`start()` is called
-        automatically.
-
-        If :attr:`callback` isn't set :data:`None` is returned.
+        If the command hasn't been started yet :func:`start()` is called. When
+        the command hasn't finished yet func:`wait()` is called. If
+        :attr:`callback` isn't set :data:`None` is returned.
         """
         if self.callback:
             if not self.is_finished:
