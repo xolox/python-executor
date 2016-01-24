@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 14, 2016
+# Last Change: January 24, 2016
 # URL: https://executor.readthedocs.org
 
 """Automated tests for the `executor` package."""
@@ -26,6 +26,7 @@ from humanfriendly.compat import StringIO
 
 # Modules included in our package.
 from executor import (
+    DEFAULT_SHELL,
     CommandNotFound,
     ControllableProcess,
     ExternalCommand,
@@ -99,10 +100,31 @@ class ExecutorTestCase(unittest.TestCase):
         # Make sure the exception has the expected properties.
         self.assertEqual(e.command.command_line, ['bash', '-c', 'exit 42'])
         self.assertEqual(e.returncode, 42)
-        # Make sure CommandNotFound exceptions work for shell commands.
-        self.assertRaises(CommandNotFound, execute, MISSING_COMMAND)
-        # Make sure CommandNotFound exceptions work for non-shell commands.
-        self.assertRaises(CommandNotFound, execute, MISSING_COMMAND, 'just-an-argument')
+        # Make sure the CommandNotFound exception is raised consistently
+        # regardless of the values of the `shell' and `async' options.
+        for async in True, False:
+            for shell in True, False:
+                cmd = ExternalCommand(MISSING_COMMAND, async=async, shell=shell)
+                self.assertRaises(CommandNotFound, cmd.wait)
+
+    def test_shell_opt_out(self):
+        """Test that callers can always opt out of shell evaluation."""
+        # A command consisting of a single string implies shell evaluation but
+        # you can change that default.
+        assert DEFAULT_SHELL in ExternalCommand('echo 42').command_line
+        assert DEFAULT_SHELL not in ExternalCommand('echo 42', shell=False).command_line
+        # A command consisting of more than one string implies no shell
+        # evaluation but you can change that default.
+        assert DEFAULT_SHELL not in ExternalCommand('echo', '42').command_line
+        assert DEFAULT_SHELL in ExternalCommand('echo', '42', shell=True).command_line
+        # Confirm that opting out of shell evaluation really bypasses all shells.
+        cmd = ExternalCommand(
+            'echo this will never match an executable name',
+            shell=False, check=False,
+        )
+        cmd.start()
+        cmd.wait()
+        assert cmd.error_type is CommandNotFound
 
     def test_stdin(self):
         """Make sure standard input can be provided to external commands."""

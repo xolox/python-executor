@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 16, 2016
+# Last Change: January 24, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -64,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '8.2'
+__version__ = '8.3'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -570,7 +570,7 @@ class ExternalCommand(ControllableProcess):
      The :attr:`async`, :attr:`callback`, :attr:`capture`,
      :attr:`capture_stderr`, :attr:`check`, :attr:`directory`,
      :attr:`encoding`, :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
-     :attr:`logger`, :attr:`merge_streams`, :attr:`silent`,
+     :attr:`logger`, :attr:`merge_streams`, :attr:`shell`, :attr:`silent`,
      :attr:`stdout_file`, :attr:`stderr_file`, :attr:`sudo` and
      :attr:`virtual_environment` properties allow you to configure how the
      external command will be run (before it is started).
@@ -738,11 +738,10 @@ class ExternalCommand(ControllableProcess):
         the user (a list of strings). The command line is constructed based on
         :attr:`command` according to the following rules:
 
-        - If :attr:`command` contains a single string it is assumed to be a
-          shell command and run using ``bash -c '...'`` (assuming you haven't
-          changed :data:`DEFAULT_SHELL`) which means constructs like
-          semicolons, ampersands and pipes can be used (and all the usual
-          caveats apply :-).
+        - If :attr:`shell` is :data:`True` the external command is run using
+          ``bash -c '...'`` (assuming you haven't changed :data:`DEFAULT_SHELL`)
+          which means constructs like semicolons, ampersands and pipes can be
+          used (and all the usual caveats apply :-).
 
         - If :attr:`virtual_environment` is set the command is converted to a
           shell command line and prefixed by the applicable ``source ...``
@@ -752,14 +751,21 @@ class ExternalCommand(ControllableProcess):
           name may be prefixed to the command line generated here.
         """
         command_line = list(self.command)
+        shell = self.shell
         if self.virtual_environment:
             # Prepare to execute the command inside a Python virtual environment.
             activate_script = os.path.join(self.virtual_environment, 'bin', 'activate')
-            shell_command = command_line[0] if len(command_line) == 1 else quote(command_line)
-            command_line = ['source %s && %s' % (quote(activate_script), shell_command)]
-        if len(command_line) == 1:
+            if shell:
+                shell_command = 'source %s && %s' % (quote(activate_script), command_line[0])
+                command_line = [DEFAULT_SHELL, '-c', shell_command] + command_line[1:]
+            else:
+                shell_command = 'source %s && %s' % (quote(activate_script), quote(command_line))
+                command_line = [DEFAULT_SHELL, '-c', shell_command]
+            # Prevent the code further down from wrapping the command line in a second shell.
+            shell = False
+        if shell:
             # Prepare to execute a shell command.
-            command_line = [DEFAULT_SHELL, '-c', command_line[0]]
+            command_line = [DEFAULT_SHELL, '-c'] + command_line
         if (self.fakeroot or self.sudo) and not self.have_superuser_privileges:
             if self.sudo:
                 # Superuser privileges requested by caller.
@@ -1007,6 +1013,25 @@ class ExternalCommand(ControllableProcess):
         returned.
         """
         return self.subprocess.poll() if self.subprocess else None
+
+    @mutable_property
+    def shell(self):
+        """
+        Whether to evaluate the external command as a shell command.
+
+        A boolean, the default depends on the value of :attr:`command`:
+
+        - If :attr:`command` contains a single string :attr:`shell` defaults to
+          :data:`True`.
+
+        - If :attr:`command` contains more than one string :attr:`shell`
+          defaults to :data:`False`.
+
+        When :data:`shell` is :data:`True` the external command is evaluated by
+        the shell given by :data:`DEFAULT_SHELL`, otherwise the external
+        command is run without shell evaluation.
+        """
+        return len(self.command) == 1
 
     @mutable_property
     def silent(self):
