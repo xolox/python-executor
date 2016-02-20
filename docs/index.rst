@@ -18,6 +18,12 @@ The :mod:`executor` module
 .. automodule:: executor
    :members:
 
+The :mod:`executor.cli` module
+==============================
+
+.. automodule:: executor.cli
+   :members:
+
 The :mod:`executor.concurrent` module
 =====================================
 

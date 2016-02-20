@@ -21,6 +21,7 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
     'sphinx.ext.viewcode',
+    'humanfriendly.sphinx',
 ]
 
 # Paths that contain templates, relative to this directory.
@@ -85,22 +86,3 @@ htmlhelp_basename = 'executordoc'
 
 # Sort members by the source order instead of alphabetically.
 autodoc_member_order = 'bysource'
-
-
-def setup(app):
-    """Sphinx customizations applied through the API."""
-    app.connect('autodoc-skip-member', custom_skip_member)
-
-
-def custom_skip_member(app, what, name, obj, skip, options):
-    """Inspired by http://stackoverflow.com/a/5599712/788200."""
-    if skip and obj.__doc__:
-        # If Sphinx would skip this object but it concerns a function or method
-        # that does have documentation we tell Sphinx to reconsider. This
-        # enables documentation of e.g. __init__(), __str__(), __unicode__(),
-        # __enter__(), __exit__(), etc. The isinstance() check makes sure we
-        # don't include things like __doc__, __module__ and __weakref__ in the
-        # documentation.
-        return not isinstance(obj, (types.FunctionType, types.MethodType))
-    else:
-        return skip
