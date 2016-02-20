@@ -571,9 +571,9 @@ class ExternalCommand(ControllableProcess):
      :attr:`capture_stderr`, :attr:`check`, :attr:`directory`,
      :attr:`encoding`, :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
      :attr:`logger`, :attr:`merge_streams`, :attr:`shell`, :attr:`silent`,
-     :attr:`stdout_file`, :attr:`stderr_file`, :attr:`sudo` and
-     :attr:`virtual_environment` properties allow you to configure how the
-     external command will be run (before it is started).
+     :attr:`stdout_file`, :attr:`stderr_file`, :attr:`uid`, :attr:`user`,
+     :attr:`sudo` and :attr:`virtual_environment` properties allow you to
+     configure how the external command will be run (before it is started).
 
     **Computed properties**
      The :attr:`command`, :attr:`command_line`, :attr:`decoded_stderr`,
@@ -618,11 +618,15 @@ class ExternalCommand(ControllableProcess):
         :param command: Any positional arguments are converted to a list and
                         used to set :attr:`command`.
         :param options: Keyword arguments can be used to conveniently override
-                        the default values of :attr:`async`, :attr:`capture`,
-                        :attr:`check`, :attr:`directory`, :attr:`encoding`,
+                        the default values of :attr:`async`, :attr:`callback`,
+                        :attr:`capture`, :attr:`capture_stderr`, :attr:`check`,
+                        :attr:`directory`, :attr:`encoding`,
                         :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
-                        :attr:`logger`, :attr:`silent` and :attr:`sudo`. Any
-                        other keyword argument will raise :exc:`TypeError` as
+                        :attr:`logger`, :attr:`merge_streams`, :attr:`shell`,
+                        :attr:`silent`, :attr:`stdout_file`,
+                        :attr:`stderr_file`, :attr:`uid`, :attr:`user`,
+                        :attr:`sudo` and :attr:`virtual_environment`.Any other
+                        keyword argument will raise :exc:`TypeError` as
                         usual.
 
         The external command is not started until you call :func:`start()` or
@@ -747,8 +751,13 @@ class ExternalCommand(ControllableProcess):
           shell command line and prefixed by the applicable ``source ...``
           command.
 
+        - If :attr:`uid` or :attr:`user` is set the `sudo -u`` command will be
+          prefixed to the command line generated here.
+
         - If :attr:`fakeroot` or :attr:`sudo` is set the respective command
-          name may be prefixed to the command line generated here.
+          name is prefixed to the command line generated here (``sudo`` is only
+          prefixed when the current process doesn't already have super user
+          privileges).
         """
         command_line = list(self.command)
         shell = self.shell
