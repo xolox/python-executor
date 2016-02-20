@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 24, 2016
+# Last Change: February 20, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -64,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '8.3'
+__version__ = '8.4'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -766,7 +766,13 @@ class ExternalCommand(ControllableProcess):
         if shell:
             # Prepare to execute a shell command.
             command_line = [DEFAULT_SHELL, '-c'] + command_line
-        if (self.fakeroot or self.sudo) and not self.have_superuser_privileges:
+        if self.uid is not None:
+            # Run the command under a different user ID.
+            command_line = ['sudo', '-u', '#%i' % self.uid] + command_line
+        elif self.user is not None:
+            # Run the command under a different username.
+            command_line = ['sudo', '-u', self.user] + command_line
+        elif (self.fakeroot or self.sudo) and not self.have_superuser_privileges:
             if self.sudo:
                 # Superuser privileges requested by caller.
                 command_line = ['sudo'] + command_line
@@ -1149,8 +1155,39 @@ class ExternalCommand(ControllableProcess):
         process doesn't have `superuser privileges`_ the external command is
         run with ``sudo`` to ensure that the external command runs with
         superuser privileges.
+
+        The use of this option assumes that the ``sudo`` command is
+        available.
         """
         return False
+
+    @mutable_property
+    def uid(self):
+        """
+        The user ID of the system user that's used to run the command.
+
+        If this option is set to an integer number (it defaults to
+        :data:`None`) the external command is prefixed with ``sudo -u #UID`` to
+        run the command as a different user than the current user.
+
+        The use of this option assumes that the ``sudo`` command is
+        available.
+        """
+        return None
+
+    @mutable_property
+    def user(self):
+        """
+        The name of the system user that's used to run the command.
+
+        If this option is set to a string (it defaults to :data:`None`) the
+        external command is prefixed with ``sudo -u USER`` to run the command
+        as a different user than the current user.
+
+        The use of this option assumes that the ``sudo`` command is
+        available.
+        """
+        return None
 
     @mutable_property
     def virtual_environment(self):

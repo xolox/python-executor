@@ -1,15 +1,51 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 24, 2016
+# Last Change: February 20, 2016
 # URL: https://executor.readthedocs.org
 
-"""Automated tests for the `executor` package."""
+"""
+Automated tests for the `executor` package.
+
+This test suite uses ``sudo`` in several tests. If you don't have password-less
+sudo configured you'll notice because you'll get interactive prompts when
+running the test suite ...
+
+Of course the idea behind a test suite is to run non-interactively, so in my
+personal development environment I have added a custom sudo configuration file
+``/etc/sudoers.d/executor-test-suite`` with the following contents::
+
+    # /etc/sudoers.d/executor-test-suite:
+    #
+    # Configuration for sudo to run the executor test suite
+    # without getting interactive sudo prompts.
+
+    # To enable test_sudo_option.
+    peter ALL=NOPASSWD:/bin/chmod 600 /tmp/executor-test-suite/*
+    peter ALL=NOPASSWD:/bin/chown root\:root /tmp/executor-test-suite/*
+    peter ALL=NOPASSWD:/bin/rm -R /tmp/executor-test-suite
+    peter ALL=NOPASSWD:/usr/bin/stat --format=%a /tmp/executor-test-suite/*
+    peter ALL=NOPASSWD:/usr/bin/stat --format=%G /tmp/executor-test-suite/*
+    peter ALL=NOPASSWD:/usr/bin/stat --format=%U /tmp/executor-test-suite/*
+
+    # To enable test_uid_option and test_user_option. The ALL=(ALL) tokens allow
+    # running the command as any user (because the test suite picks user names
+    # and user IDs more or less at random).
+    peter ALL=(ALL) NOPASSWD:/usr/bin/id *
+
+If you want to use this, make sure you change the username and check the
+locations of the executables whose pathnames have been expanded in the sudo
+configuration. Happy testing!
+
+None of this is relevant on e.g. Travis CI because in that environment
+password-less sudo access has been configured.
+"""
 
 # Standard library modules.
 import datetime
 import logging
 import os
+import pwd
 import random
 import shlex
 import shutil
@@ -280,9 +316,40 @@ class ExecutorTestCase(unittest.TestCase):
         finally:
             os.unlink(filename)
 
+    def test_uid_option(self):
+        """
+        Make sure ``sudo`` can be used to switch users based on a user ID.
+
+        The purpose of this test is to switch to any user that is not root or
+        the current user and verify that switching worked correctly. It's
+        written this way because I wanted to make the least possible
+        assumptions about the systems that will run this test suite.
+        """
+        uids_to_ignore = (0, os.getuid())
+        entry = next(e for e in pwd.getpwall() if e.pw_uid not in uids_to_ignore)
+        output = execute('id', '-u', capture=True, uid=entry.pw_uid)
+        assert output == str(entry.pw_uid)
+
+    def test_user_option(self):
+        """
+        Make sure ``sudo`` can be used to switch users based on a username.
+
+        The purpose of this test is to switch to any user that is not root or
+        the current user and verify that switching worked correctly. It's
+        written this way because I wanted to make the least possible
+        assumptions about the systems that will run this test suite.
+        """
+        uids_to_ignore = (0, os.getuid())
+        entry = next(e for e in pwd.getpwall() if e.pw_uid not in uids_to_ignore)
+        output = execute('id', '-u', capture=True, user=entry.pw_name)
+        assert output == str(entry.pw_uid)
+
     def test_sudo_option(self):
-        """Make sure ``fakeroot`` can be used."""
-        filename = os.path.join(tempfile.gettempdir(), 'executor-%s-sudo-test' % os.getpid())
+        """Make sure ``sudo`` can be used to elevate privileges."""
+        directory = os.path.join(tempfile.gettempdir(), 'executor-test-suite')
+        if not os.path.isdir(directory):
+            os.makedirs(directory)
+        filename = os.path.join(directory, 'executor-%s-sudo-test' % os.getpid())
         self.assertTrue(execute('touch', filename))
         try:
             self.assertTrue(execute('chown', 'root:root', filename, sudo=True))
@@ -291,7 +358,7 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertTrue(execute('chmod', '600', filename, sudo=True))
             self.assertEqual(execute('stat', '--format=%a', filename, sudo=True, capture=True), '600')
         finally:
-            self.assertTrue(execute('rm', filename, sudo=True))
+            self.assertTrue(execute('rm', '-R', directory, sudo=True))
 
     def test_environment_variable_handling(self):
         """Make sure environment variables can be overridden."""

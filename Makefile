@@ -1,7 +1,7 @@
 # Makefile for executor.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 13, 2015
+# Last Change: February 20, 2016
 # URL: https://github.com/xolox/python-executor
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -54,7 +54,6 @@ reset:
 
 test: install
 	@ $(MAKE) dependency PROGRAM=detox PACKAGE=detox
-	@ if ! sudo -n true &> /dev/null; then sudo -p "Please enable password-less sudo under detox: " true; fi
 	@ $(ACTIVATE) && time detox
 
 coverage: install
