@@ -8,7 +8,6 @@ the current directory set to its containing dir.
 
 import os
 import sys
-import types
 
 # Add the 'executor' source distribution's root directory to the module path.
 sys.path.insert(0, os.path.abspath(os.pardir))
@@ -42,7 +41,7 @@ copyright = u'2016, Peter Odding'
 # built documents.
 
 # Find the package version and make it the release.
-from executor import __version__ as executor_version
+from executor import __version__ as executor_version  # noqa
 
 # The short X.Y version.
 version = '.'.join(executor_version.split('.')[:2])
