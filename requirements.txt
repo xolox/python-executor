@@ -1,0 +1,5 @@
+coloredlogs >= 3.5
+fasteners >= 0.14.1
+humanfriendly >= 1.19
+property-manager >= 1.2
+six >= 1.9.0

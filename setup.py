@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-"""Setup script for the `executor` package."""
-
+# Programmer friendly subprocess wrapper.
+#
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 13, 2015
+# Last Change: February 20, 2016
 # URL: https://executor.readthedocs.org
+
+"""Setup script for the `executor` package."""
 
 # Standard library modules.
 import codecs
@@ -14,29 +16,47 @@ import re
 # De-facto standard solution for Python packaging.
 from setuptools import setup, find_packages
 
-# Find the directory where the source distribution was unpacked.
-source_directory = os.path.dirname(os.path.abspath(__file__))
 
-# Find the current version.
-module = os.path.join(source_directory, 'executor', '__init__.py')
-for line in open(module, 'r'):
-    match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
-    if match:
-        version_string = match.group(1)
-        break
-else:
-    raise Exception("Failed to extract version from %s!" % module)
+def get_readme():
+    """Get the contents of the ``README.rst`` file as a Unicode string."""
+    with codecs.open(get_absolute_path('README.rst'), 'r', 'utf-8') as handle:
+        return handle.read()
 
-# Fill in the long description (for the benefit of PyPI)
-# with the contents of README.rst (rendered by GitHub).
-readme_file = os.path.join(source_directory, 'README.rst')
-with codecs.open(readme_file, 'r', 'utf-8') as handle:
-    readme_text = handle.read()
+
+def get_version(filename):
+    """Get the package's version (by extracting it from the source code)."""
+    module_path = get_absolute_path(filename)
+    with open(module_path) as handle:
+        for line in handle:
+            match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
+            if match:
+                return match.group(1)
+    raise Exception("Failed to extract version from %s!" % module_path)
+
+
+def get_requirements(*args):
+    """Get requirements from pip requirement files."""
+    requirements = set()
+    with open(get_absolute_path(*args)) as handle:
+        for line in handle:
+            # Strip comments.
+            line = re.sub(r'^#.*|\s#.*', '', line)
+            # Ignore empty lines
+            if line and not line.isspace():
+                requirements.add(re.sub(r'\s+', '', line))
+    return sorted(requirements)
+
+
+def get_absolute_path(*args):
+    """Transform relative pathnames into absolute pathnames."""
+    directory = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(directory, *args)
+
 
 setup(name='executor',
-      version=version_string,
+      version=get_version('executor/__init__.py'),
       description='Programmer friendly subprocess wrapper',
-      long_description=readme_text,
+      long_description=get_readme(),
       url='https://executor.readthedocs.org',
       author='Peter Odding',
       author_email='peter@peterodding.com',
@@ -44,14 +64,33 @@ setup(name='executor',
       entry_points=dict(console_scripts=[
           'executor = executor.cli:main',
       ]),
-      install_requires=[
-          'coloredlogs >= 3.5',
-          'fasteners >= 0.14.1',
-          'humanfriendly >= 1.19',
-          'property-manager >= 1.2',
-          'six >= 1.9.0',
-      ],
+      install_requires=get_requirements('requirements.txt'),
       test_suite='executor.tests',
       tests_require=[
           'virtualenv',
+      ],
+      classifiers=[
+          'Development Status :: 5 - Production/Stable',
+          'Environment :: Console',
+          'Intended Audience :: Developers',
+          'Intended Audience :: Information Technology',
+          'Intended Audience :: System Administrators',
+          'License :: OSI Approved :: MIT License',
+          'Operating System :: POSIX',
+          'Operating System :: POSIX :: Linux',
+          'Operating System :: Unix',
+          'Programming Language :: Python',
+          'Programming Language :: Python :: 2',
+          'Programming Language :: Python :: 2.6',
+          'Programming Language :: Python :: 2.7',
+          'Programming Language :: Python :: 3',
+          'Programming Language :: Python :: 3.4',
+          'Topic :: Internet',
+          'Topic :: Software Development',
+          'Topic :: Software Development :: Libraries',
+          'Topic :: Software Development :: Libraries :: Python Modules',
+          'Topic :: System :: Networking',
+          'Topic :: System :: Shells',
+          'Topic :: System :: Systems Administration',
+          'Topic :: Utilities',
       ])
