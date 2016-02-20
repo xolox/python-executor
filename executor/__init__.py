@@ -64,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '8.4'
+__version__ = '9.0'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -760,37 +760,32 @@ class ExternalCommand(ControllableProcess):
           privileges).
         """
         command_line = list(self.command)
-        shell = self.shell
+        # Apply the `shell' and/or `virtual_environment' options.
         if self.virtual_environment:
             # Prepare to execute the command inside a Python virtual environment.
             activate_script = os.path.join(self.virtual_environment, 'bin', 'activate')
-            if shell:
+            if self.shell:
                 shell_command = 'source %s && %s' % (quote(activate_script), command_line[0])
                 command_line = [DEFAULT_SHELL, '-c', shell_command] + command_line[1:]
             else:
                 shell_command = 'source %s && %s' % (quote(activate_script), quote(command_line))
                 command_line = [DEFAULT_SHELL, '-c', shell_command]
-            # Prevent the code further down from wrapping the command line in a second shell.
-            shell = False
-        if shell:
+        elif self.shell:
             # Prepare to execute a shell command.
             command_line = [DEFAULT_SHELL, '-c'] + command_line
+        # Run the command under `fakeroot' to fake super user privileges?
+        if self.fakeroot:
+            command_line = ['fakeroot'] + command_line
+        # Run the command under `sudo' to enable super user privileges? (only if necessary)
+        if self.sudo and not self.have_superuser_privileges:
+            command_line = ['sudo'] + command_line
+        # Apply the `uid' or `user' options.
         if self.uid is not None:
             # Run the command under a different user ID.
             command_line = ['sudo', '-u', '#%i' % self.uid] + command_line
         elif self.user is not None:
             # Run the command under a different username.
             command_line = ['sudo', '-u', self.user] + command_line
-        elif (self.fakeroot or self.sudo) and not self.have_superuser_privileges:
-            if self.sudo:
-                # Superuser privileges requested by caller.
-                command_line = ['sudo'] + command_line
-            elif self.fakeroot and which('fakeroot'):
-                # fakeroot requested by caller and available.
-                command_line = ['fakeroot'] + command_line
-            else:
-                # fakeroot requested by caller but not available.
-                command_line = ['sudo'] + command_line
         return command_line
 
     @property
