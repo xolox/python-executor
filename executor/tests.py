@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: February 20, 2016
+# Last Change: March 21, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -745,6 +745,17 @@ class ExecutorTestCase(unittest.TestCase):
         assert not os.path.isfile(random_file)
         # Test context.capture().
         assert context.capture('hostname') == socket.gethostname()
+        # Test context.read_file() and context.write_file() and make sure they
+        # are binary safe (i.e. they should be usable for non-text files).
+        random_file = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex)
+        assert not os.path.exists(random_file)
+        expected_contents = bytes(random.randint(0, 255) for i in range(25))
+        context.write_file(random_file, expected_contents)
+        # Make sure the file was indeed created.
+        assert os.path.exists(random_file)
+        # Make sure the contents are correct.
+        actual_contents = context.read_file(random_file)
+        assert actual_contents == expected_contents
 
     def test_cli_usage(self):
         """Make sure the command line interface properly presents its usage message."""

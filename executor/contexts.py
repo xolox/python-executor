@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 5, 2015
+# Last Change: March 22, 2016
 # URL: https://executor.readthedocs.org
 
 r"""
@@ -65,7 +65,7 @@ import multiprocessing
 import socket
 
 # Modules included in our package.
-from executor import DEFAULT_SHELL, ExternalCommand
+from executor import DEFAULT_SHELL, ExternalCommand, quote
 from executor.ssh.client import RemoteCommand, SSH_PROGRAM_NAME
 
 # Initialize a logger.
@@ -78,7 +78,9 @@ class AbstractContext(object):
     Abstract base class for shared logic of all context classes.
 
     The most useful methods of this class are :func:`execute()`,
-    :func:`capture()`, :func:`cleanup()` and :func:`start_interactive_shell()`.
+    :func:`test()`, :func:`capture()`, :func:`cleanup()`,
+    :func:`start_interactive_shell()`, :func:`read_file()` and
+    :func:`write_file()`.
     """
 
     def __init__(self, **options):
@@ -263,6 +265,41 @@ class AbstractContext(object):
     def cpu_count(self):
         """The number of CPUs in the system (an integer)."""
         raise NotImplementedError()
+
+    def read_file(self, filename):
+        """
+        Read the contents of a file.
+
+        :param filename: The pathname of the file to read (a string).
+        :returns: The contents of the file (a byte string).
+
+        This method uses cat_ to read the contents of files so that options
+        like :attr:`~.ExternalCommand.sudo` are respected (regardless of
+        whether we're dealing with a :class:`LocalContext` or
+        :class:`RemoteContext`).
+
+        .. _cat: http://linux.die.net/man/1/cat
+        """
+        return self.execute('cat', filename, capture=True).stdout
+
+    def write_file(self, filename, contents):
+        """
+        Change the contents of a file.
+
+        :param filename: The pathname of the file to write (a string).
+        :param contents: The contents to write to the file (a byte string).
+
+        This method uses a combination of cat_ and `output redirection`_ to
+        change the contents of files so that options like
+        :attr:`~.ExternalCommand.sudo` are respected (regardless of whether
+        we're dealing with a :class:`LocalContext` or :class:`RemoteContext`).
+        Due to the use of cat_ this method will create files that don't exist
+        yet, assuming the directory containing the file already exists and the
+        context provides permission to write to the directory.
+
+        .. _output redirection: https://en.wikipedia.org/wiki/Redirection_(computing)
+        """
+        return self.execute('cat > %s' % quote(filename), shell=True, input=contents)
 
     def __enter__(self):
         """Initialize a new "undo stack" (refer to :func:`cleanup()`)."""
