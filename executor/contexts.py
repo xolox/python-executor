@@ -64,6 +64,9 @@ import logging
 import multiprocessing
 import socket
 
+# External dependencies.
+from property_manager import lazy_property
+
 # Modules included in our package.
 from executor import DEFAULT_SHELL, ExternalCommand, quote
 from executor.ssh.client import RemoteCommand, SSH_PROGRAM_NAME
@@ -263,7 +266,11 @@ class AbstractContext(object):
 
     @property
     def cpu_count(self):
-        """The number of CPUs in the system (an integer)."""
+        """
+        The number of CPUs in the system (an integer).
+
+        .. note:: This is an abstract property that must be implemented by subclasses.
+        """
         raise NotImplementedError()
 
     def read_file(self, filename):
@@ -318,9 +325,13 @@ class LocalContext(AbstractContext):
 
     """Context for executing commands on the local system."""
 
-    @property
+    @lazy_property
     def cpu_count(self):
-        """Refer to :attr:`AbstractContext.cpu_count`."""
+        """
+        The number of CPUs in the system (an integer).
+
+        This property's value is computed using :func:`multiprocessing.cpu_count()`.
+        """
         return multiprocessing.cpu_count()
 
     def prepare_command(self, command, options):
@@ -350,10 +361,21 @@ class RemoteContext(AbstractContext):
         super(RemoteContext, self).__init__(**options)
         self.ssh_alias = ssh_alias
 
-    @property
+    @lazy_property
     def cpu_count(self):
-        """Refer to :attr:`AbstractContext.cpu_count`."""
-        return int(self.capture('nproc'))
+        """
+        The number of CPUs in the system (an integer).
+
+        This property's value is computed by executing the remote command
+        nproc_. If that command fails :attr:`cpu_count` falls back to the
+        command ``grep -ci '^processor\s*:' /proc/cpuinfo``.
+
+        .. _nproc: http://linux.die.net/man/1/nproc
+        """
+        try:
+            return int(self.capture('nproc', shell=False, silent=True))
+        except Exception:
+            return int(self.capture('grep', '-ci', '^processor\s*:', '/proc/cpuinfo'))
 
     def prepare_command(self, command, options):
         """Refer to :attr:`AbstractContext.prepare_command`."""
