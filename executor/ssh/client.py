@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 13, 2016
+# Last Change: March 21, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -21,7 +21,7 @@ import logging
 import os
 
 # External dependencies.
-from humanfriendly import concatenate, pluralize, Timer
+from humanfriendly import concatenate, format, pluralize, Timer
 from property_manager import mutable_property, required_property
 
 # Modules included in our package.
@@ -294,11 +294,14 @@ class RemoteCommand(ExternalCommand):
     def error_message(self):
         """A user friendly explanation of how the remote command failed (a string or :data:`None`)."""
         if self.error_type is RemoteConnectFailed:
-            text = "SSH connection to %s failed! (command: %s)"
-            return text % (self.ssh_alias, quote(self.command_line))
+            return format("SSH connection to %s failed! (SSH command: %s)",
+                          self.ssh_alias, quote(self.command_line))
+        elif self.error_type is RemoteCommandNotFound:
+            return format("External command on %s isn't available! (SSH command: %s)",
+                          self.ssh_alias, quote(self.command_line))
         elif self.error_type is RemoteCommandFailed:
-            text = "External command on %s failed with exit code %s! (SSH command: %s)"
-            return text % (self.ssh_alias, self.returncode, quote(self.command_line))
+            return format("External command on %s failed with exit code %s! (SSH command: %s)",
+                          self.ssh_alias, self.returncode, quote(self.command_line))
 
     @mutable_property
     def error_type(self):
