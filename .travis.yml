@@ -19,3 +19,6 @@ script:
   - coverage report --fail-under=90
 after_success:
   - coveralls
+branches:
+  except:
+    - /^[0-9]/
