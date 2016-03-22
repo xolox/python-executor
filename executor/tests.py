@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 21, 2016
+# Last Change: March 22, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -274,17 +274,13 @@ class ExecutorTestCase(unittest.TestCase):
 
     def test_working_directory(self):
         """Make sure the working directory of external commands can be set."""
-        directory = tempfile.mkdtemp()
-        try:
+        with TemporaryDirectory() as directory:
             self.assertEqual(execute('echo $PWD', capture=True, directory=directory), directory)
-        finally:
-            os.rmdir(directory)
 
     def test_virtual_environment_option(self):
         """Make sure Python virtual environments can be used."""
-        directory = tempfile.mkdtemp()
-        virtual_environment = os.path.join(directory, 'environment')
-        try:
+        with TemporaryDirectory() as directory:
+            virtual_environment = os.path.join(directory, 'environment')
             # Create a virtual environment to run the command in.
             execute('virtualenv', virtual_environment)
             # This is the expected value of `sys.executable'.
@@ -300,8 +296,6 @@ class ExecutorTestCase(unittest.TestCase):
             # this wrong on the first attempt :-).
             output = execute('echo $VIRTUAL_ENV', capture=True, virtual_environment=virtual_environment)
             assert os.path.samefile(virtual_environment, output)
-        finally:
-            shutil.rmtree(directory)
 
     def test_fakeroot_option(self):
         """Make sure ``fakeroot`` can be used."""
@@ -590,10 +584,9 @@ class ExecutorTestCase(unittest.TestCase):
 
     def test_command_pool_logs_directory(self):
         """Make sure command pools can log output of commands in a directory."""
-        root_directory = tempfile.mkdtemp()
-        sub_directory = os.path.join(root_directory, 'does-not-exist-yet')
-        identifiers = [1, 2, 3, 4, 5]
-        try:
+        with TemporaryDirectory() as root_directory:
+            identifiers = [1, 2, 3, 4, 5]
+            sub_directory = os.path.join(root_directory, 'does-not-exist-yet')
             pool = CommandPool(concurrency=5, logs_directory=sub_directory)
             for i in identifiers:
                 pool.add(identifier=i, command=ExternalCommand('echo %i' % i))
@@ -604,8 +597,6 @@ class ExecutorTestCase(unittest.TestCase):
                 with open(os.path.join(sub_directory, filename)) as handle:
                     contents = handle.read()
                 assert filename == ('%s.log' % contents.strip())
-        finally:
-            shutil.rmtree(root_directory)
 
     def test_ssh_command_lines(self):
         """Make sure SSH client command lines are correctly generated."""
@@ -675,15 +666,12 @@ class ExecutorTestCase(unittest.TestCase):
     def test_remote_working_directory(self):
         """Make sure remote working directories can be set."""
         with SSHServer() as server:
-            some_random_directory = tempfile.mkdtemp()
-            try:
+            with TemporaryDirectory() as some_random_directory:
                 output = remote('127.0.0.1', 'pwd',
                                 capture=True,
                                 directory=some_random_directory,
                                 **server.client_options)
                 assert output == some_random_directory
-            finally:
-                shutil.rmtree(some_random_directory)
 
     def test_remote_error_handling(self):
         """Make sure remote commands preserve exit codes."""
@@ -703,8 +691,7 @@ class ExecutorTestCase(unittest.TestCase):
 
     def test_foreach_with_logging(self):
         """Make sure remote command pools can log output."""
-        directory = tempfile.mkdtemp()
-        try:
+        with TemporaryDirectory() as directory:
             ssh_aliases = ['127.0.0.%i' % i for i in (1, 2, 3, 4, 5, 6, 7, 8)]
             with SSHServer() as server:
                 foreach(ssh_aliases, 'echo $SSH_CONNECTION',
@@ -713,8 +700,6 @@ class ExecutorTestCase(unittest.TestCase):
             log_files = os.listdir(directory)
             assert len(log_files) == len(ssh_aliases)
             assert all(os.path.getsize(os.path.join(directory, fn)) > 0 for fn in log_files)
-        finally:
-            shutil.rmtree(directory)
 
     def test_local_context(self):
         """Test a local command context."""
@@ -858,3 +843,38 @@ class CaptureOutput(object):
     def __str__(self):
         """Get the text written to :data:`sys.stdout`."""
         return self.stream.getvalue()
+
+
+class TemporaryDirectory(object):
+
+    """
+    Easy temporary directory creation & cleanup using the :keyword:`with` statement.
+
+    Here's an example of how to use this:
+
+    .. code-block:: python
+
+       with TemporaryDirectory() as directory:
+           # Do something useful here.
+           assert os.path.isdir(directory)
+    """
+
+    def __init__(self, **options):
+        """
+        Initialize a :class:`TemporaryDirectory` object.
+
+        :param options: Any keyword arguments are passed on to :func:`tempfile.mkdtemp()`.
+        """
+        self.options = options
+        self.temporary_directory = None
+
+    def __enter__(self):
+        """Create the temporary directory."""
+        self.temporary_directory = tempfile.mkdtemp(**self.options)
+        return self.temporary_directory
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Destroy the temporary directory."""
+        if self.temporary_directory is not None:
+            shutil.rmtree(self.temporary_directory)
+            self.temporary_directory = None
