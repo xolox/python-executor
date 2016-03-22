@@ -741,6 +741,23 @@ class ExecutorTestCase(unittest.TestCase):
         # Make sure the contents are correct.
         actual_contents = context.read_file(random_file)
         assert actual_contents == expected_contents
+        # Test context.list_entries() and make sure it doesn't mangle filenames
+        # containing whitespace.
+        nasty_filenames = [
+            'something-innocent',
+            'now with spaces',
+            'and\twith\ttabs',
+            'and\nfinally\nnewlines',
+        ]
+        with TemporaryDirectory() as directory:
+            # Create files with nasty names :-).
+            for filename in nasty_filenames:
+                with open(os.path.join(directory, filename), 'w') as handle:
+                    handle.write('\n')
+            # List the directory entries.
+            parsed_filenames = context.list_entries(directory)
+            # Make sure all filenames were parsed correctly.
+            assert sorted(nasty_filenames) == sorted(parsed_filenames)
 
     def test_cli_usage(self):
         """Make sure the command line interface properly presents its usage message."""

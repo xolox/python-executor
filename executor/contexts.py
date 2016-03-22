@@ -62,6 +62,7 @@ integration tools developed using Python:
 # Standard library modules.
 import logging
 import multiprocessing
+import os
 import socket
 
 # External dependencies.
@@ -307,6 +308,21 @@ class AbstractContext(object):
         .. _output redirection: https://en.wikipedia.org/wiki/Redirection_(computing)
         """
         return self.execute('cat > %s' % quote(filename), shell=True, input=contents)
+
+    def list_entries(self, directory):
+        """
+        List the entries in a directory.
+
+        :param directory: The pathname of the directory (a string).
+        :returns: A list of strings with the names of the directory entries.
+
+        This method uses ``find -mindepth 1 -maxdepth 1 -print0`` to list
+        directory entries instead of going for the more obvious choice ``ls
+        -A1`` because ``find`` enables more reliable parsing of command output
+        (with regards to whitespace).
+        """
+        listing = self.capture('find', directory, '-mindepth', '1', '-maxdepth', '1', '-print0')
+        return [os.path.basename(fn) for fn in listing.split('\0') if fn]
 
     def __enter__(self):
         """Initialize a new "undo stack" (refer to :func:`cleanup()`)."""
