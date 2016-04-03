@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 22, 2016
+# Last Change: April 3, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -597,6 +597,13 @@ class ExecutorTestCase(unittest.TestCase):
                 with open(os.path.join(sub_directory, filename)) as handle:
                     contents = handle.read()
                 assert filename == ('%s.log' % contents.strip())
+
+    def test_ssh_user_at_host(self):
+        """Make sure a username can be injected via an SSH alias."""
+        cmd = RemoteCommand('root@host', 'true')
+        assert cmd.ssh_user == 'root'
+        assert cmd.ssh_alias == 'host'
+        assert cmd.have_superuser_privileges
 
     def test_ssh_command_lines(self):
         """Make sure SSH client command lines are correctly generated."""

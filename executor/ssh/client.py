@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 21, 2016
+# Last Change: April 3, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -180,7 +180,9 @@ class RemoteCommand(ExternalCommand):
         """
         Initialize a :class:`RemoteCommand` object.
 
-        :param ssh_alias: Used to set :attr:`ssh_alias`.
+        :param ssh_alias: Used to set :attr:`ssh_alias` and optionally
+                          :attr:`ssh_user` (if the value contains two tokens
+                          delimited by a ``@`` character).
         :param command: Any additional positional arguments are converted to a
                         list and used to set :attr:`~.ExternalCommand.command`.
         :param options: Keyword arguments can be used to conveniently override
@@ -195,11 +197,18 @@ class RemoteCommand(ExternalCommand):
         :func:`~executor.ExternalCommand.start()` or
         :func:`~executor.ExternalCommand.wait()`.
         """
-        # Store the SSH alias.
-        self.ssh_alias = ssh_alias
-        self.remote_directory = DEFAULT_WORKING_DIRECTORY
-        # Initialize the super class.
+        # Inject our logger as a default.
         options.setdefault('logger', logger)
+        # Set the default remote working directory.
+        self.remote_directory = DEFAULT_WORKING_DIRECTORY
+        # Store the SSH alias (and an optional username prefixed to it).
+        user, _, host = ssh_alias.rpartition('@')
+        if user and host:
+            self.ssh_user = user
+            self.ssh_alias = host
+        else:
+            self.ssh_alias = ssh_alias
+        # Initialize the super class.
         super(RemoteCommand, self).__init__(*command, **options)
 
     @mutable_property
