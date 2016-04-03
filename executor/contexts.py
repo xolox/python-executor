@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 22, 2016
+# Last Change: April 3, 2016
 # URL: https://executor.readthedocs.org
 
 r"""
@@ -273,6 +273,66 @@ class AbstractContext(object):
         .. note:: This is an abstract property that must be implemented by subclasses.
         """
         raise NotImplementedError()
+
+    def exists(self, pathname):
+        """
+        Check whether the given pathname exists.
+
+        :param pathname: The pathname to check (a string).
+        :returns: :data:`True` if the pathname exists,
+                  :data:`False` otherwise.
+
+        This is a shortcut for the ``test -e ...`` command.
+        """
+        return self.test('test', '-e', pathname)
+
+    def is_file(self, pathname):
+        """
+        Check whether the given pathname points to an existing file.
+
+        :param pathname: The pathname to check (a string).
+        :returns: :data:`True` if the pathname points to an existing file,
+                  :data:`False` otherwise.
+
+        This is a shortcut for the ``test -f ...`` command.
+        """
+        return self.test('test', '-f', pathname)
+
+    def is_directory(self, pathname):
+        """
+        Check whether the given pathname points to an existing directory.
+
+        :param pathname: The pathname to check (a string).
+        :returns: :data:`True` if the pathname points to an existing directory,
+                  :data:`False` otherwise.
+
+        This is a shortcut for the ``test -d ...`` command.
+        """
+        return self.test('test', '-d', pathname)
+
+    def is_readable(self, pathname):
+        """
+        Check whether the given pathname exists and is readable.
+
+        :param pathname: The pathname to check (a string).
+        :returns: :data:`True` if the pathname exists and is readable,
+                  :data:`False` otherwise.
+
+        This is a shortcut for the ``test -r ...`` command.
+        """
+        return self.test('test', '-r', pathname)
+
+    def is_writable(self, pathname):
+        """
+        Check whether the given pathname exists and is writable.
+
+        :param pathname: The pathname to check (a string).
+        :returns: :data:`True` if the pathname exists and is writable,
+                  :data:`False` otherwise.
+
+        This is a shortcut for the ``test -w ...`` command.
+        """
+        return self.test('test', '-w', pathname)
 
     def read_file(self, filename):
         """

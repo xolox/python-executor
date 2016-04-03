@@ -7,7 +7,7 @@
 """
 Automated tests for the `executor` package.
 
-This test suite uses ``sudo`` in several tests. If you don't have password-less
+This test suite uses ``sudo`` in several tests. If you don't have passwordless
 sudo configured you'll notice because you'll get interactive prompts when
 running the test suite ...
 
@@ -33,12 +33,12 @@ personal development environment I have added a custom sudo configuration file
     # and user IDs more or less at random).
     peter ALL=(ALL) NOPASSWD:/usr/bin/id *
 
-If you want to use this, make sure you change the username and check the
+If you want to use this, make sure you change the username and sanity check the
 locations of the executables whose pathnames have been expanded in the sudo
 configuration. Happy testing!
 
-None of this is relevant on e.g. Travis CI because in that environment
-password-less sudo access has been configured.
+By the way none of this is relevant on e.g. Travis CI because in that
+environment passwordless sudo access has been configured.
 """
 
 # Standard library modules.
@@ -93,14 +93,18 @@ class ExecutorTestCase(unittest.TestCase):
     """Container for the `executor` test suite."""
 
     def setUp(self):
-        """Set up (colored) logging to the terminal."""
+        """Set up logging to the terminal and initialize test directories."""
+        # Enable logging to the terminal.
         try:
-            # Optional external dependency.
             import coloredlogs
             coloredlogs.install()
             coloredlogs.set_level(logging.DEBUG)
         except ImportError:
             logging.basicConfig(level=logging.DEBUG)
+        # Create the directory where superuser privileges are tested.
+        self.sudo_enabled_directory = os.path.join(tempfile.gettempdir(), 'executor-test-suite')
+        if not os.path.isdir(self.sudo_enabled_directory):
+            os.makedirs(self.sudo_enabled_directory)
 
     def assertRaises(self, type, callable, *args, **kw):
         """Replacement for :func:`unittest.TestCase.assertRaises()` that returns the exception."""
@@ -340,10 +344,7 @@ class ExecutorTestCase(unittest.TestCase):
 
     def test_sudo_option(self):
         """Make sure ``sudo`` can be used to elevate privileges."""
-        directory = os.path.join(tempfile.gettempdir(), 'executor-test-suite')
-        if not os.path.isdir(directory):
-            os.makedirs(directory)
-        filename = os.path.join(directory, 'executor-%s-sudo-test' % os.getpid())
+        filename = os.path.join(self.sudo_enabled_directory, 'executor-%s-sudo-test' % os.getpid())
         self.assertTrue(execute('touch', filename))
         try:
             self.assertTrue(execute('chown', 'root:root', filename, sudo=True))
@@ -352,7 +353,7 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertTrue(execute('chmod', '600', filename, sudo=True))
             self.assertEqual(execute('stat', '--format=%a', filename, sudo=True, capture=True), '600')
         finally:
-            self.assertTrue(execute('rm', '-R', directory, sudo=True))
+            self.assertTrue(execute('rm', '-R', self.sudo_enabled_directory, sudo=True))
 
     def test_environment_variable_handling(self):
         """Make sure environment variables can be overridden."""
@@ -719,22 +720,43 @@ class ExecutorTestCase(unittest.TestCase):
 
     def check_context(self, context):
         """Test a command execution context (whether local or remote)."""
-        # Make sure __str__() does something useful.
+        # Make sure __str__() does `something useful'.
         assert 'system' in str(context)
+        # Make sure context.cpu_count is supported.
+        assert context.cpu_count >= 1
         # Test context.execute() and cleanup().
-        random_file = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex)
-        assert not os.path.exists(random_file)
+        random_file = os.path.join(self.sudo_enabled_directory, uuid.uuid4().hex)
         with context:
+            # Make sure the test directory exists.
+            assert context.exists(self.sudo_enabled_directory)
+            assert context.is_directory(self.sudo_enabled_directory)
+            assert not context.is_file(self.sudo_enabled_directory)
+            # Make sure the random file doesn't exist yet.
+            assert not context.exists(random_file)
             # Create the random file.
             context.execute('touch', random_file)
             # Make sure the file was created.
-            assert os.path.isfile(random_file)
+            assert context.exists(random_file)
+            assert context.is_file(random_file)
+            assert not context.is_directory(random_file)
+            # Make sure the file is readable and writable.
+            assert context.is_readable(random_file)
+            assert context.is_writable(random_file)
             # Schedule to clean up the file.
-            context.cleanup('rm', random_file)
+            context.cleanup('rm', '-f', random_file)
             # Make sure the file hasn't actually been removed yet.
-            assert os.path.isfile(random_file)
+            assert context.exists(random_file)
+            # The following tests only make sense when we're not already
+            # running with superuser privileges.
+            if os.getuid() != 0:
+                # Revoke our privileges to the file.
+                context.execute('chown', 'root:root', random_file, sudo=True)
+                context.execute('chmod', '600', random_file, sudo=True)
+                # Make sure the file is no longer readable or writable.
+                assert not context.is_readable(random_file)
+                assert not context.is_writable(random_file)
         # Make sure the file has been removed (__exit__).
-        assert not os.path.isfile(random_file)
+        assert not context.exists(random_file)
         # Test context.capture().
         assert context.capture('hostname') == socket.gethostname()
         # Test context.read_file() and context.write_file() and make sure they
