@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 3, 2016
+# Last Change: April 7, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -233,6 +233,28 @@ class RemoteCommand(ExternalCommand):
         """
         return True
 
+    @mutable_property
+    def command(self):
+        """
+        A list of strings with the command to execute (optional).
+
+        The value of :attr:`command` is optional for :class:`RemoteCommand`
+        objects (as opposed to :class:`.ExternalCommand` objects) because the
+        use of SSH implies a remote (interactive) shell that usually also
+        accepts (interactive) commands as input. This means it is valid to
+        create a remote command object without an actual remote command to
+        execute, but with input that provides commands to execute instead.
+
+        This "feature" can be useful to control non-UNIX systems that do accept
+        SSH connections but don't support a conventional UNIX shell. For
+        example, I added support for this "feature" so that I was able to send
+        commands to Juniper routers and switches over SSH with the purpose of
+        automating the failover of a connection between two datacenters (the
+        resulting Python program works great and it's much faster than I am,
+        making all of the required changes in a couple of seconds :-).
+        """
+        return []
+
     @property
     def command_line(self):
         """
@@ -258,9 +280,10 @@ class RemoteCommand(ExternalCommand):
         ssh_command.extend(('-o', 'UserKnownHostsFile=%s' % self.known_hosts_file))
         ssh_command.append(self.ssh_alias)
         remote_command = quote(super(RemoteCommand, self).command_line)
-        if self.remote_directory != DEFAULT_WORKING_DIRECTORY:
-            remote_command = 'cd %s && %s' % (quote(self.remote_directory), remote_command)
-        ssh_command.append(remote_command)
+        if remote_command:
+            if self.remote_directory != DEFAULT_WORKING_DIRECTORY:
+                remote_command = 'cd %s && %s' % (quote(self.remote_directory), remote_command)
+            ssh_command.append(remote_command)
         return ssh_command
 
     @mutable_property

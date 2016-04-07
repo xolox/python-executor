@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 3, 2016
+# Last Change: April 7, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -64,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '9.5'
+__version__ = '9.6'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -632,11 +632,10 @@ class ExternalCommand(ControllableProcess):
         The external command is not started until you call :func:`start()` or
         :func:`wait()`.
         """
-        # Store the command and its arguments.
-        command = list(command)
-        if not command:
-            raise TypeError("Please provide a command to execute!")
-        self.command = command
+        # Store the command and its arguments but make it possible for
+        # subclasses to redefine whether `command' is a required property.
+        if command:
+            self.command = list(command)
         # Set properties based on keyword arguments.
         super(ExternalCommand, self).__init__(**options)
         # Initialize instance variables.
@@ -732,6 +731,7 @@ class ExternalCommand(ControllableProcess):
     @required_property
     def command(self):
         """A list of strings with the command to execute."""
+        return []
 
     @property
     def command_line(self):
