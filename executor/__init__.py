@@ -64,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '9.6'
+__version__ = '9.6.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -731,7 +731,9 @@ class ExternalCommand(ControllableProcess):
     @required_property
     def command(self):
         """A list of strings with the command to execute."""
-        return []
+        # We specifically return None so that __init__() will raise a
+        # TypeError exception because no command has been specified.
+        return None
 
     @property
     def command_line(self):
