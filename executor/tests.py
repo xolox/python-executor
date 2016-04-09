@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 3, 2016
+# Last Change: April 9, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -73,7 +73,7 @@ from executor import (
 )
 from executor.cli import main
 from executor.concurrent import CommandPool, CommandPoolFailed
-from executor.contexts import LocalContext, RemoteContext
+from executor.contexts import LocalContext, RemoteContext, create_context
 from executor.ssh.client import (
     DEFAULT_CONNECT_TIMEOUT,
     RemoteCommand,
@@ -708,6 +708,15 @@ class ExecutorTestCase(unittest.TestCase):
             log_files = os.listdir(directory)
             assert len(log_files) == len(ssh_aliases)
             assert all(os.path.getsize(os.path.join(directory, fn)) > 0 for fn in log_files)
+
+    def test_create_context(self):
+        """Test context creation."""
+        assert isinstance(create_context(), LocalContext)
+        assert isinstance(create_context(ssh_alias=None), LocalContext)
+        assert isinstance(create_context(ssh_alias='whatever'), RemoteContext)
+        assert create_context(ssh_alias='whatever').ssh_alias == 'whatever'
+        assert create_context(sudo=True).options['sudo'] is True
+        assert create_context(sudo=False).options['sudo'] is False
 
     def test_local_context(self):
         """Test a local command context."""

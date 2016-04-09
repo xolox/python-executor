@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 3, 2016
+# Last Change: April 9, 2016
 # URL: https://executor.readthedocs.org
 
 r"""
@@ -74,6 +74,25 @@ from executor.ssh.client import RemoteCommand, SSH_PROGRAM_NAME
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
+
+
+def create_context(**options):
+    """
+    Create an execution context.
+
+    :param options: Any keyword arguments are passed on to the context's initializer.
+    :returns: A :class:`LocalContext` or :class:`RemoteContext` object.
+
+    This function provides an easy to use shortcut for constructing context
+    objects: If the keyword argument ``ssh_alias`` is given (and not
+    :data:`None`) then a :class:`RemoteContext` object will be created,
+    otherwise a :class:`LocalContext` object is created.
+    """
+    ssh_alias = options.pop('ssh_alias', None)
+    if ssh_alias is not None:
+        return RemoteContext(ssh_alias, **options)
+    else:
+        return LocalContext(**options)
 
 
 class AbstractContext(object):
