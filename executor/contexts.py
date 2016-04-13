@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 9, 2016
+# Last Change: April 13, 2016
 # URL: https://executor.readthedocs.org
 
 r"""
@@ -283,6 +283,12 @@ class AbstractContext(object):
         cmd = self.prepare_interactive_shell(options)
         cmd.start()
         return cmd
+
+    @property
+    def have_superuser_privileges(self):
+        """:data:`True` if the context has superuser privileges, :data:`False` otherwise."""
+        prototype = self.prepare('true')
+        return prototype.have_superuser_privileges or prototype.sudo
 
     @property
     def cpu_count(self):
