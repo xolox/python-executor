@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 13, 2016
+# Last Change: April 21, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -64,7 +64,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '9.8'
+__version__ = '9.9'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -778,17 +778,8 @@ class ExternalCommand(ControllableProcess):
         # Run the command under `fakeroot' to fake super user privileges?
         if self.fakeroot:
             command_line = ['fakeroot'] + command_line
-        # Run the command under `sudo' to enable super user privileges? (only if necessary)
-        if self.sudo and not self.have_superuser_privileges:
-            command_line = ['sudo'] + command_line
-        # Apply the `uid' or `user' options.
-        if self.uid is not None:
-            # Run the command under a different user ID.
-            command_line = ['sudo', '-u', '#%i' % self.uid] + command_line
-        elif self.user is not None:
-            # Run the command under a different username.
-            command_line = ['sudo', '-u', self.user] + command_line
-        return command_line
+        # Run the command under `sudo' to elevate or change privileges?
+        return self.sudo_command + command_line
 
     @property
     def decoded_stdout(self):
@@ -1166,6 +1157,47 @@ class ExternalCommand(ControllableProcess):
         available.
         """
         return False
+
+    @property
+    def sudo_command(self):
+        """
+        The ``sudo`` command used to change privileges (a list of strings).
+
+        This option looks at the :attr:`sudo`, :attr:`uid` and :attr:`user`
+        properties to decide whether :attr:`command` should be run using
+        ``sudo`` or not. If it should then a prefix for :attr:`command` is
+        constructed from :attr:`sudo`, :attr:`uid`, :attr:`user` and/or
+        :attr:`environment` and returned. Some examples:
+
+        >>> from executor import ExternalCommand
+        >>> ExternalCommand('true', sudo=True).sudo_command
+        ['sudo']
+        >>> ExternalCommand('true', uid=1000).sudo_command
+        ['sudo', '-u', '#1000']
+        >>> ExternalCommand('true', user='peter').sudo_command
+        ['sudo', '-u', 'peter']
+        >>> ExternalCommand('true', user='peter', environment=dict(gotcha='this is tricky')).sudo_command
+        ['sudo', '-u', 'peter', 'gotcha=this is tricky']
+        """
+        command_line = []
+        # Use `sudo' to run the command with super user privileges?
+        if self.sudo and not self.have_superuser_privileges:
+            command_line.append('sudo')
+        # Use `sudo' to run the command as a different user?
+        if self.uid is not None or self.user is not None:
+            if not command_line:
+                command_line.append('sudo')
+            command_line.append('-u')
+            if self.uid is not None:
+                command_line.append('#%i' % self.uid)
+            else:
+                command_line.append(self.user)
+        # If we're going to run the command under `sudo' we need to copy the
+        # environment variables into the `sudo' command line, otherwise the
+        # variables won't be exposed to the command!
+        if command_line:
+            command_line.extend('%s=%s' % (k, v) for k, v in sorted(self.environment.items()))
+        return command_line
 
     @mutable_property
     def uid(self):
