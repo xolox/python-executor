@@ -66,6 +66,24 @@ class CommandPool(PropertyManager):
         return multiprocessing.cpu_count()
 
     @mutable_property
+    def delay_checks(self):
+        """
+        Whether to postpone raising an exception until all commands have run (a boolean).
+
+        If this option is :data:`True` (not the default) and a command with
+        :attr:`.check` set to :data:`True` fails the command pool's execution
+        is not aborted, instead all commands will be allowed to run. After all
+        commands have finished a :exc:`CommandPoolFailed` exception will be
+        raised that tells you which command(s) failed.
+        """
+        return False
+
+    @property
+    def is_finished(self):
+        """:data:`True` if all commands in the pool have finished, :data:`False` otherwise."""
+        return all(cmd.is_finished for id, cmd in self.commands)
+
+    @mutable_property
     def logger(self):
         """
         The :class:`logging.Logger` object to use.
@@ -94,24 +112,6 @@ class CommandPool(PropertyManager):
 
         .. _tail -f: https://en.wikipedia.org/wiki/Tail_(Unix)#File_monitoring
         """
-
-    @mutable_property
-    def delay_checks(self):
-        """
-        Whether to postpone raising an exception until all commands have run (a boolean).
-
-        If this option is :data:`True` (not the default) and a command with
-        :attr:`.check` set to :data:`True` fails the command pool's execution
-        is not aborted, instead all commands will be allowed to run. After all
-        commands have finished a :exc:`CommandPoolFailed` exception will be
-        raised that tells you which command(s) failed.
-        """
-        return False
-
-    @property
-    def is_finished(self):
-        """:data:`True` if all commands in the pool have finished, :data:`False` otherwise."""
-        return all(cmd.is_finished for id, cmd in self.commands)
 
     @property
     def num_commands(self):
