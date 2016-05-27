@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 9, 2016
+# Last Change: May 27, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -105,6 +105,10 @@ class ExecutorTestCase(unittest.TestCase):
         self.sudo_enabled_directory = os.path.join(tempfile.gettempdir(), 'executor-test-suite')
         if not os.path.isdir(self.sudo_enabled_directory):
             os.makedirs(self.sudo_enabled_directory)
+        # Separate the name of the test method (printed by the superclass
+        # and/or py.test without a newline at the end) from the first line of
+        # logging output that the test method is likely going to generate.
+        sys.stderr.write("\n")
 
     def assertRaises(self, type, callable, *args, **kw):
         """Replacement for :func:`unittest.TestCase.assertRaises()` that returns the exception."""
