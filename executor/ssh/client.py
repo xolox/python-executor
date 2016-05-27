@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 7, 2016
+# Last Change: May 27, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -278,6 +278,8 @@ class RemoteCommand(ExternalCommand):
         else:
             ssh_command.extend(('-o', 'StrictHostKeyChecking=%s' % ('yes' if self.strict_host_key_checking else 'no')))
         ssh_command.extend(('-o', 'UserKnownHostsFile=%s' % self.known_hosts_file))
+        if self.tty:
+            ssh_command.append('-t')
         ssh_command.append(self.ssh_alias)
         remote_command = quote(super(RemoteCommand, self).command_line)
         if remote_command:

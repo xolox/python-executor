@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 13, 2016
+# Last Change: May 27, 2016
 # URL: https://executor.readthedocs.org
 
 r"""
@@ -484,12 +484,8 @@ class RemoteContext(AbstractContext):
 
     def prepare_interactive_shell(self, options):
         """Refer to :attr:`AbstractContext.prepare_interactive_shell`."""
-        # Force pseudo-tty allocation using `ssh -t', but take care not to
-        # destroy custom `ssh_command' values provided by callers.
         options = self.merge_options(options)
-        ssh_command = options.setdefault('ssh_command', [SSH_PROGRAM_NAME])
-        if '-t' not in ssh_command:
-            ssh_command.append('-t')
+        options['tty'] = True
         return RemoteCommand(self.ssh_alias, DEFAULT_SHELL, **options)
 
     def __str__(self):

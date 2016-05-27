@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 21, 2016
+# Last Change: May 27, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -52,6 +52,7 @@ import tempfile
 
 # External dependencies.
 from humanfriendly import Spinner, Timer, format
+from humanfriendly.terminal import connected_to_terminal
 from property_manager import PropertyManager, mutable_property, required_property, writable_property
 
 # Define an alias for Unicode strings that's unambiguous
@@ -64,7 +65,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '9.9'
+__version__ = '9.10'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -1198,6 +1199,29 @@ class ExternalCommand(ControllableProcess):
         if command_line:
             command_line.extend('%s=%s' % (k, v) for k, v in sorted(self.environment.items()))
         return command_line
+
+    @mutable_property
+    def tty(self):
+        """
+        Whether the command will be attached to the controlling terminal (a boolean).
+
+        By default :attr:`tty` is :data:`True` when:
+
+        - :attr:`capture` is :data:`False`
+        - :attr:`capture_stderr` is :data:`False`
+        - :attr:`input` is :data:`None`
+        - :attr:`silent` is :data:`False`
+        - :attr:`stdout_file` and :attr:`stderr_file` are :data:`None` or
+          files that are connected to a tty(-like) device
+
+        If any of these conditions don't hold :attr:`tty` defaults to :data:`False`.
+        """
+        return (self.input is None and
+                not self.capture and
+                not self.capture_stderr and
+                not self.silent and
+                not any(value and not connected_to_terminal(value)
+                        for value in (self.stdout_file, self.stderr_file)))
 
     @mutable_property
     def uid(self):
