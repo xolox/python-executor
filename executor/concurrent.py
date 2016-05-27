@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 8, 2015
+# Last Change: May 27, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -145,6 +145,17 @@ class CommandPool(PropertyManager):
         """
         return dict(self.commands)
 
+    @mutable_property
+    def spinner(self):
+        """
+        Whether to show an animated spinner or not (a boolean or :data:`None`).
+
+        The value of :attr:`spinner` defaults to :data:`None` which means a
+        spinner is shown when we're connected to a terminal but hidden when
+        we're not connected to a terminal.
+        """
+        return None
+
     @property
     def unexpected_failures(self):
         """
@@ -214,7 +225,7 @@ class CommandPool(PropertyManager):
                      pluralize(self.num_commands, "command"),
                      self.concurrency)
         try:
-            with Spinner(timer=timer) as spinner:
+            with Spinner(interactive=self.spinner, timer=timer) as spinner:
                 while not self.is_finished:
                     self.spawn()
                     self.collect()
