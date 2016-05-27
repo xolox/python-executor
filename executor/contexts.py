@@ -70,7 +70,7 @@ from property_manager import lazy_property
 
 # Modules included in our package.
 from executor import DEFAULT_SHELL, ExternalCommand, quote
-from executor.ssh.client import RemoteCommand, SSH_PROGRAM_NAME
+from executor.ssh.client import RemoteCommand
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
