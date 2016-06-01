@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 27, 2016
+# Last Change: May 29, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -159,7 +159,7 @@ class CommandPool(PropertyManager):
     @property
     def unexpected_failures(self):
         """
-        A list of :class:`ExternalCommand` objects that *failed unexpectedly*.
+        A list of :class:`~executor.ExternalCommand` objects that *failed unexpectedly*.
 
         The resulting list includes only commands where :attr:`.check` and
         :attr:`.failed` are both :data:`True`.
@@ -263,7 +263,7 @@ class CommandPool(PropertyManager):
             cmd = todo.pop(0)
             cmd.start()
             num_started += 1
-        if num_started > 0:
+        if num_started >= 1:
             logger.debug("Spawned %s ..", pluralize(num_started, "external command"))
         return num_started
 
@@ -321,7 +321,8 @@ class CommandPool(PropertyManager):
         If :func:`terminate()` successfully terminates commands, you then call
         :func:`collect()` and the :attr:`.check` property of a terminated
         command is :data:`True` you will get an exception because terminated
-        commands (by definition) report a nonzero :attr:`.returncode`.
+        commands (by definition) report a nonzero
+        :attr:`~executor.ExternalCommand.returncode`.
         """
         num_terminated = 0
         for identifier, command in self.commands:

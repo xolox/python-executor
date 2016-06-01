@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 13, 2016
+# Last Change: May 29, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -89,9 +89,12 @@ class EphemeralTCPServer(ExternalCommand):
         """
         Start the TCP server and wait for it to start accepting connections.
 
-        :param options: Any keyword arguments are passed to :func:`~.ExternalCommand.start()`.
+        :param options: Any keyword arguments are passed to the
+                        :func:`~executor.ExternalCommand.start()` method of the
+                        superclass.
         :raises: Any exceptions raised by :func:`wait_until_connected()`
-                 and :func:`~.ExternalCommand.start()`.
+                 and/or the :func:`~executor.ExternalCommand.start()` method of
+                 the superclass.
 
         If the TCP server doesn't start accepting connections within the
         configured timeout (see :attr:`wait_timeout`) the process will be
@@ -150,7 +153,7 @@ class EphemeralTCPServer(ExternalCommand):
             return False
 
     def render_location(self, scheme=None, hostname=None, port_number=None):
-        """Render a human friendly representation of an :class:`EphemeralPort` object."""
+        """Render a human friendly representation of an :class:`EphemeralTCPServer` object."""
         return format("{scheme}://{host}:{port}",
                       scheme=scheme or self.scheme,
                       host=hostname or self.hostname,
@@ -213,8 +216,11 @@ class SSHServer(EphemeralTCPServer):
         """
         Start the SSH server and wait for it to start accepting connections.
 
-        :param options: Any keyword arguments are passed to :func:`~.ExternalCommand.start()`.
-        :raises: Any exceptions raised by :func:`~.ExternalCommand.start()`.
+        :param options: Any keyword arguments are passed to the
+                        :func:`~EphemeralTCPServer.start()` method of the
+                        superclass.
+        :raises: Any exceptions raised by the
+                 :func:`~EphemeralTCPServer.start()` method of the superclass.
 
         The :func:`start()` method automatically calls the
         :func:`generate_key_file()` and :func:`generate_config()` methods.
@@ -276,6 +282,6 @@ class TimeoutError(Exception):
     """
     Raised when a TCP server doesn't start accepting connections quickly enough.
 
-    This exception is raised by :func:`~EphemeralPort.wait_until_connected()`
+    This exception is raised by :func:`~EphemeralTCPServer.wait_until_connected()`
     when the TCP server doesn't start accepting connections within a reasonable time.
     """

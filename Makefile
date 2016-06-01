@@ -1,7 +1,7 @@
 # Makefile for executor.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: February 20, 2016
+# Last Change: June 1, 2016
 # URL: https://github.com/xolox/python-executor
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
@@ -72,7 +72,7 @@ readme: install
 
 docs: install
 	@ $(MAKE) dependency PROGRAM=sphinx-build PACKAGE=sphinx
-	@ $(ACTIVATE) && cd docs && sphinx-build -b html -d build/doctrees . build/html
+	@ $(ACTIVATE) && cd docs && sphinx-build -nb html -d build/doctrees . build/html
 
 publish:
 	git push origin && git push --tags origin

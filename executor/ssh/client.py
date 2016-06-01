@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 27, 2016
+# Last Change: May 29, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -500,8 +500,8 @@ class RemoteCommandPool(CommandPool):
     Execute multiple remote commands concurrently.
 
     After constructing a :class:`RemoteCommandPool` instance you add commands
-    to it using :func:`add()` and when you're ready to run the commands you
-    call :func:`run()`.
+    to it using :func:`~executor.concurrent.CommandPool.add()` and when you're
+    ready to run the commands you call :func:`~executor.concurrent.CommandPool.run()`.
 
     .. note:: The only difference between :class:`.CommandPool` and
               :class:`RemoteCommandPool` is the default concurrency. This may
@@ -512,8 +512,8 @@ class RemoteCommandPool(CommandPool):
         """
         Initialize a :class:`RemoteCommandPool` object.
 
-        :param concurrency: Override the value of :attr:`concurrency` (an
-                            integer, defaults to :data:`DEFAULT_CONCURRENCY`
+        :param concurrency: Override the value of :attr:`~.CommandPool.concurrency`
+                            (an integer, defaults to :data:`DEFAULT_CONCURRENCY`
                             for remote command pools).
         :param options: Any additional keyword arguments are passed on
                         to the :class:`.CommandPool` constructor.

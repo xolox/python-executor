@@ -69,6 +69,7 @@ intersphinx_mapping = dict(
     python2=('http://docs.python.org', None),
     python3=('http://docs.python.org/3', None),
     humanfriendly=('https://humanfriendly.readthedocs.org/en/latest', None),
+    proc=('https://proc.readthedocs.org/en/latest', None),
     propertymanager=('https://property-manager.readthedocs.org/en/latest', None),
 )
 

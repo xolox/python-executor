@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 27, 2016
+# Last Change: June 1, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -51,9 +51,12 @@ import sys
 import tempfile
 
 # External dependencies.
-from humanfriendly import Spinner, Timer, format
+from humanfriendly import compact, format
 from humanfriendly.terminal import connected_to_terminal
 from property_manager import PropertyManager, mutable_property, required_property, writable_property
+
+# Modules included in our package.
+from executor.process import ControllableProcess
 
 # Define an alias for Unicode strings that's unambiguous
 # whether we are running under Python 2 or Python 3.
@@ -65,7 +68,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '9.11'
+__version__ = '10.0'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -104,9 +107,6 @@ Apart from these two things nothing else is expected from the default shell so
 you're free to customize it if you really want to write your shell commands in
 ``fish`` or ``zsh`` syntax :-).
 """
-
-DEFAULT_TIMEOUT = 10
-"""The default timeout used to wait for process termination (number of seconds)."""
 
 COMMAND_NOT_FOUND_CODES = (errno.ENOENT,)
 """Numeric error codes returned when a command isn't available on the system (a tuple of integers)."""
@@ -210,345 +210,6 @@ def execute_prepared(command):
             return command.succeeded
 
 
-class ControllableProcess(PropertyManager):
-
-    """
-    Simple process control based on the :mod:`subprocess` module and/or process IDs.
-
-    By creating a :class:`ControllableProcess` object with a :attr:`pid` or
-    :attr:`subprocess` keyword argument you get a process control object that
-    supports the :attr:`is_running` property and the :func:`terminate()`,
-    :func:`kill()`, :func:`stop()` and :func:`cont()` methods.
-
-    This class was created to decouple the primitives for process control from
-    the :class:`ExternalCommand` class to make it easier to re-use these
-    primitives in other contexts (like my Linux-specific proc_ package).
-
-    .. _proc: http://proc.readthedocs.org/en/latest/
-    """
-
-    @mutable_property
-    def pid(self):
-        """
-        The process ID of the child process (a number).
-
-        If the :attr:`subprocess` property is set the value of :attr:`pid`
-        defaults to the value of :attr:`subprocess.Popen.pid`, otherwise the
-        default value is :data:`None`.
-        """
-        return self.subprocess.pid if self.subprocess else None
-
-    @mutable_property
-    def subprocess(self):
-        """A :class:`subprocess.Popen` object or :data:`None`."""
-
-    @mutable_property
-    def command_line(self):
-        """
-        The command line used to start the process (a list of strings).
-
-        The only reason why :class:`ControllableProcess` needs to know about
-        command lines is to enable (optional) human friendly logging in methods
-        like :func:`terminate()` and :func:`kill()` (see :func:`__str__()`).
-        """
-        return []
-
-    @mutable_property
-    def logger(self):
-        """
-        The :class:`logging.Logger` object to use.
-
-        If you are using Python's :mod:`logging` module and you find it
-        confusing that command/process management information is logged under
-        the :mod:`executor` name space instead of the name space of the
-        application or library you can set this attribute to inject a custom
-        (and more appropriate) logger.
-        """
-        return logger
-
-    @property
-    def is_running(self):
-        """
-        Whether the process is currently running.
-
-        The value if this property is :data:`True` when the process is running
-        or :data:`False` otherwise (whether the process hasn't been started yet
-        or has already finished). This property has two implementations (listed
-        by order of preference):
-
-        1. If :attr:`subprocess` is available :func:`~subprocess.Popen.poll()`
-           is used to determine whether the process is currently running. The
-           advantage of this approach is that it works on UNIX and Windows
-           systems alike. A disadvantage of this approach is that the current
-           process by definition needs to be a parent of the process in
-           question.
-
-        2. If :attr:`pid` is available the signal number zero is sent to the
-           process with that process ID and the result is used to infer whether
-           the process is alive or not (this technique is documented in `man
-           kill`_):
-
-           - If the sending of the signal doesn't raise an exception the
-             process received the signal just fine and so must it exist.
-
-           - If an :exc:`~exceptions.OSError` exception with error number
-             :data:`~errno.EPERM` is raised we don't have permission to signal
-             the process, which implies that the process is alive.
-
-           - If an :exc:`~exceptions.OSError` exception with error number
-             :data:`~errno.ESRCH` is raised we know that no process with the
-             given id exists.
-
-           An advantage of this approach (on UNIX systems) is that you don't
-           need to be a parent of the process in question. A disadvantage of
-           this approach is that it is never going to work on Windows (if
-           you're serious about portability consider using a package like
-           psutil_).
-
-           .. warning:: After a process has been terminated but before the
-                        parent process has reclaimed its child process this
-                        property returns :data:`True`. Usually this is a small
-                        time window, but when it isn't it can be really
-                        confusing.
-
-        .. _man kill: http://linux.die.net/man/2/kill
-        .. _psutil: https://pypi.python.org/pypi/psutil
-        """
-        if self.subprocess:
-            # If we have a subprocess.Popen object we can poll it
-            # to check whether the child process is still alive.
-            logger.debug("Polling process status using subprocess module ..")
-            return self.subprocess.poll() is None
-        elif self.pid:
-            # Querying in-use process IDs is a platform specific operation that
-            # Python doesn't provide, however sending the signal number zero is
-            # a platform specific trick that works on most UNIX systems.
-            logger.debug("Polling process status using signal 0 ..")
-            try:
-                os.kill(self.pid, 0)
-                # If no exception is raised we successfully sent a NOOP signal
-                # to the process so we know the process is (still) alive.
-                logger.debug("Successfully sent signal 0, process must be alive.")
-                return True
-            except OSError as e:
-                if e.errno == errno.EPERM:
-                    # If we don't have permission this confirms that the
-                    # process ID is in use.
-                    logger.debug("Got EPERM, process must be alive.")
-                    return True
-                elif e.errno == errno.ESRCH:
-                    # If we get this error we know the process doesn't exist.
-                    logger.debug("Got ESRCH, process can't be alive.")
-                    return False
-                else:
-                    # Don't swallow exceptions we can't handle.
-                    raise
-        else:
-            # If there's no process information it can't be running ;-).
-            logger.debug("Can't check if process is running! (no process information available)")
-            return False
-
-    def terminate(self, wait=True, timeout=DEFAULT_TIMEOUT):
-        """
-        Gracefully terminate the process.
-
-        :param wait: Whether to wait for the process to end (a boolean,
-                     defaults to :data:`True`).
-        :param timeout: The number of seconds to wait for the process to
-                        terminate after we've signaled it (defaults to
-                        :data:`DEFAULT_TIMEOUT`). Zero means to wait
-                        indefinitely.
-        :returns: :data:`True` if the process was terminated, :data:`False`
-                  otherwise (a warning will be logged if the process isn't
-                  running). Please note that if `wait` is :data:`False` the
-                  return value may be unreliable due to race conditions.
-        :raises: :exc:`~exceptions.TypeError` when :attr:`pid` isn't available,
-                 :exc:`~exceptions.OSError` when a signal can't be delivered
-                 and any exceptions raised by the :mod:`subprocess` module.
-
-        This method works as follows:
-
-        1. If :attr:`subprocess` is available :func:`subprocess.Popen.terminate()`
-           is called (this works on Windows and UNIX alike), otherwise :attr:`pid`
-           is used to send SIGTERM_ to the process (this only works on UNIX).
-
-           Processes can choose to intercept termination signals to allow for
-           graceful termination (many daemon processes work like this) however
-           the default action is to simply exit immediately.
-
-        2. If `wait` is :data:`True` and we've signaled the process we wait for
-           it to terminate gracefully or `timeout` seconds have passed
-           (whichever comes first).
-
-        3. If `wait` is :data:`True` and the process is still running at this
-           point it will be forcefully terminated using :func:`kill()`.
-
-        .. _SIGTERM: http://en.wikipedia.org/wiki/Unix_signal#SIGTERM
-        """
-        if self.is_running:
-            self.logger.info("Gracefully terminating process %s ..", self)
-            # Signal the process to terminate gracefully.
-            if self.subprocess:
-                logger.debug("Terminating process using subprocess module ..")
-                self.subprocess.terminate()
-            else:
-                logger.debug("Terminating process by sending SIGTERM ..")
-                os.kill(self.pid, signal.SIGTERM)
-            # Block until the process ends or the timeout expires?
-            if wait:
-                timer = self.wait_for_process(timeout)
-                if self.is_running:
-                    self.logger.warning("Failed to gracefully terminate process! (it's still running)")
-                    # Fall back to forcefully terminating the process.
-                    return self.kill(wait=True, timeout=timeout)
-                else:
-                    self.logger.info("Took %s to gracefully terminate process.", timer)
-                    return True
-            return not self.is_running
-        else:
-            self.logger.warning("Ignoring graceful termination request (process isn't running).")
-            return False
-
-    def kill(self, wait=True, timeout=DEFAULT_TIMEOUT):
-        """
-        Forcefully terminate the process.
-
-        :param wait: Whether to wait for the process to end (a boolean,
-                     defaults to :data:`True`).
-        :param timeout: The number of seconds to wait for the process to
-                        terminate after we've signaled it (defaults to
-                        :data:`DEFAULT_TIMEOUT`). Zero means to wait
-                        indefinitely.
-        :returns: :data:`True` if the process was terminated, :data:`False`
-                  otherwise (a warning will be logged if the process isn't
-                  running). Please note that if `wait` is :data:`False` the
-                  return value may be unreliable due to race conditions.
-        :raises: :exc:`~exceptions.TypeError` when :attr:`pid` isn't available,
-                 :exc:`~exceptions.OSError` when a signal can't be delivered
-                 and any exceptions raised by the :mod:`subprocess` module.
-
-        If :attr:`subprocess` is available :func:`subprocess.Popen.kill()` is
-        called (this works on Windows and UNIX alike), otherwise :attr:`pid` is
-        used to send SIGKILL_ to the process (this only works on UNIX).
-
-        The SIGKILL_ signal cannot be intercepted or ignored and causes the
-        immediate termination of the process (under regular circumstances).
-        Non-regular circumstances are things like blocking I/O calls on an NFS
-        share while your file server is down (fun times!).
-
-        .. _SIGKILL: http://en.wikipedia.org/wiki/Unix_signal#SIGKILL
-        """
-        if self.is_running:
-            self.logger.info("Forcefully terminating process %s ..", self)
-            # Signal the process to terminate forcefully.
-            if self.subprocess:
-                logger.debug("Terminating process using subprocess module ..")
-                self.subprocess.kill()
-            else:
-                logger.debug("Terminating process by sending SIGKILL ..")
-                os.kill(self.pid, signal.SIGKILL)
-            # Block until the process ends or the timeout expires?
-            if wait:
-                timer = self.wait_for_process(timeout)
-                if self.is_running:
-                    self.logger.warning("Failed to forcefully terminate process!")
-                    return False
-                else:
-                    self.logger.info("Took %s to forcefully terminate process.", timer)
-                    return True
-            return not self.is_running
-        else:
-            self.logger.warning("Ignoring forceful termination request (process isn't running).")
-            return False
-
-    def wait_for_process(self, timeout=0):
-        """
-        Wait until the current process ends or the timeout expires.
-
-        :param timeout: The number of seconds to wait for the process to
-                        terminate after we've signaled it (defaults to zero
-                        which means we wait indefinitely).
-        :returns: A :class:`~humanfriendly.Timer` object telling you how long
-                  it took to wait for the process.
-
-        This method renders an interactive spinner on the terminal using
-        :class:`~humanfriendly.Spinner` to explain to the user what they are
-        waiting for.
-        """
-        timer = Timer()
-        with Spinner(timer=timer) as spinner:
-            while self.is_running:
-                if timeout and timer.elapsed_time >= timeout:
-                    break
-                spinner.step(label="Waiting for process %i to terminate" % self.pid)
-                spinner.sleep()
-        return timer
-
-    def suspend(self):
-        """
-        Suspend a process so that its execution can be resumed later.
-
-        :returns: :data:`True` if the process was stopped, :data:`False`
-                  otherwise (a warning will be logged if the process isn't
-                  running).
-        :raises: :exc:`~exceptions.TypeError` when :attr:`pid` isn't available
-                 or :exc:`~exceptions.OSError` when the signal can't be
-                 delivered.
-
-        The :func:`suspend()` method sends a SIGSTOP_ signal to the process.
-        This signal cannot be intercepted or ignored and has the effect of
-        completely pausing the process until you call :func:`resume()`.
-        This functionality is only available on UNIX systems.
-
-        .. _SIGSTOP: http://en.wikipedia.org/wiki/Unix_signal#SIGSTOP
-        """
-        if self.is_running:
-            self.logger.info("Suspending process %s using SIGSTOP ..", self)
-            os.kill(self.pid, signal.SIGSTOP)
-            return True
-        else:
-            self.logger.warning("Process isn't running! (ignoring SIGSTOP request)")
-            return False
-
-    def resume(self):
-        """
-        Resume a process that was previously paused using :func:`suspend()`.
-
-        :returns: :data:`True` if the process was continued, :data:`False`
-                  otherwise (a warning will be logged if the process isn't
-                  running).
-        :raises: :exc:`~exceptions.TypeError` when :attr:`pid` isn't available
-                 or :exc:`~exceptions.OSError` when the signal can't be
-                 delivered.
-
-        The :func:`resume()` method sends a SIGCONT_ signal to the process.
-        This signal resumes a process that was previously paused using SIGSTOP_
-        (e.g. using :func:`suspend()`). This functionality is only available on
-        UNIX systems.
-
-        .. _SIGCONT: http://en.wikipedia.org/wiki/Unix_signal#SIGCONT
-        """
-        if self.is_running:
-            self.logger.info("Resuming process %s using SIGCONT ..", self)
-            os.kill(self.pid, signal.SIGCONT)
-            return True
-        else:
-            self.logger.warning("Process isn't running! (ignoring SIGCONT request)")
-            return False
-
-    def __str__(self):
-        """
-        Render a human friendly representation of a :class:`ControllableProcess` object.
-
-        :returns: A string describing the process. Includes the process id and
-                  command line (when available).
-        """
-        text = [str(self.pid)]
-        if self.command_line:
-            text.append("(%s)" % quote(self.command_line))
-        return " ".join(text)
-
-
 class ExternalCommand(ControllableProcess):
 
     """
@@ -560,42 +221,50 @@ class ExternalCommand(ControllableProcess):
     features (e.g. asynchronous command execution that preserves the ability to
     provide input and capture output).
 
-    :class:`ExternalCommand` inherits from :class:`ControllableProcess` so all
-    of the process manipulation supported by :class:`ControllableProcess` is
-    also supported by :class:`ExternalCommand` objects.
+    :class:`ExternalCommand` inherits from :class:`~executor.process.ControllableProcess`
+    which means that all of the process manipulation supported by
+    :class:`~executor.process.ControllableProcess` is also supported by
+    :class:`ExternalCommand` objects.
 
     Because the :class:`ExternalCommand` class has a lot of properties and
-    methods here is a summary:
+    methods here is an attempt to summarize them (this overview will no doubt
+    become out of date):
 
     **Writable properties**
      The :attr:`async`, :attr:`callback`, :attr:`capture`,
      :attr:`capture_stderr`, :attr:`check`, :attr:`directory`,
      :attr:`encoding`, :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
-     :attr:`logger`, :attr:`merge_streams`, :attr:`shell`, :attr:`silent`,
-     :attr:`stdout_file`, :attr:`stderr_file`, :attr:`uid`, :attr:`user`,
-     :attr:`sudo` and :attr:`virtual_environment` properties allow you to
-     configure how the external command will be run (before it is started).
+     :attr:`~executor.process.ControllableProcess.logger`, :attr:`merge_streams`,
+     :attr:`shell`, :attr:`silent`, :attr:`stdout_file`, :attr:`stderr_file`,
+     :attr:`uid`, :attr:`user`, :attr:`sudo` and :attr:`virtual_environment`
+     properties allow you to configure how the external command will be run
+     (before it is started).
 
     **Computed properties**
      The :attr:`command`, :attr:`command_line`, :attr:`decoded_stderr`,
      :attr:`decoded_stdout`, :attr:`encoded_input`, :attr:`error_message`,
      :attr:`error_type`, :attr:`failed`, :attr:`have_superuser_privileges`,
-     :attr:`is_finished`, :attr:`is_running`, :attr:`is_terminated`,
-     :attr:`output`, :attr:`result`, :attr:`returncode`, :attr:`stderr`,
-     :attr:`stdout`, :attr:`succeeded` and :attr:`was_started` properties allow
-     you to inspect if and how the external command was started, what its
-     current status is and what its output is.
+     :attr:`is_finished`, :attr:`~executor.process.ControllableProcess.is_running`,
+     :attr:`is_terminated`, :attr:`output`,  :attr:`~executor.process.ControllableProcess.pid`,
+     :attr:`result`, :attr:`returncode`, :attr:`stderr`, :attr:`stdout`,
+     :attr:`succeeded` and :attr:`was_started` properties allow you to inspect
+     if and how the external command was started, what its current status is
+     and what its output is.
 
     **Public methods**
-     The public methods :func:`start()`, :func:`wait()`, :func:`terminate()`
-     and :func:`kill()` enable you to start external commands, wait for them to
+     The public methods :func:`start()`, :func:`wait()`,
+     :func:`~executor.process.ControllableProcess.terminate()` and
+     and :func:`~executor.process.ControllableProcess.kill()`
+     enable you to start external commands, wait for them to
      finish and terminate them if they take too long.
 
     **Internal methods**
      The internal methods :func:`check_errors()`, :func:`load_output()` and
-     :func:`cleanup()` are used by :func:`start()`, :func:`wait()` and
-     :func:`terminate()` so unless you're reimplementing one of those methods
-     you probably don't need these internal methods.
+     :func:`cleanup()` are used by methods like :func:`start()`,
+     :func:`wait()`, :func:`~executor.process.ControllableProcess.terminate()`
+     and :func:`~executor.process.ControllableProcess.kill()` so unless you're
+     reimplementing one of those methods you probably don't need these internal
+     methods.
 
     **Context manager**
       :class:`ExternalCommand` objects can be used as context managers by using
@@ -605,11 +274,12 @@ class ExternalCommand(ControllableProcess):
         :func:`start()` method is called (if the external command
         isn't already running).
       - When the scope of the :keyword:`with` statement ends
-        :func:`terminate()` is called if the command is still running. The
-        :func:`load_output()` and :func:`cleanup()` functions are used to
-        cleanup after the external command. If an exception isn't already being
-        raised :func:`check_errors()` is called to make sure the external
-        command succeeded.
+        :func:`~executor.process.ControllableProcess.terminate()` is called if
+        the command is still running. The :func:`load_output()` and
+        :func:`cleanup()` functions are used to cleanup after the external
+        command. If an exception isn't already being raised
+        :func:`check_errors()` is called to make sure the external command
+        succeeded.
     """
 
     def __init__(self, *command, **options):
@@ -623,12 +293,12 @@ class ExternalCommand(ControllableProcess):
                         :attr:`capture`, :attr:`capture_stderr`, :attr:`check`,
                         :attr:`directory`, :attr:`encoding`,
                         :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
-                        :attr:`logger`, :attr:`merge_streams`, :attr:`shell`,
-                        :attr:`silent`, :attr:`stdout_file`,
-                        :attr:`stderr_file`, :attr:`uid`, :attr:`user`,
-                        :attr:`sudo` and :attr:`virtual_environment`.Any other
-                        keyword argument will raise :exc:`TypeError` as
-                        usual.
+                        :attr:`~executor.process.ControllableProcess.logger`,
+                        :attr:`merge_streams`, :attr:`shell`, :attr:`silent`,
+                        :attr:`stdout_file`, :attr:`stderr_file`, :attr:`uid`,
+                        :attr:`user`, :attr:`sudo` and
+                        :attr:`virtual_environment`. Any other keyword argument
+                        will raise :exc:`TypeError` as usual.
 
         The external command is not started until you call :func:`start()` or
         :func:`wait()`.
@@ -732,9 +402,6 @@ class ExternalCommand(ControllableProcess):
     @required_property
     def command(self):
         """A list of strings with the command to execute."""
-        # We specifically return None so that __init__() will raise a
-        # TypeError exception because no command has been specified.
-        return None
 
     @property
     def command_line(self):
@@ -935,18 +602,27 @@ class ExternalCommand(ControllableProcess):
         finished, :data:`False` when the external command hasn't been started
         yet or is still running.
         """
-        return self.error_type is not None or self.returncode is not None
+        return self.was_started and not self.is_running
+
+    @property
+    def is_running(self):
+        """:data:`True` if the process is currently running, :data:`False` otherwise."""
+        if self.subprocess is not None:
+            return self.subprocess.poll() is None
+        else:
+            return False
 
     @property
     def is_terminated(self):
         """
-        Whether the external command has been terminated.
+        Whether the external command has been terminated (a boolean).
 
         :data:`True` if the external command was terminated using
-        :data:`signal.SIGTERM` (e.g. by :func:`terminate()`),
+        :data:`signal.SIGTERM` (e.g. by
+        :func:`~executor.process.ControllableProcess.terminate()`),
         :data:`False` otherwise.
         """
-        return abs(self.returncode) == signal.SIGTERM if self.returncode and self.returncode < 0 else False
+        return abs(self.returncode) == signal.SIGTERM if self.is_finished and self.returncode < 0 else False
 
     @mutable_property
     def merge_streams(self):
@@ -1008,15 +684,15 @@ class ExternalCommand(ControllableProcess):
                 self.wait()
             return self.callback(self)
 
-    @property
+    @mutable_property
     def returncode(self):
         """
-        The return code of the external command (an integer).
+        The return code of the external command (an integer) or :data:`None`.
 
-        When the external command hasn't finished yet :data:`None` is
-        returned.
+        This will be :data:`None` until the external command has finished.
         """
-        return self.subprocess.poll() if self.subprocess else None
+        if self.subprocess is not None:
+            return self.subprocess.poll()
 
     @mutable_property
     def shell(self):
@@ -1127,6 +803,19 @@ class ExternalCommand(ControllableProcess):
         output has been cached (read into memory).
         """
 
+    @mutable_property
+    def subprocess(self):
+        """
+        A :class:`subprocess.Popen` object or :data:`None`.
+
+        The value of this property is set by :func:`start()` and it's cleared
+        by :func:`wait()` (through :func:`cleanup()`) as soon as the external
+        command has finished. This enables garbage collection of the resources
+        associated with the :class:`subprocess.Popen` object which helps to
+        avoid `IOError: [Errno 24] Too many open files
+        <http://stackoverflow.com/a/23763193/788200>`_ errors.
+        """
+
     @property
     def succeeded(self):
         """
@@ -1139,10 +828,7 @@ class ExternalCommand(ControllableProcess):
         - :data:`None` when the external command hasn't been started or is
           still running.
         """
-        if self.is_finished:
-            return self.returncode == 0
-        else:
-            return None
+        return self.returncode == 0 if self.is_finished else None
 
     @mutable_property
     def sudo(self):
@@ -1235,7 +921,6 @@ class ExternalCommand(ControllableProcess):
         The use of this option assumes that the ``sudo`` command is
         available.
         """
-        return None
 
     @mutable_property
     def user(self):
@@ -1249,7 +934,6 @@ class ExternalCommand(ControllableProcess):
         The use of this option assumes that the ``sudo`` command is
         available.
         """
-        return None
 
     @mutable_property
     def virtual_environment(self):
@@ -1275,15 +959,21 @@ class ExternalCommand(ControllableProcess):
         the external command, :data:`False` when :func:`start()` hasn't been
         called yet.
         """
-        return self.error_type is not None or self.subprocess is not None
+        return False
 
     def start(self):
         """
         Start execution of the external command.
 
-        :raises: :exc:`ExternalCommandFailed` when :attr:`~ExternalCommand.check` is
-                 :data:`True`, :attr:`async` is :data:`False` and the external
-                 command exits with a nonzero status code.
+        :raises: - :exc:`ExternalCommandFailed` when
+                   :attr:`~ExternalCommand.check` is :data:`True`,
+                   :attr:`async` is :data:`False` and the external command
+                   exits with a nonzero status code.
+
+                 - :exc:`ValueError` when the external command is still
+                   running (you need to explicitly terminate, kill or wait
+                   for the running process before you can re-use the
+                   :class:`ExternalCommand` object).
 
         This method instantiates a :class:`subprocess.Popen` object based on
         the defaults defined by :class:`ExternalCommand` and the overrides
@@ -1292,9 +982,19 @@ class ExternalCommand(ControllableProcess):
         - If :attr:`async` is set :func:`start()` starts the external command
           but doesn't wait for it to end (use :func:`wait()` for that).
 
-        - If :attr:`async` isn't set :func:`subprocess.Popen.communicate()` is
-          used to synchronously execute the external command.
+        - If :attr:`async` isn't set the ``communicate()`` method on the
+          :attr:`subprocess` object is called to synchronously execute the
+          external command.
         """
+        if self.is_running:
+            # If the external command is currently running reset() will leak
+            # file descriptors and besides that it doesn't really make sense to
+            # re-use ExternalCommand objects in this way.
+            raise ValueError(compact("""
+                External command is already running! (you need to explicitly
+                terminate, kill or wait for the running process before you can
+                re-use the ExternalCommand object)
+            """))
         # Prepare the keyword arguments to subprocess.Popen().
         kw = dict(args=self.command_line,
                   cwd=self.directory,
@@ -1318,37 +1018,49 @@ class ExternalCommand(ControllableProcess):
                 self.null_device = open(os.devnull, 'wb')
             kw['stdout'] = self.null_device if kw['stdout'] is None else kw['stdout']
             kw['stderr'] = self.null_device if kw['stderr'] is None else kw['stderr']
-        # Create the subprocess object.
+        # Let the operator know what's about to happen.
         self.logger.debug("Executing external command: %s", quote(kw['args']))
-        # Clear previous values (if any).
-        delattr(self, 'error_type')
-        self.subprocess = None
+        # Lightweight reset of internal state.
+        for name in 'error_type', 'pid', 'returncode', 'subprocess':
+            delattr(self, name)
+        # Remember that we called subprocess.Popen() regardless of whether it
+        # is about to raise an exception or not.
+        self.was_started = True
+        # Create the subprocess.Popen object and start the subprocess.
         try:
+            self.logger.debug("Constructing subprocess.Popen object ..")
             self.subprocess = subprocess.Popen(**kw)
         except OSError as e:
             if e.errno in COMMAND_NOT_FOUND_CODES:
-                # Enable uniform error handling.
+                # Translate errno.ENOENT into a CommandNotFound exception.
                 self.error_type = CommandNotFound
+                # Cleanup temporary resources and raise the exception (or not).
+                self.wait()
             else:
                 # Don't swallow exceptions we can't handle.
                 raise
-        # Synchronously wait for the external command to end?
-        if not self.async:
-            # Feed the external command its input, capture the external
-            # command's output, cleanup resources and check for errors.
-            if self.subprocess:
-                stdout, stderr = self.subprocess.communicate(input=self.encoded_input)
-                self.stdout_stream.override(stdout)
-                self.stderr_stream.override(stderr)
-            self.wait()
+        else:
+            # Copy the process ID from the subprocess.Popen object as soon as
+            # it becomes available. This enables us to garbage collect the
+            # subprocess.Popen object without losing track of the process ID.
+            self.pid = self.subprocess.pid
+            # Synchronously wait for the external command to end?
+            if not self.async:
+                self.logger.debug("Joining synchronous process using subprocess.Popen.communicate() ..")
+                stdout, stderr = self.subprocess.communicate(self.encoded_input)
+                self.stdout_stream.finalize(stdout)
+                self.stderr_stream.finalize(stderr)
+                self.wait()
 
-    def wait(self, check=None):
+    def wait(self, check=None, **kw):
         """
         Wait for the external command to finish.
 
         :param check: Override the value of :attr:`check` for the duration of
                       this call to :func:`wait()`. Defaults to :data:`None`
                       which means :attr:`check` is not overridden.
+        :param kw: Any keyword arguments are passed on to
+                   :func:`~executor.process.ControllableProcess.wait_for_process()`.
         :raises: :exc:`ExternalCommandFailed` when :attr:`check` is
                  :data:`True`, :attr:`async` is :data:`True` and the external
                  command exits with a nonzero status code.
@@ -1356,70 +1068,57 @@ class ExternalCommand(ControllableProcess):
         The :func:`wait()` function is only useful when :attr:`async` is
         :data:`True`, it performs the following steps:
 
-        1. If :attr:`was_started` is :data:`False` :func:`start()` is called.
-        2. If :attr:`is_finished` is :data:`False` :func:`subprocess.Popen.wait()`
-           is called to wait for the external command to end.
-        3. :func:`load_output()` is called (in case the caller enabled output
-           capturing).
-        4. :func:`cleanup()` is called to clean up temporary resources after
-           the external command has ended.
-        5. Finally :func:`check_errors()` is called (in case the caller
+        1. If :attr:`was_started` is :data:`False` the :func:`start()` method
+           is called.
+
+        2. If :attr:`is_running` is :data:`True` the
+           :func:`~executor.process.ControllableProcess.wait_for_process()`
+           method is called to wait for the child process to end.
+
+        3. If :attr:`subprocess` isn't :data:`None` the :func:`cleanup()`
+           method is called to wait for the external command to end, load its
+           output into memory and release the resources associated with the
+           :attr:`subprocess` object.
+
+        4. Finally :func:`check_errors()` is called (in case the caller
            didn't disable :attr:`check`).
         """
         if not self.was_started:
             self.start()
-        if self.was_started and not self.is_finished:
-            self.subprocess.wait()
-        self.load_output()
+        if self.is_running:
+            self.wait_for_process()
         self.cleanup()
         self.check_errors(check=check)
 
-    def terminate(self, *args, **kw):
+    def terminate_helper(self):
         """
-        Gracefully terminate the external command.
+        Gracefully terminate the process.
 
-        Please refer to :func:`ControllableProcess.terminate()` for
-        documentation about this method's parameters and return value. After
-        :func:`ControllableProcess.terminate()` successfully terminates the
-        external command this method does two more things:
+        :raises: Any exceptions raised by the :mod:`subprocess` module.
 
-        - It sets :attr:`check` to :data:`False`. The idea here is that if you
-          consciously terminate a command you don't need to be bothered with an
-          exception telling you that you succeeded :-).
-
-        - It calls :func:`wait()` so that the command's output is loaded and
-          temporary resources are cleaned up.
+        This method sets :attr:`check` to :data:`False`, the idea being that if
+        you consciously terminate a command you don't need to be bothered with
+        an exception telling you that you succeeded :-).
         """
-        if super(ExternalCommand, self).terminate(*args, **kw):
-            self.wait(check=False)
+        if self.subprocess is not None:
+            self.logger.debug("Terminating process using subprocess.Popen.terminate() ..")
+            self.subprocess.terminate()
             self.check = False
-            return True
-        else:
-            return False
 
-    def kill(self, *args, **kw):
+    def kill_helper(self):
         """
-        Forcefully terminate the external command.
+        Forcefully kill the process.
 
-        Please refer to :func:`ControllableProcess.kill()` for documentation
-        about this method's parameters and return value.
+        :raises: Any exceptions raised by the :mod:`subprocess` module.
 
-        After :func:`ControllableProcess.kill()` successfully terminates the
-        external command this method does two more things:
-
-        - It sets :attr:`check` to :data:`False`. The idea here is that if you
-          consciously terminate a command you don't need to be bothered with an
-          exception telling you that you succeeded :-).
-
-        - It calls :func:`wait()` so that the command's output is loaded and
-          temporary resources are cleaned up.
+        This method sets :attr:`check` to :data:`False`, the idea being that if
+        you consciously kill a command you don't need to be bothered with an
+        exception telling you that you succeeded :-).
         """
-        if super(ExternalCommand, self).kill(*args, **kw):
-            self.wait(check=False)
+        if self.subprocess is not None:
+            self.logger.debug("Killing process using subprocess.Popen.kill() ..")
+            self.subprocess.kill()
             self.check = False
-            return True
-        else:
-            return False
 
     def load_output(self):
         """
@@ -1435,18 +1134,62 @@ class ExternalCommand(ControllableProcess):
 
     def cleanup(self):
         """
-        Clean up temporary resources after the external command has ended.
+        Clean up after the external command has ended.
 
-        This internal method is used by :func:`start()` and :func:`wait()` to
-        clean up the temporary files that store the external command's input
-        and output and to close the file handle to :data:`os.devnull`.
+        This internal method is called by methods like :func:`start()` and
+        :func:`wait()` to clean up the following temporary resources:
+
+        - The temporary file(s) used to to buffer the external command's
+          :attr:`input`, :attr:`stdout` and :attr:`stderr` (only when
+          :attr:`async` is :data:`True`).
+
+        - File handles to the previously mentioned temporary files and
+          :data:`os.devnull` (used to implement the :attr:`silent` option).
+
+        - The reference to the :class:`subprocess.Popen` object stored in
+          :attr:`subprocess`. By destroying this reference as soon as possible
+          we enable the object to be garbage collected and its related
+          resources to be released.
         """
+        # Cleanup the stdin/stdout/stderr streams.
         self.stdin_stream.cleanup()
-        self.stdout_stream.cleanup()
-        self.stderr_stream.cleanup()
-        if self.null_device:
+        self.stdout_stream.finalize()
+        self.stderr_stream.finalize()
+        # Close the /dev/null handle?
+        if self.null_device is not None:
             self.null_device.close()
             self.null_device = None
+        # Prepare to garbage collect the subprocess.Popen object?
+        if self.subprocess is not None:
+            if self.async:
+                self.logger.debug("Joining asynchronous process using subprocess.Popen.wait() ..")
+                # Perform a wait to allow the system to release the resources
+                # associated with the child process; if a wait is not performed,
+                # the terminated child remains in a `zombie' state (paraphrased
+                # from http://linux.die.net/man/2/waitpid). We copy the return code
+                # so we don't lose track of it once we allow the subprocess.Popen
+                # object to be garbage collected.
+                self.returncode = self.subprocess.wait()
+            else:
+                # Override the computed value of the `returncode' property
+                # because computing it again after we destroy our reference
+                # to the subprocess.Popen object will be impossible.
+                self.returncode = self.subprocess.returncode
+            # Destroy our reference to the subprocess.Popen object
+            # to allow it to be garbage collected.
+            delattr(self, 'subprocess')
+
+    def reset(self):
+        """Reset internal state created by :func:`start()`."""
+        self.cleanup()
+        delattr(self, 'error_message')
+        delattr(self, 'error_type')
+        delattr(self, 'pid')
+        delattr(self, 'returncode')
+        self.stdin_stream.reset()
+        self.stdout_stream.reset()
+        self.stderr_stream.reset()
+        self.was_started = False
 
     def check_errors(self, check=None):
         """
@@ -1494,14 +1237,14 @@ class ExternalCommand(ControllableProcess):
         Automatically terminate and clean up after the external command.
 
         Terminates the external command if it is still running (using
-        :func:`terminate()`), cleans up (using :func:`cleanup()`) and checks
-        for errors (using :func:`check_errors()`, only if an exception is not
-        already being handled).
+        :func:`~executor.process.ControllableProcess.terminate()`), cleans up
+        (using :func:`cleanup()`) and checks for errors (using
+        :func:`check_errors()`, only if an exception is not already being
+        handled).
         """
         if self.was_started:
             if self.is_running:
                 self.terminate()
-            self.load_output()
             self.cleanup()
             if exc_type is None:
                 # Check for external command errors only when not already
@@ -1589,30 +1332,44 @@ class CachedStream(object):
         """
         Load the stream's contents from the temporary file.
 
-        :returns: The output of the stream (a string) or :data:`None` when
-                  :func:`prepare()` was never called.
+        :returns: The output of the stream (a string) or :data:`None` when the
+                  stream was never initialized.
         """
         if self.filename and os.path.isfile(self.filename):
             with open(self.filename, 'rb') as handle:
                 self.cached_output = handle.read()
         return self.cached_output
 
-    def override(self, output):
+    def finalize(self, output=None):
         """
-        Override the value returned by :func:`load()`.
+        Load or override the stream's contents and cleanup the temporary file.
 
-        :param output: The value to return as the stream's content.
+        :param output: Override the stream's contents (defaults to :data:`None`
+                       which means the contents are loaded from the temporary
+                       file instead).
         """
+        if output is not None:
+            self.cached_output = output
+        else:
+            self.load()
         self.cleanup()
-        self.cached_output = output
 
     def cleanup(self):
         """Cleanup the temporary file."""
-        if self.filename and self.is_temporary_file:
-            if os.path.isfile(self.filename):
-                os.unlink(self.filename)
+        if self.is_temporary_file:
+            if self.fd is not None:
+                os.close(self.fd)
+                self.fd = None
+            if self.filename:
+                if os.path.isfile(self.filename):
+                    os.unlink(self.filename)
+                self.filename = None
             self.is_temporary_file = False
-            self.filename = None
+
+    def reset(self):
+        """Reset internal state."""
+        self.cached_output = None
+        self.cleanup()
 
 
 def quote(*args):
@@ -1740,7 +1497,7 @@ def is_executable(filename, mode=os.F_OK | os.X_OK):
     return os.path.exists(filename) and os.access(filename, mode) and not os.path.isdir(filename)
 
 
-class ExternalCommandFailed(Exception, PropertyManager):
+class ExternalCommandFailed(PropertyManager, Exception):
 
     """
     Raised when an external command exits with a nonzero status code.
@@ -1756,7 +1513,8 @@ class ExternalCommandFailed(Exception, PropertyManager):
 
         :param command: The :class:`ExternalCommand` object that triggered the
                         exception.
-        :param kw: Keyword arguments are passed on to :func:`.PropertyManager.__init__()`.
+        :param kw: Keyword arguments are passed on to
+                   :func:`property_manager.PropertyManager.__init__()`.
         :param error_message: An error message to override the default message
                               taken from :attr:`~ExternalCommand.error_message`.
         """

@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 27, 2016
+# Last Change: June 1, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -57,14 +57,14 @@ import unittest
 import uuid
 
 # External dependencies.
-from humanfriendly import Timer, dedent
+import coloredlogs
+from humanfriendly import Timer, compact, dedent
 from humanfriendly.compat import StringIO
 
 # Modules included in our package.
 from executor import (
     DEFAULT_SHELL,
     CommandNotFound,
-    ControllableProcess,
     ExternalCommand,
     ExternalCommandFailed,
     execute,
@@ -74,6 +74,7 @@ from executor import (
 from executor.cli import main
 from executor.concurrent import CommandPool, CommandPoolFailed
 from executor.contexts import LocalContext, RemoteContext, create_context
+from executor.process import ProcessTerminationFailed
 from executor.ssh.client import (
     DEFAULT_CONNECT_TIMEOUT,
     RemoteCommand,
@@ -87,6 +88,9 @@ from executor.ssh.server import SSHServer
 
 MISSING_COMMAND = 'a-program-name-that-no-one-would-ever-use'
 
+# Initialize a logger for this module.
+logger = logging.getLogger(__name__)
+
 
 class ExecutorTestCase(unittest.TestCase):
 
@@ -94,13 +98,11 @@ class ExecutorTestCase(unittest.TestCase):
 
     def setUp(self):
         """Set up logging to the terminal and initialize test directories."""
-        # Enable logging to the terminal.
-        try:
-            import coloredlogs
-            coloredlogs.install()
-            coloredlogs.set_level(logging.DEBUG)
-        except ImportError:
-            logging.basicConfig(level=logging.DEBUG)
+        # Enable very verbose logging to the terminal, for the current process
+        # as well as child processes.
+        coloredlogs.install()
+        coloredlogs.set_level(logging.DEBUG)
+        os.environ['COLOREDLOGS_LOG_LEVEL'] = 'DEBUG'
         # Create the directory where superuser privileges are tested.
         self.sudo_enabled_directory = os.path.join(tempfile.gettempdir(), 'executor-test-suite')
         if not os.path.isdir(self.sudo_enabled_directory):
@@ -123,6 +125,52 @@ class ExecutorTestCase(unittest.TestCase):
                 raise
         else:
             assert False, "Expected an exception to be raised!"
+
+    def test_graceful_termination(self):
+        """Test graceful termination of processes."""
+        self.check_termination(method='terminate')
+
+    def test_forceful_termination(self):
+        """Test forceful termination of processes."""
+        self.check_termination(method='kill')
+
+    def test_graceful_to_forceful_fallback(self):
+        """Test that graceful termination falls back to forceful termination."""
+        timer = Timer()
+        expected_lifetime = 60
+        with NonGracefulCommand('sleep', str(expected_lifetime), check=False) as cmd:
+            # Request graceful termination even though we know it will fail.
+            cmd.terminate(timeout=1)
+            # Verify that the process terminated even though our graceful
+            # termination request was ignored.
+            assert not cmd.is_running
+            # Verify that the process actually terminated due to the fall back
+            # and not because its expected life time simply ran out.
+            assert timer.elapsed_time < expected_lifetime
+
+    def test_process_termination_failure(self):
+        """Test handling of forceful termination failures."""
+        with NonForcefulCommand('sleep', '60', check=False) as cmd:
+            # Request forceful termination even though we know it will fail.
+            self.assertRaises(ProcessTerminationFailed, cmd.kill, timeout=1)
+            # Verify that the process is indeed still running :-).
+            assert cmd.is_running
+            # Bypass the overrides to get rid of the process.
+            ExternalCommand.terminate_helper(cmd)
+
+    def check_termination(self, method):
+        """Helper method for process termination tests."""
+        with ExternalCommand('sleep', '60', check=False) as cmd:
+            timer = Timer()
+            # We use a positive but very low timeout so that all of the code
+            # involved gets a chance to run, but without slowing us down.
+            getattr(cmd, method)(timeout=0.1)
+            # Gotcha: Call wait() so that the process (our own subprocess) is
+            # reclaimed because until we do so proc.is_running will be True!
+            cmd.wait()
+            # Now we can verify our assertions.
+            assert not cmd.is_running, "Child still running despite graceful termination request!"
+            assert timer.elapsed_time < 10, "It look too long to terminate the child!"
 
     def test_argument_validation(self):
         """Make sure the external command constructor requires a command argument."""
@@ -433,56 +481,6 @@ class ExecutorTestCase(unittest.TestCase):
     def coerce_timestamp(self, cmd):
         """Callback for :func:`test_callback_evaluation()`."""
         return datetime.datetime.fromtimestamp(float(cmd.output))
-
-    def test_suspend_and_resume_signals(self):
-        """Test the sending of ``SIGSTOP``, ``SIGCONT`` and ``SIGTERM`` signals."""
-        # Spawn a child that will live for a minute.
-        with ExternalCommand('sleep', '60', check=False) as child:
-            # Suspend the execution of the child process using SIGSTOP.
-            child.suspend()
-            # Test that the child process doesn't respond to SIGTERM once suspended.
-            child.terminate(wait=False)
-            assert child.is_running, "Child responded to signal even though it was suspended?!"
-            # Resume the execution of the child process using SIGCONT.
-            child.resume()
-            # Test that the child process responds to signals again after
-            # having been resumed, but give it a moment to terminate
-            # (significantly less time then the process is normally expected
-            # to run, otherwise there's no point in the test below).
-            child.kill(wait=True, timeout=5)
-            assert not child.is_running, "Child didn't respond to signal even though it was resumed?!"
-
-    def test_graceful_command_termination(self):
-        """Test graceful termination of commands."""
-        self.check_command_termination(method='terminate', proxy=False)
-
-    def test_graceful_process_termination(self):
-        """Test graceful termination of processes."""
-        self.check_command_termination(method='terminate', proxy=True)
-
-    def test_forceful_command_termination(self):
-        """Test forceful termination of commands."""
-        self.check_command_termination(method='kill', proxy=False)
-
-    def test_forceful_process_termination(self):
-        """Test forceful termination of commands."""
-        self.check_command_termination(method='kill', proxy=True)
-
-    def check_command_termination(self, method, proxy):
-        """Helper method for command/process termination tests."""
-        with ExternalCommand('sleep', '60', check=False) as cmd:
-            timer = Timer()
-            process = ControllableProcess(pid=cmd.pid) if proxy else cmd
-            # We use a positive but very low timeout so that all of the code
-            # involved gets a chance to run, but without slowing us down.
-            getattr(process, method)(timeout=0.1)
-            # Call ExternalCommand.wait() -> subprocess.Popen.wait() -> os.waitpid()
-            # so that the process (our own subprocess) is reclaimed because
-            # until we do so proc.is_running will be True ...
-            cmd.wait()
-            # Now we can verify our assertions.
-            assert not process.is_running, "Child still running despite graceful termination request!"
-            assert timer.elapsed_time < 10, "It look too long to terminate the child!"
 
     def test_repr(self):
         """Make sure that repr() on external commands gives sane output."""
@@ -879,6 +877,32 @@ def run_cli(*arguments):
         return 0
     finally:
         sys.argv = saved_argv
+
+
+class NonGracefulCommand(ExternalCommand):
+
+    """Wrapper for :class:`~executor.process.ControllableProcess` that disables graceful termination."""
+
+    def terminate_helper(self, *args, **kw):
+        """Swallow graceful termination signals."""
+        self.logger.debug(compact("""
+            Process termination using subprocess.Popen.terminate()
+            intentionally disabled to simulate processes that refuse to
+            terminate gracefully ..
+        """))
+
+
+class NonForcefulCommand(NonGracefulCommand):
+
+    """Wrapper for :class:`~executor.process.ControllableProcess` that disables graceful and forceful termination."""
+
+    def kill_helper(self, *args, **kw):
+        """Swallow forceful termination signals."""
+        self.logger.debug(compact("""
+            Process termination using subprocess.Popen.kill() intentionally
+            disabled to simulate processes that refuse to terminate
+            forcefully ..
+        """))
 
 
 class CaptureOutput(object):
