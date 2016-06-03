@@ -68,7 +68,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '10.1'
+__version__ = '11.0'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -310,10 +310,9 @@ class ExternalCommand(ControllableProcess):
         # Set properties based on keyword arguments.
         super(ExternalCommand, self).__init__(**options)
         # Initialize instance variables.
-        self.null_device = None
-        self.stdin_stream = CachedStream('stdin')
-        self.stdout_stream = CachedStream('stdout')
-        self.stderr_stream = CachedStream('stderr')
+        self.stdin_stream = CachedStream(self, 'stdin')
+        self.stdout_stream = CachedStream(self, 'stdout')
+        self.stderr_stream = CachedStream(self, 'stderr')
 
     @mutable_property
     def async(self):
@@ -928,7 +927,9 @@ class ExternalCommand(ControllableProcess):
         - :attr:`stdout_file` and :attr:`stderr_file` are :data:`None` or
           files that are connected to a tty(-like) device
 
-        If any of these conditions don't hold :attr:`tty` defaults to :data:`False`.
+        If any of these conditions don't hold :attr:`tty` defaults to
+        :data:`False`. When :attr:`tty` is :data:`False` the standard input
+        stream of the external command will be connected to :data:`os.devnull`.
         """
         return (self.input is None and
                 not self.capture and
@@ -1028,24 +1029,11 @@ class ExternalCommand(ControllableProcess):
                   cwd=self.directory,
                   env=os.environ.copy())
         kw['env'].update(self.environment)
-        # Prepare the input.
-        if self.input is not None:
-            if self.async:
-                self.stdin_stream.prepare_input(self.encoded_input)
-                kw['stdin'] = self.stdin_stream.fd
-            else:
-                kw['stdin'] = subprocess.PIPE
-        # Prepare to capture the standard output and/or error stream(s).
-        kw['stdout'] = self.stdout_stream.prepare_output(self.stdout_file, self.capture, self.async)
-        # Make it possible to merge stderr into stdout.
+        # Prepare the command's standard input/output/error streams.
+        kw['stdin'] = self.stdin_stream.prepare_input()
+        kw['stdout'] = self.stdout_stream.prepare_output(self.stdout_file, self.capture)
         kw['stderr'] = (subprocess.STDOUT if self.merge_streams else
-                        self.stderr_stream.prepare_output(self.stderr_file, self.capture_stderr, self.async))
-        # Silence the standard output and/or error stream(s)?
-        if self.silent and any(kw.get(n) is None for n in ('stdout', 'stderr')):
-            if self.null_device is None:
-                self.null_device = open(os.devnull, 'wb')
-            kw['stdout'] = self.null_device if kw['stdout'] is None else kw['stdout']
-            kw['stderr'] = self.null_device if kw['stderr'] is None else kw['stderr']
+                        self.stderr_stream.prepare_output(self.stderr_file, self.capture_stderr))
         # Let the operator know what's about to happen.
         self.logger.debug("Executing external command: %s", quote(kw['args']))
         # Lightweight reset of internal state.
@@ -1190,10 +1178,6 @@ class ExternalCommand(ControllableProcess):
         self.stdin_stream.cleanup()
         self.stdout_stream.finalize()
         self.stderr_stream.finalize()
-        # Close the /dev/null handle?
-        if self.null_device is not None:
-            self.null_device.close()
-            self.null_device = None
         # Prepare to garbage collect the subprocess.Popen object?
         if self.subprocess is not None:
             if self.async:
@@ -1304,17 +1288,24 @@ class CachedStream(object):
 
     """Manages a temporary file with input for / output from an external command."""
 
-    def __init__(self, kind):
+    def __init__(self, command, kind):
         """
         Initialize a :class:`CachedStream` object.
 
+        :param command: The :class:`ExternalCommand` object that's using the
+                        :class:`CachedStream` object.
         :param kind: A simple (alphanumeric) string with the name of the stream.
         """
+        # Store the arguments.
+        self.command = command
+        self.kind = kind
+        # Initialize instance variables.
         self.cached_output = None
         self.fd = None
         self.filename = None
         self.is_temporary_file = False
         self.kind = kind
+        self.null_device = None
 
     def prepare_temporary_file(self):
         """Prepare the stream's temporary file."""
@@ -1323,39 +1314,61 @@ class CachedStream(object):
             self.fd, self.filename = tempfile.mkstemp(prefix='executor-', suffix='-%s.txt' % self.kind)
             logger.debug("Connected %s stream to temporary file %s ..", self.kind, self.filename)
 
-    def prepare_input(self, contents=None):
+    def prepare_input(self):
         """
-        Initialize an asynchronous input stream (using a temporary file).
+        Initialize the input stream.
 
-        :param contents: If you pass this argument the given string will be
-                         written to the temporary file.
+        :returns: A value that can be passed to the constructor of
+                  :class:`subprocess.Popen` as the ``stdin`` argument.
         """
-        if contents is not None:
-            self.prepare_temporary_file()
-            with open(self.filename, 'wb') as handle:
-                handle.write(contents)
+        if self.command.input is not None:
+            if self.command.async:
+                # Store the input provided by the caller in a temporary file
+                # and connect the file to the command's standard input stream.
+                self.prepare_temporary_file()
+                with open(self.filename, 'wb') as handle:
+                    handle.write(self.command.encoded_input)
+                return self.fd
+            else:
+                # Prepare to pass the input provided by the caller to the
+                # external command using subprocess.Popen.communicate().
+                return subprocess.PIPE
+        elif not self.command.tty:
+            # Redirect the command's standard input to /dev/null to inform the
+            # command that it can't expect to present an interactive prompt and
+            # ask the operator to respond (because the operator likely won't
+            # be able to see the interactive prompt).
+            if self.null_device is None:
+                self.null_device = open(os.devnull, 'rb')
+            return self.null_device
 
-    def prepare_output(self, file, capture, async):
+    def prepare_output(self, file, capture):
         """
         Initialize an (asynchronous) output stream.
 
         :param file: A file handle or :data:`None`.
         :param capture: :data:`True` if capturing is enabled, :data:`False` otherwise.
-        :param async: :data:`True` for asynchronous execution, :data:`False` otherwise.
-        :returns: A file descriptor, :data:`subprocess.PIPE` or :data:`None`.
+        :returns: A value that can be passed to the constructor of
+                  :class:`subprocess.Popen` as the ``stdout`` and/or
+                  ``stderr`` argument.
         """
         if file is not None:
             # Capture the stream to a user defined file.
             self.redirect(file)
             return self.fd
         elif capture:
-            if async:
+            if self.command.async:
                 # Capture the stream to a temporary file.
                 self.prepare_temporary_file()
                 return self.fd
             else:
                 # Capture the stream in memory.
                 return subprocess.PIPE
+        elif self.command.silent:
+            # Silence the stream by redirecting it to /dev/null.
+            if self.null_device is None:
+                self.null_device = open(os.devnull, 'wb')
+            return self.null_device
 
     def redirect(self, obj):
         """
@@ -1403,7 +1416,7 @@ class CachedStream(object):
         self.cleanup()
 
     def cleanup(self):
-        """Cleanup the temporary file."""
+        """Cleanup temporary resources."""
         if self.is_temporary_file:
             if self.fd is not None:
                 os.close(self.fd)
@@ -1413,6 +1426,9 @@ class CachedStream(object):
                     os.unlink(self.filename)
                 self.filename = None
             self.is_temporary_file = False
+        if self.null_device is not None:
+            self.null_device.close()
+            self.null_device = None
 
     def reset(self):
         """Reset internal state."""

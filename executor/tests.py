@@ -328,6 +328,21 @@ class ExecutorTestCase(unittest.TestCase):
         retry(expect_most_output, 20)
         retry(expect_all_output, 30)
 
+    def test_tty_option(self):
+        """Make sure the ``tty`` option works as expected."""
+        # By default we expect the external command to inherit our standard
+        # input stream (of course this test suite is expected to work
+        # regardless of whether it's connected to a terminal).
+        test_stdin_isatty = python_golf('import sys; sys.exit(0 if sys.stdin.isatty() else 1)')
+        assert sys.stdin.isatty() == execute(*test_stdin_isatty, check=False)
+        # If the command's output is being captured then its standard
+        # input stream should be redirected to /dev/null.
+        self.assertRaises(ExternalCommandFailed, execute, *test_stdin_isatty, capture=True)
+        # If the caller explicitly disabled interactive terminal support then
+        # the command's standard input stream should also be redirected to
+        # /dev/null.
+        self.assertRaises(ExternalCommandFailed, execute, *test_stdin_isatty, tty=False)
+
     def test_working_directory(self):
         """Make sure the working directory of external commands can be set."""
         with TemporaryDirectory() as directory:
