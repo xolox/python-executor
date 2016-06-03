@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 29, 2016
+# Last Change: June 3, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -62,6 +62,11 @@ class CommandPool(PropertyManager):
         This is a positive integer number. It defaults to the return value of
         :func:`multiprocessing.cpu_count()` (which may not make much sense if
         your commands are I/O bound instead of CPU bound).
+
+        Setting :attr:`concurrency` to one is a supported use case intended to
+        make it easier for users of the :mod:`executor.concurrent` module to
+        reuse the code they've built on top of command pools (if only for
+        debugging, but there are lots of use cases :-).
         """
         return multiprocessing.cpu_count()
 
@@ -139,9 +144,9 @@ class CommandPool(PropertyManager):
         A mapping of identifiers to external command objects.
 
         This is a dictionary with external command identifiers as keys (refer
-        to :func:`add()`) and :class:`~executor.ExternalCommand` objects as
-        values. The :class:`~executor.ExternalCommand` objects provide access
-        to the return codes and/or output of the finished commands.
+        to :func:`add()`) and :class:`.ExternalCommand` objects as values. The
+        :class:`.ExternalCommand` objects provide access to the return codes
+        and/or output of the finished commands.
         """
         return dict(self.commands)
 
@@ -171,7 +176,7 @@ class CommandPool(PropertyManager):
         Add an external command to the pool of commands.
 
         :param command: The external command to add to the pool (an
-                        :class:`~executor.ExternalCommand` object).
+                        :class:`.ExternalCommand` object).
         :param identifier: A unique identifier for the external command (any
                            value). When this parameter is not provided the
                            identifier is set to the number of commands in the
@@ -183,8 +188,7 @@ class CommandPool(PropertyManager):
         The :attr:`~executor.ExternalCommand.async` property of command objects
         is automatically set to :data:`True` when they're added to a
         :class:`CommandPool`. If you really want the commands to execute with a
-        concurrency of one (1) then you can set :attr:`concurrency` to one
-        (I'm not sure why you'd want to do that though :-).
+        concurrency of one then you can set :attr:`concurrency` to one.
         """
         command.async = True
         if command.logger == parent_logger:
@@ -218,6 +222,10 @@ class CommandPool(PropertyManager):
         If you're writing code where you want to own the main loop then
         consider calling :func:`spawn()` and :func:`collect()` directly instead
         of using :func:`run()`.
+
+        When :attr:`concurrency` is set to one, specific care is taken to make
+        sure that the callbacks configured by the :attr:`.start_event` and
+        :attr:`.finish_event` are called in the expected (intuitive) order.
         """
         # Start spawning processes to execute the commands.
         timer = Timer()
@@ -226,9 +234,17 @@ class CommandPool(PropertyManager):
                      self.concurrency)
         try:
             with Spinner(interactive=self.spinner, timer=timer) as spinner:
+                num_started = 0
+                num_collected = 0
                 while not self.is_finished:
-                    self.spawn()
-                    self.collect()
+                    # When concurrency is set to one (I know, initially it
+                    # sounds like a silly use case, bear with me) I want the
+                    # start_event and finish_event callbacks of external
+                    # commands to fire in the right order. The following
+                    # conditional is intended to accomplish this goal.
+                    if self.concurrency > (num_started - num_collected):
+                        num_started += self.spawn()
+                    num_collected += self.collect()
                     spinner.step(label=format(
                         "Waiting for %i/%i %s",
                         self.num_commands - self.num_finished, self.num_commands,

@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 1, 2016
+# Last Change: June 3, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -68,7 +68,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '10.0'
+__version__ = '10.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -560,12 +560,26 @@ class ExternalCommand(ControllableProcess):
 
         If this option is :data:`True` (not the default) and the current
         process doesn't have `superuser privileges`_ the external command is
-        run with ``fakeroot``. If the ``fakeroot`` program is not installed a
-        fall back to ``sudo`` is performed.
+        run with ``fakeroot``. If the ``fakeroot`` program is not installed the
+        external command will fail.
 
         .. _superuser privileges: http://en.wikipedia.org/wiki/Superuser#Unix_and_Unix-like
         """
         return False
+
+    @mutable_property
+    def finish_event(self):
+        """
+        Optional callback that's called just after the command finishes.
+
+        The :attr:`start_event` and :attr:`finish_event` properties were
+        created for use in command pools, for example to report to the operator
+        when specific commands are started and when they finish. The invocation
+        of the :attr:`start_event` and :attr:`finish_event` callbacks is
+        performed inside the :class:`ExternalCommand` class though, so you're
+        free to repurpose these callbacks outside the context of command
+        pools.
+        """
 
     @property
     def have_superuser_privileges(self):
@@ -726,6 +740,20 @@ class ExternalCommand(ControllableProcess):
         the standard output stream while silencing the standard error stream.
         """
         return False
+
+    @mutable_property
+    def start_event(self):
+        """
+        Optional callback that's called just before the command is started.
+
+        The :attr:`start_event` and :attr:`finish_event` properties were
+        created for use in command pools, for example to report to the operator
+        when specific commands are started and when they finish. The invocation
+        of the :attr:`start_event` and :attr:`finish_event` callbacks is
+        performed inside the :class:`ExternalCommand` class though, so you're
+        free to repurpose these callbacks outside the context of command
+        pools.
+        """
 
     @property
     def stderr(self):
@@ -1023,6 +1051,8 @@ class ExternalCommand(ControllableProcess):
         # Lightweight reset of internal state.
         for name in 'error_type', 'pid', 'returncode', 'subprocess':
             delattr(self, name)
+        # Invoke the start event callback?
+        self.invoke_event_callback('start_event')
         # Remember that we called subprocess.Popen() regardless of whether it
         # is about to raise an exception or not.
         self.was_started = True
@@ -1051,6 +1081,11 @@ class ExternalCommand(ControllableProcess):
                 self.stdout_stream.finalize(stdout)
                 self.stderr_stream.finalize(stderr)
                 self.wait()
+        finally:
+            # Invoke the finish event callback? (only applies when the command
+            # is synchronous or the subprocess module raised an exception)
+            if not self.is_running:
+                self.invoke_event_callback('finish_event')
 
     def wait(self, check=None, **kw):
         """
@@ -1170,6 +1205,8 @@ class ExternalCommand(ControllableProcess):
                 # so we don't lose track of it once we allow the subprocess.Popen
                 # object to be garbage collected.
                 self.returncode = self.subprocess.wait()
+                # Invoke the finish event callback?
+                self.invoke_event_callback('finish_event')
             else:
                 # Override the computed value of the `returncode' property
                 # because computing it again after we destroy our reference
@@ -1209,6 +1246,17 @@ class ExternalCommand(ControllableProcess):
         """
         if (check if check is not None else self.check) and self.error_type is not None:
             raise self.error_type(self)
+
+    def invoke_event_callback(self, name):
+        """
+        Invoke one of the event callbacks.
+
+        :param name: The name of the callback (a string).
+        """
+        callback = getattr(self, name)
+        if callback is not None:
+            logger.debug("Invoking %s callback ..", name)
+            callback(self)
 
     def __enter__(self):
         """

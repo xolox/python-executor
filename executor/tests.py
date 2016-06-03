@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 1, 2016
+# Last Change: June 3, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -481,6 +481,24 @@ class ExecutorTestCase(unittest.TestCase):
     def coerce_timestamp(self, cmd):
         """Callback for :func:`test_callback_evaluation()`."""
         return datetime.datetime.fromtimestamp(float(cmd.output))
+
+    def test_event_callbacks(self):
+        """Make sure the ``start_event`` and ``finish_event`` callbacks are actually invoked."""
+        for async in True, False:
+            results = []
+            cmd = ExternalCommand(
+                'sleep', '0.1',
+                async=async,
+                start_event=lambda cmd: results.append(('started', time.time())),
+                finish_event=lambda cmd: results.append(('finished', time.time())),
+            )
+            cmd.start()
+            mapping = dict(results)
+            assert 'started' in mapping
+            cmd.wait()
+            mapping = dict(results)
+            assert 'finished' in mapping
+            assert mapping['finished'] > mapping['started']
 
     def test_repr(self):
         """Make sure that repr() on external commands gives sane output."""
