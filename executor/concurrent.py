@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 3, 2016
+# Last Change: July 9, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -83,11 +83,6 @@ class CommandPool(PropertyManager):
         """
         return False
 
-    @property
-    def is_finished(self):
-        """:data:`True` if all commands in the pool have finished, :data:`False` otherwise."""
-        return all(cmd.is_finished for id, cmd in self.commands)
-
     @mutable_property
     def logger(self):
         """
@@ -117,6 +112,11 @@ class CommandPool(PropertyManager):
 
         .. _tail -f: https://en.wikipedia.org/wiki/Tail_(Unix)#File_monitoring
         """
+
+    @property
+    def is_finished(self):
+        """:data:`True` if all commands in the pool have finished, :data:`False` otherwise."""
+        return all(cmd.is_finished for id, cmd in self.commands)
 
     @property
     def num_commands(self):
@@ -185,18 +185,35 @@ class CommandPool(PropertyManager):
                          (the identifier with ``.log`` appended) in case
                          :attr:`logs_directory` is set.
 
-        The :attr:`~executor.ExternalCommand.async` property of command objects
-        is automatically set to :data:`True` when they're added to a
-        :class:`CommandPool`. If you really want the commands to execute with a
-        concurrency of one then you can set :attr:`concurrency` to one.
+        When a command is added to a command pool the following options are
+        changed automatically:
+
+        - The :attr:`~executor.ExternalCommand.async` property is set to
+          :data:`True`. If you want the commands to execute with a concurrency
+          of one then you should set :attr:`concurrency` to one.
+
+        - The :attr:`~executor.ExternalCommand.tty` property is set to
+          :data:`False` when :attr:`concurrency` is higher than one because
+          interaction with multiple concurrent subprocesses in a single
+          terminal is prone to serious miscommunication (when multiple
+          subprocesses present an interactive prompt at the same time and the
+          user tries to answer one of the prompts it will be impossible to tell
+          which of the subprocesses will receive the user's reply).
         """
+        # Configure the command to run asynchronously.
         command.async = True
+        # Configure the command to run without a controlling terminal?
+        if self.concurrency > 1:
+            command.tty = False
+        # Override the command's default logger?
         if command.logger == parent_logger:
             command.logger = self.logger
+        # Pick a default identifier for the command?
         if identifier is None:
             identifier = len(self.commands) + 1
+        # Configure logging of command output?
         if self.logs_directory:
-            if not log_file:
+            if log_file is None:
                 log_file = '%s.log' % identifier
             pathname = os.path.join(self.logs_directory, log_file)
             directory = os.path.dirname(pathname)
@@ -205,6 +222,7 @@ class CommandPool(PropertyManager):
             handle = open(pathname, 'ab')
             command.stdout_file = handle
             command.stderr_file = handle
+        # Add the command to the pool.
         self.commands.append((identifier, command))
 
     def run(self):
@@ -224,7 +242,7 @@ class CommandPool(PropertyManager):
         of using :func:`run()`.
 
         When :attr:`concurrency` is set to one, specific care is taken to make
-        sure that the callbacks configured by the :attr:`.start_event` and
+        sure that the callbacks configured by :attr:`.start_event` and
         :attr:`.finish_event` are called in the expected (intuitive) order.
         """
         # Start spawning processes to execute the commands.
