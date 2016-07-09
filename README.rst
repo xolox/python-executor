@@ -80,32 +80,25 @@ You can think of "executor" as a combination of the "flock" and "timelimit" prog
 
    "``-t``, ``--timeout=LIMIT``","Set the time after which the given command will be aborted. By default
    ``LIMIT`` is counted in seconds. You can also use one of the suffixes ""s""
-   (seconds), ""m"" (minutes), ""h"" (hours) or ""d"" (days).
-   "
+   (seconds), ""m"" (minutes), ""h"" (hours) or ""d"" (days)."
    "``-f``, ``--fudge-factor=LIMIT``","This option controls the dynamic startup delay (fudge factor) which is
    useful when you want a periodic task to run once per given interval but the
    exact time is not important. Refer to the ``--timeout`` option for acceptable
    values of ``LIMIT``, this number specifies the maximum amount of time to sleep
    before running the command (the minimum is zero, otherwise you could just
-   include the command ""sleep N && ..."" in your command line :-).
-   "
+   include the command ""sleep N && ..."" in your command line :-)."
    "``-e``, ``--exclusive``","Use an interprocess lock file to guarantee that executor will never run
    the external command concurrently. Refer to the ``--lock-timeout`` option
    to customize blocking / non-blocking behavior. To customize the name
-   of the lock file you can use the ``--lock-file`` option.
-   "
+   of the lock file you can use the ``--lock-file`` option."
    "``-T``, ``--lock-timeout=LIMIT``","By default executor tries to claim the lock and if it fails it will exit
    with a nonzero exit code. This option can be used to enable blocking
-   behavior. Refer to the ``--timeout`` option for acceptable values of ``LIMIT``.
-   "
+   behavior. Refer to the ``--timeout`` option for acceptable values of ``LIMIT``."
    "``-l``, ``--lock-file=NAME``","Customize the name of the lock file. By default this is the base name of
    the external command, so if you're running something generic like ""bash""
-   or ""python"" you might want to change this :-).
-   "
-   "``-v``, ``--verbose``","Make more noise than usual (increase logging verbosity).
-   "
-   "``-q``, ``--quiet``","Make less noise than usual (decrease logging verbosity).
-   "
+   or ""python"" you might want to change this :-)."
+   "``-v``, ``--verbose``",Make more noise than usual (increase logging verbosity).
+   "``-q``, ``--quiet``",Make less noise than usual (decrease logging verbosity).
    "``-h``, ``--help``","Show this message and exit.
    "
 

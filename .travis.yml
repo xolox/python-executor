@@ -10,13 +10,13 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install --yes openssh-server
 install:
-  - pip install --requirement=requirements-flake8.txt
-  - pip install coveralls
-  - LC_ALL=C pip install .
+  - pip install pip-accel
+  - pip-accel install coveralls
+  - pip-accel install --requirement=requirements-checks.txt
+  - LC_ALL=C pip-accel install .
 script:
   - make check
-  - coverage run setup.py test
-  - coverage report --fail-under=90
+  - make test
 after_success:
   - coveralls
 branches:

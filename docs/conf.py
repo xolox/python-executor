@@ -23,6 +23,9 @@ extensions = [
     'humanfriendly.sphinx',
 ]
 
+# Configuration for the `autodoc' extension.
+autodoc_member_order = 'bysource'
+
 # Paths that contain templates, relative to this directory.
 templates_path = ['templates']
 
@@ -68,21 +71,16 @@ pygments_style = 'sphinx'
 intersphinx_mapping = dict(
     python2=('http://docs.python.org', None),
     python3=('http://docs.python.org/3', None),
-    humanfriendly=('https://humanfriendly.readthedocs.org/en/latest', None),
-    proc=('https://proc.readthedocs.org/en/latest', None),
-    propertymanager=('https://property-manager.readthedocs.org/en/latest', None),
+    humanfriendly=('https://humanfriendly.readthedocs.io/en/latest', None),
+    proc=('https://proc.readthedocs.io/en/latest', None),
+    propertymanager=('https://property-manager.readthedocs.io/en/latest', None),
 )
 
 # -- Options for HTML output ---------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+html_theme = 'classic'
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'executordoc'
-
-# -- Customizations of the autodoc plug-in -------------------------------------
-
-# Sort members by the source order instead of alphabetically.
-autodoc_member_order = 'bysource'

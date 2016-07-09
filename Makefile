@@ -1,13 +1,12 @@
 # Makefile for executor.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 1, 2016
+# Last Change: July 9, 2016
 # URL: https://github.com/xolox/python-executor
 
 WORKON_HOME ?= $(HOME)/.virtualenvs
 VIRTUAL_ENV ?= $(WORKON_HOME)/executor
-PYTHON = "$(VIRTUAL_ENV)/bin/python"
-ACTIVATE = . "$(VIRTUAL_ENV)/bin/activate"
+PATH := $(VIRTUAL_ENV)/bin:$(PATH)
 MAKE := $(MAKE) --no-print-directory
 SHELL = bash
 
@@ -18,70 +17,60 @@ default:
 	@echo
 	@echo '    make install    install the package in a virtual environment'
 	@echo '    make reset      recreate the virtual environment'
-	@echo '    make test       run the test suite'
-	@echo '    make coverage   run the tests, report coverage'
-	@echo '    make check      check the coding style'
+	@echo '    make check      check coding style (PEP-8, PEP-257)'
+	@echo '    make test       run the test suite, report coverage'
+	@echo '    make tox        run the tests on all Python versions'
+	@echo '    make readme     update usage in readme'
 	@echo '    make docs       update documentation using Sphinx'
 	@echo '    make publish    publish changes to GitHub/PyPI'
 	@echo '    make clean      cleanup all temporary files'
 	@echo
 
 install:
-	@ $(MAKE) install_command PROGRAM=python COMMAND="virtualenv $(VIRTUAL_ENV)"
-	@ $(MAKE) install_command PROGRAM=pip COMMAND="easy_install pip"
-	@ $(MAKE) install_command PROGRAM=pip-accel COMMAND="pip install --quiet pip-accel"
-	@ $(MAKE) is_installed &> /dev/null || $(MAKE) --no-print-directory editable
-
-install_command:
-	@ test -x "$(VIRTUAL_ENV)/bin/$(PROGRAM)" || $(MAKE) run_command COMMAND="$(COMMAND)"
-
-is_installed:
-	$(ACTIVATE) && $(PYTHON) -c "import executor, pkg_resources; pkg_resources.get_distribution('executor')"
-
-editable:
-	- $(ACTIVATE) && pip uninstall --quiet --yes executor &>/dev/null
-	pip-accel install --quiet --editable "$(PWD)"
-
-run_command:
-	$(ACTIVATE) && $(COMMAND)
-
-dependency:
-	@ $(MAKE) install_command PROGRAM=$(PROGRAM) COMMAND="pip-accel install --quiet $(PACKAGE)"
+	@test -d "$(VIRTUAL_ENV)" || mkdir -p "$(VIRTUAL_ENV)"
+	@test -x "$(VIRTUAL_ENV)/bin/python" || virtualenv --quiet "$(VIRTUAL_ENV)"
+	@test -x "$(VIRTUAL_ENV)/bin/pip" || easy_install pip
+	@test -x "$(VIRTUAL_ENV)/bin/pip-accel" || (pip install --quiet pip-accel && pip-accel install --quiet 'urllib3[secure]')
+	@echo "Updating requirements .." >&2
+	@pip-accel install --quiet --requirement=requirements.txt
+	@which executor &>/dev/null || pip install --quiet --no-deps --editable .
 
 reset:
-	rm -Rf "$(VIRTUAL_ENV)"
 	$(MAKE) clean
-
-test: install
-	@ $(MAKE) dependency PROGRAM=detox PACKAGE=detox
-	@ $(ACTIVATE) && time detox
-
-coverage: install
-	@ $(MAKE) dependency PROGRAM=coverage PACKAGE=coverage
-	$(ACTIVATE) && coverage run setup.py test
-	$(ACTIVATE) && coverage report
-	$(ACTIVATE) && coverage html
+	rm -Rf "$(VIRTUAL_ENV)"
+	$(MAKE) install
 
 check: install
-	@ $(MAKE) dependency PROGRAM=flake8 PACKAGE=flake8-pep257
-	$(ACTIVATE) && flake8
+	@echo "Updating flake8 .." >&2
+	@pip-accel install --upgrade --quiet --requirement=requirements-checks.txt
+	@flake8
+
+test: install
+	@pip-accel install --quiet coverage pytest pytest-cov
+	@py.test -v --cov --cov-report=html --no-cov-on-fail
+	@coverage report --fail-under=90
+
+tox: install
+	@pip-accel install --quiet tox && tox
 
 readme: install
-	test -x "$(VIRTUAL_ENV)/bin/cog.py" || pip-accel install --quiet cogapp
-	cog.py -r README.rst
+	@pip-accel install --quiet cogapp && cog.py -r README.rst
 
-docs: install
-	@ $(MAKE) dependency PROGRAM=sphinx-build PACKAGE=sphinx
-	@ $(ACTIVATE) && cd docs && sphinx-build -nb html -d build/doctrees . build/html
+docs: readme
+	@pip-accel install --quiet sphinx
+	cd docs && sphinx-build -nb html -d build/doctrees . build/html
 
-publish:
+publish: install
 	git push origin && git push --tags origin
-	$(MAKE) clean && $(PYTHON) setup.py sdist upload
+	$(MAKE) clean
+	pip-accel install --quiet twine wheel
+	python setup.py sdist bdist_wheel
+	twine upload dist/*
+	$(MAKE) clean
 
 clean:
-	@- rm -Rf *.egg *.egg-info .cache .coverage .tox build dist docs/build htmlcov
-	@- find -depth -type d -name __pycache__ -exec rm -Rf {} \;
-	@- find -type f -name '*.pyc' -delete
-	@ $(MAKE) install
+	@rm -Rf *.egg .cache .coverage build dist docs/build htmlcov
+	@find -depth -type d -name __pycache__ -exec rm -Rf {} \;
+	@find -type f -name '*.pyc' -delete
 
-.PHONY: default install install_command is_installed editable run_command dependency reset test coverage check docs publish clean
+.PHONY: default install reset check test tox readme docs publish clean
