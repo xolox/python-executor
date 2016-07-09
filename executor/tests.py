@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 3, 2016
+# Last Change: July 9, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -425,13 +425,24 @@ class ExecutorTestCase(unittest.TestCase):
     def test_environment_variable_handling(self):
         """Make sure environment variables can be overridden."""
         # Check that environment variables of the current process are passed on to subprocesses.
-        self.assertEqual(execute('echo $PATH', capture=True), os.environ['PATH'])
+        output = execute('echo $PATH', capture=True)
+        assert output == os.environ['PATH']
         # Test that environment variable overrides can be given to external commands.
-        override_value = str(random.random())
-        self.assertEqual(execute('echo $override',
-                                 capture=True,
-                                 environment=dict(override=override_value)),
-                         override_value)
+        output = execute(
+            'echo $HELLO $WORLD',
+            capture=True,
+            environment=dict(
+                HELLO='Hello',
+                WORLD='world!',
+            ),
+        )
+        assert output == 'Hello world!'
+        # Test that the environment variables of a command can be modified
+        # after the command has been initialized.
+        cmd = ExternalCommand('echo $DELAYED', capture=True)
+        cmd.environment['DELAYED'] = 'Also works fine'
+        cmd.wait()
+        assert cmd.output == 'Also works fine'
 
     def test_simple_async_cmd(self):
         """Make sure commands can be executed asynchronously."""

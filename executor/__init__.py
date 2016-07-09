@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 3, 2016
+# Last Change: July 9, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -68,7 +68,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '11.0'
+__version__ = '11.0.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -503,7 +503,7 @@ class ExternalCommand(ControllableProcess):
         """
         return DEFAULT_ENCODING
 
-    @mutable_property
+    @writable_property(cached=True)
     def environment(self):
         """
         A dictionary of environment variables for the external command.
