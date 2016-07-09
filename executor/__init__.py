@@ -68,7 +68,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '12.0'
+__version__ = '13.0'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -472,6 +472,23 @@ class ExternalCommand(ControllableProcess):
         if value is not None:
             return value.decode(self.encoding)
 
+    @writable_property(cached=True)
+    def dependencies(self):
+        """
+        The dependencies of the command (a list of :class:`ExternalCommand` objects).
+
+        The :attr:`dependencies` property enables low level concurrency control
+        in command pools by imposing a specific order of execution:
+
+        - Command pools will never start a command until the
+          :attr:`~.ExternalCommand.is_finished` properties of all of the
+          command's :attr:`~.ExternalCommand.dependencies` are :data:`True`.
+
+        - If :attr:`dependencies` is empty it has no effect and concurrency is
+          controlled by :attr:`group_by` and :attr:`~.CommandPool.concurrency`.
+        """
+        return []
+
     @mutable_property
     def directory(self):
         """
@@ -578,6 +595,24 @@ class ExternalCommand(ControllableProcess):
         performed inside the :class:`ExternalCommand` class though, so you're
         free to repurpose these callbacks outside the context of command
         pools.
+        """
+
+    @mutable_property
+    def group_by(self):
+        """
+        Identifier that's used to group the external command (any hashable value).
+
+        The :attr:`group_by` property enables high level concurrency control in
+        command pools by making it easy to control which commands are allowed
+        to run concurrently and which are required to run serially:
+
+        - Command pools will never start more than one command within a group
+          of commands that share the same value of :attr:`group_by` (for values
+          that aren't :data:`None`).
+
+        - If :attr:`group_by` is :data:`None` it has no effect and concurrency
+          is controlled by :attr:`dependencies` and
+          :attr:`~.CommandPool.concurrency`.
         """
 
     @property

@@ -10,7 +10,10 @@ Support for concurrent external command execution.
 The :mod:`executor.concurrent` module defines the :class:`CommandPool` class
 which makes it easy to prepare a large number of external commands, group them
 together in a pool, start executing a configurable number of external commands
-simultaneously and wait for all external commands to finish.
+simultaneously and wait for all external commands to finish. For fine grained
+concurrency control please refer to the :attr:`~.ExternalCommand.dependencies`
+and :attr:`~.ExternalCommand.group_by` properties of the
+:class:`.ExternalCommand` class.
 """
 
 # Standard library modules.
@@ -137,6 +140,20 @@ class CommandPool(PropertyManager):
     def num_running(self):
         """The number of currently running commands in the pool (an integer)."""
         return sum(cmd.is_running for id, cmd in self.commands)
+
+    @property
+    def running_groups(self):
+        """
+        A set of running command groups.
+
+        The value of :attr:`running_groups` is a :class:`set` with the
+        :attr:`~ExternalCommand.group_by` values of all currently running
+        commands (:data:`None` is never included in the set).
+        """
+        return set(
+            cmd.group_by for id, cmd in self.commands
+            if cmd.is_running and cmd.group_by is not None
+        )
 
     @property
     def results(self):
@@ -290,14 +307,36 @@ class CommandPool(PropertyManager):
 
         :returns: The number of external commands that were spawned by this
                   invocation of :func:`spawn()` (an integer).
+
+        The commands to start are picked according to three criteria:
+
+        1. The command's :attr:`~.ExternalCommand.was_started` property is
+           :data:`False`.
+        2. The command's :attr:`~.ExternalCommand.group_by` value is not
+           present in :attr:`running_groups`.
+        3. The :attr:`~.ExternalCommand.is_finished` properties of all of the
+           command's :attr:`~.ExternalCommand.dependencies` are :data:`True`.
         """
         num_started = 0
-        todo = [cmd for id, cmd in self.commands if not cmd.was_started]
-        while todo and self.num_running < self.concurrency:
-            cmd = todo.pop(0)
-            cmd.start()
-            num_started += 1
-        if num_started >= 1:
+        limit = self.concurrency - self.num_running
+        if limit > 0:
+            running_groups = self.running_groups
+            for id, cmd in self.commands:
+                # Skip commands that have already been started.
+                if not cmd.was_started:
+                    # If command groups are being used we'll only
+                    # allow one running command per command group.
+                    if cmd.group_by not in running_groups:
+                        # If a command has any dependencies we won't allow it
+                        # to start until all of its dependencies have finished.
+                        if all(dependency.is_finished for dependency in cmd.dependencies):
+                            cmd.start()
+                            num_started += 1
+                            if cmd.group_by is not None:
+                                running_groups.add(cmd.group_by)
+                            if num_started == limit:
+                                break
+        if num_started > 0:
             logger.debug("Spawned %s ..", pluralize(num_started, "external command"))
         return num_started
 

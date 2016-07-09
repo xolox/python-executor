@@ -645,6 +645,36 @@ class ExecutorTestCase(unittest.TestCase):
                     contents = handle.read()
                 assert filename == ('%s.log' % contents.strip())
 
+    def test_concurrency_control_with_groups(self):
+        """Make sure command pools support ``group_by`` for high level concurrency control."""
+        pool = CommandPool(concurrency=10)
+        for i in range(10):
+            pool.add(ExternalCommand('sleep 0.1', group_by='group-a'))
+        for i in range(10):
+            pool.add(ExternalCommand('sleep 0.1', group_by='group-b'))
+        while not pool.is_finished:
+            pool.spawn()
+            # Make sure we never see more than two commands running at the same
+            # time (because the commands are spread over two command groups).
+            assert pool.num_running <= 2
+            pool.collect()
+
+    def test_concurrency_control_with_dependencies(self):
+        """Make sure command pools support ``dependencies`` for low level concurrency control."""
+        pool = CommandPool(concurrency=10)
+        group_one = [ExternalCommand('sleep 0.1') for i in range(5)]
+        group_two = [ExternalCommand('sleep 0.1', dependencies=group_one) for i in range(5)]
+        group_three = [ExternalCommand('sleep 0.1', dependencies=group_two) for i in range(5)]
+        for group in group_one, group_two, group_three:
+            for cmd in group:
+                pool.add(cmd)
+        while not pool.is_finished:
+            pool.spawn()
+            # Make sure we never see more than one group of commands running at
+            # the same time (because we've set up the dependencies like this).
+            assert pool.num_running <= 5
+            pool.collect()
+
     def test_ssh_user_at_host(self):
         """Make sure a username can be injected via an SSH alias."""
         cmd = RemoteCommand('root@host', 'true')
