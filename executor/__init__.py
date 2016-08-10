@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: July 9, 2016
+# Last Change: August 10, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -68,7 +68,7 @@ except NameError:
     unicode = str
 
 # Semi-standard module versioning.
-__version__ = '13.0'
+__version__ = '14.0'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -305,8 +305,7 @@ class ExternalCommand(ControllableProcess):
         """
         # Store the command and its arguments but make it possible for
         # subclasses to redefine whether `command' is a required property.
-        if command:
-            self.command = list(command)
+        self.command = list(command)
         # Set properties based on keyword arguments.
         super(ExternalCommand, self).__init__(**options)
         # Initialize instance variables.
@@ -398,9 +397,16 @@ class ExternalCommand(ControllableProcess):
         """
         return True
 
-    @required_property
+    @mutable_property
     def command(self):
-        """A list of strings with the command to execute."""
+        """
+        A list of strings with the command to execute.
+
+        .. note:: In executor version 14.0 it became valid to set :attr:`input`
+                  and :attr:`shell` without providing :attr:`command` (in older
+                  versions it was required to set :attr:`command` regardless of
+                  the other options).
+        """
 
     @property
     def command_line(self):
@@ -429,17 +435,27 @@ class ExternalCommand(ControllableProcess):
           privileges).
         """
         command_line = list(self.command)
+        use_shell = self.shell
+        have_commands = (len(command_line) > 0)
+        have_input = (self.input is not None)
+        if use_shell and have_input and not have_commands:
+            # If `shell' is enabled and `input' is given but no `command' is
+            # given, we will start the DEFAULT_SHELL and instruct it to read
+            # shell commands to execute from its standard input stream.
+            use_shell = False
+            command_line = [DEFAULT_SHELL, '-']
         # Apply the `shell' and/or `virtual_environment' options.
         if self.virtual_environment:
-            # Prepare to execute the command inside a Python virtual environment.
             activate_script = os.path.join(self.virtual_environment, 'bin', 'activate')
-            if self.shell:
+            if use_shell:
+                # Shell command(s) provided via positional arguments or standard input.
                 shell_command = 'source %s && %s' % (quote(activate_script), command_line[0])
                 command_line = [DEFAULT_SHELL, '-c', shell_command] + command_line[1:]
             else:
+                # Non-shell command line provided via positional arguments.
                 shell_command = 'source %s && %s' % (quote(activate_script), quote(command_line))
                 command_line = [DEFAULT_SHELL, '-c', shell_command]
-        elif self.shell:
+        elif use_shell:
             # Prepare to execute a shell command.
             command_line = [DEFAULT_SHELL, '-c'] + command_line
         # Run the command under `fakeroot' to fake super user privileges?
