@@ -202,7 +202,7 @@ class SSHServer(EphemeralTCPServer):
     @property
     def client_options(self):
         """
-        Options for the OpenSSH client, required to connect with the server.
+        The options for the OpenSSH client (required to connect with the server).
 
         This is a dictionary of keyword arguments for :class:`.RemoteCommand`
         to make it connect with the OpenSSH server (assuming the remote command
