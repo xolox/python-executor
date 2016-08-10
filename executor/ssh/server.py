@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 29, 2016
+# Last Change: August 10, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -202,7 +202,7 @@ class SSHServer(EphemeralTCPServer):
     @property
     def client_options(self):
         """
-        OpenSSH client options required to connect with the server.
+        Options for the OpenSSH client, required to connect with the server.
 
         This is a dictionary of keyword arguments for :class:`.RemoteCommand`
         to make it connect with the OpenSSH server (assuming the remote command
