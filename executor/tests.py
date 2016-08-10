@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: July 9, 2016
+# Last Change: August 10, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -172,10 +172,6 @@ class ExecutorTestCase(unittest.TestCase):
             assert not cmd.is_running, "Child still running despite graceful termination request!"
             assert timer.elapsed_time < 10, "It look too long to terminate the child!"
 
-    def test_argument_validation(self):
-        """Make sure the external command constructor requires a command argument."""
-        self.assertRaises(TypeError, ExternalCommand)
-
     def test_program_searching(self):
         """Make sure which() works as expected."""
         assert which('python')
@@ -217,6 +213,22 @@ class ExecutorTestCase(unittest.TestCase):
         cmd.start()
         cmd.wait()
         assert cmd.error_type is CommandNotFound
+
+    def test_commands_on_stdin(self):
+        """Test that callers can opt in to shell evaluation for local commands given on standard input."""
+        random_string = uuid.uuid4().hex
+        output = execute(capture=True, shell=True, input='echo %s' % quote(random_string))
+        assert output == random_string
+
+    def test_remote_commands_on_stdin(self):
+        """Test that callers can opt in to shell evaluation for remote commands given on standard input."""
+        random_string = uuid.uuid4().hex
+        with SSHServer() as server:
+            output = remote('127.0.0.1',
+                            capture=True, shell=True,
+                            input='echo %s' % quote(random_string),
+                            **server.client_options)
+            assert output == random_string
 
     def test_stdin(self):
         """Make sure standard input can be provided to external commands."""
