@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: August 10, 2016
+# Last Change: October 12, 2016
 # URL: https://executor.readthedocs.org
 
 """
@@ -867,8 +867,34 @@ class ExecutorTestCase(unittest.TestCase):
         # Make sure the contents are correct.
         actual_contents = context.read_file(random_file)
         assert actual_contents == expected_contents
-        # Test context.list_entries() and make sure it doesn't mangle filenames
-        # containing whitespace.
+        # Test the happy path in context.atomic_write().
+        random_file = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex)
+        expected_contents = bytes(random.randint(0, 255) for i in range(25))
+        assert not context.exists(random_file)
+        with context.atomic_write(random_file) as temporary_file:
+            context.write_file(temporary_file, expected_contents)
+            assert not context.exists(random_file)
+        assert not context.exists(temporary_file)
+        assert context.exists(random_file)
+        assert context.read_file(random_file) == expected_contents
+        # Test the failure handling in context.atomic_write().
+        random_file = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex)
+        try:
+            assert not context.exists(random_file)
+            with context.atomic_write(random_file) as temporary_file:
+                context.write_file(temporary_file, '')
+                assert context.exists(temporary_file)
+                # Interrupt the `with' block by raising an exception.
+                raise Exception
+        except Exception:
+            pass
+        finally:
+            # Make sure the temporary file was cleaned up.
+            assert not context.exists(temporary_file)
+            # Make sure the target file wasn't created.
+            assert not context.exists(random_file)
+        # Test context.list_entries() and make sure it doesn't
+        # mangle filenames containing whitespace.
         nasty_filenames = [
             'something-innocent',
             'now with spaces',

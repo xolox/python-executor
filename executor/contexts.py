@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 27, 2016
+# Last Change: October 12, 2016
 # URL: https://executor.readthedocs.org
 
 r"""
@@ -60,9 +60,11 @@ integration tools developed using Python:
 """
 
 # Standard library modules.
+import contextlib
 import logging
 import multiprocessing
 import os
+import random
 import socket
 
 # External dependencies.
@@ -393,6 +395,35 @@ class AbstractContext(object):
         .. _output redirection: https://en.wikipedia.org/wiki/Redirection_(computing)
         """
         return self.execute('cat > %s' % quote(filename), shell=True, input=contents)
+
+    @contextlib.contextmanager
+    def atomic_write(self, filename):
+        """
+        Create or update the contents of a file atomically.
+
+        :param filename: The pathname of the file to create/update (a string).
+        :returns: A context manager (see the :keyword:`with` keyword) that
+                  returns a single string which is the pathname of the
+                  temporary file where the contents should be written to
+                  initially.
+
+        If an exception is raised from the :keyword:`with` block and the
+        temporary file exists, an attempt will be made to remove it but failure
+        to do so will be silenced instead of propagated (to avoid obscuring the
+        original exception).
+
+        The temporary file is created in the same directory as the real file,
+        but a dot is prefixed to the name (making it a hidden file) and the
+        suffix '.tmp-' followed by a random integer number is used.
+        """
+        directory, entry = os.path.split(filename)
+        temporary_file = os.path.join(directory, '.%s.tmp-%i' % (entry, random.randint(1, 100000)))
+        try:
+            yield temporary_file
+        except Exception:
+            self.execute('rm', '-f', temporary_file, check=False)
+        else:
+            self.execute('mv', temporary_file, filename)
 
     def list_entries(self, directory):
         """
