@@ -4,7 +4,7 @@
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: December 17, 2016
-# URL: https://executor.readthedocs.org
+# URL: https://executor.readthedocs.io
 
 """Setup script for the `executor` package."""
 
@@ -57,7 +57,7 @@ setup(name='executor',
       version=get_version('executor', '__init__.py'),
       description='Programmer friendly subprocess wrapper',
       long_description=get_readme(),
-      url='https://executor.readthedocs.org',
+      url='https://executor.readthedocs.io',
       author='Peter Odding',
       author_email='peter@peterodding.com',
       packages=find_packages(),

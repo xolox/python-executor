@@ -2,7 +2,7 @@
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: May 29, 2016
-# URL: https://executor.readthedocs.org
+# URL: https://executor.readthedocs.io
 
 """
 Remote command execution using SSH.

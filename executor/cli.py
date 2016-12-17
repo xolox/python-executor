@@ -2,7 +2,7 @@
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: November 14, 2015
-# URL: https://executor.readthedocs.org
+# URL: https://executor.readthedocs.io
 #
 # TODO Expose a clean way to interrupt the fudge factor of other processes.
 # TODO Properly document command timeout / lock-timeout / TERM-timeout / KILL-timeout.

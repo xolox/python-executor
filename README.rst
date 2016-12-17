@@ -229,18 +229,18 @@ This software is licensed under the `MIT license`_.
 © 2016 Peter Odding.
 
 .. External references:
-.. _CommandPool: https://executor.readthedocs.org/en/latest/#executor.concurrent.CommandPool
-.. _documentation: https://executor.readthedocs.org
-.. _execute(): http://executor.readthedocs.org/en/latest/#executor.execute
-.. _ExternalCommandFailed: http://executor.readthedocs.org/en/latest/#executor.ExternalCommandFailed
-.. _foreach(): https://executor.readthedocs.org/en/latest/#executor.ssh.client.foreach
+.. _CommandPool: https://executor.readthedocs.io/en/latest/#executor.concurrent.CommandPool
+.. _documentation: https://executor.readthedocs.io
+.. _execute(): http://executor.readthedocs.io/en/latest/#executor.execute
+.. _ExternalCommandFailed: http://executor.readthedocs.io/en/latest/#executor.ExternalCommandFailed
+.. _foreach(): https://executor.readthedocs.io/en/latest/#executor.ssh.client.foreach
 .. _GitHub: https://github.com/xolox/python-executor
 .. _MIT license: http://en.wikipedia.org/wiki/MIT_License
 .. _per user site-packages directory: https://www.python.org/dev/peps/pep-0370/
 .. _peter@peterodding.com: peter@peterodding.com
 .. _PyPI: https://pypi.python.org/pypi/executor
-.. _Read the Docs: https://executor.readthedocs.org/en/latest/#api-documentation
-.. _RemoteCommand: https://executor.readthedocs.org/en/latest/#executor.ssh.client.RemoteCommand
+.. _Read the Docs: https://executor.readthedocs.io/en/latest/#api-documentation
+.. _RemoteCommand: https://executor.readthedocs.io/en/latest/#executor.ssh.client.RemoteCommand
 .. _SSH: https://en.wikipedia.org/wiki/Secure_Shell
 .. _subprocess: https://docs.python.org/2/library/subprocess.html
 .. _virtual environments: http://docs.python-guide.org/en/latest/dev/virtualenvs/

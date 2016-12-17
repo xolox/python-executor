@@ -2,7 +2,7 @@
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: July 9, 2016
-# URL: https://executor.readthedocs.org
+# URL: https://executor.readthedocs.io
 
 """
 Support for concurrent external command execution.

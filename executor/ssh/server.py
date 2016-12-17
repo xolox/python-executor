@@ -2,7 +2,7 @@
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: August 10, 2016
-# URL: https://executor.readthedocs.org
+# URL: https://executor.readthedocs.io
 
 """
 OpenSSH server automation for testing.

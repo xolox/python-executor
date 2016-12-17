@@ -2,7 +2,7 @@
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: October 12, 2016
-# URL: https://executor.readthedocs.org
+# URL: https://executor.readthedocs.io
 
 r"""
 Dependency injection for command execution contexts.

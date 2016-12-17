@@ -2,7 +2,7 @@
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: June 1, 2016
-# URL: https://executor.readthedocs.org
+# URL: https://executor.readthedocs.io
 
 """
 Portable process control functionality for the `executor` package.
