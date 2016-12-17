@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: February 20, 2016
+# Last Change: December 17, 2016
 # URL: https://executor.readthedocs.org
 
 """Setup script for the `executor` package."""
@@ -23,9 +23,9 @@ def get_readme():
         return handle.read()
 
 
-def get_version(filename):
+def get_version(*args):
     """Get the package's version (by extracting it from the source code)."""
-    module_path = get_absolute_path(filename)
+    module_path = get_absolute_path(*args)
     with open(module_path) as handle:
         for line in handle:
             match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
@@ -54,7 +54,7 @@ def get_absolute_path(*args):
 
 
 setup(name='executor',
-      version=get_version('executor/__init__.py'),
+      version=get_version('executor', '__init__.py'),
       description='Programmer friendly subprocess wrapper',
       long_description=get_readme(),
       url='https://executor.readthedocs.org',
