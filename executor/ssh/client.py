@@ -313,7 +313,7 @@ class RemoteCommand(ExternalCommand):
 
         When you set this property you change the remote working directory,
         however reading back the property you'll just get
-        :data:`.DEFAULT_WORKING_DIRECTORY`. This is because
+        :data:`.DEFAULT_WORKING_DIRECTORY`. This is because the superclass
         :class:`.ExternalCommand` uses :attr:`directory` as the local working
         directory for the ``ssh`` command, and a remote working directory isn't
         guaranteed to also exist on the local system.

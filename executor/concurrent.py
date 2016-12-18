@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: July 9, 2016
+# Last Change: December 18, 2016
 # URL: https://executor.readthedocs.io
 
 """
@@ -147,7 +147,7 @@ class CommandPool(PropertyManager):
         A set of running command groups.
 
         The value of :attr:`running_groups` is a :class:`set` with the
-        :attr:`~ExternalCommand.group_by` values of all currently running
+        :attr:`~.ExternalCommand.group_by` values of all currently running
         commands (:data:`None` is never included in the set).
         """
         return set(

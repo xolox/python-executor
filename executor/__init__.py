@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 12, 2016
+# Last Change: December 18, 2016
 # URL: https://executor.readthedocs.io
 
 """
@@ -254,9 +254,9 @@ class ExternalCommand(ControllableProcess):
     **Public methods**
      The public methods :func:`start()`, :func:`wait()`,
      :func:`~executor.process.ControllableProcess.terminate()` and
-     and :func:`~executor.process.ControllableProcess.kill()`
-     enable you to start external commands, wait for them to
-     finish and terminate them if they take too long.
+     :func:`~executor.process.ControllableProcess.kill()` enable you to start
+     external commands, wait for them to finish and terminate them if they take
+     too long.
 
     **Internal methods**
      The internal methods :func:`check_errors()`, :func:`load_output()` and
@@ -426,7 +426,7 @@ class ExternalCommand(ControllableProcess):
           shell command line and prefixed by the applicable ``source ...``
           command.
 
-        - If :attr:`uid` or :attr:`user` is set the `sudo -u`` command will be
+        - If :attr:`uid` or :attr:`user` is set the ``sudo -u`` command will be
           prefixed to the command line generated here.
 
         - If :attr:`fakeroot` or :attr:`sudo` is set the respective command
@@ -1628,10 +1628,10 @@ class ExternalCommandFailed(PropertyManager, Exception):
 
         :param command: The :class:`ExternalCommand` object that triggered the
                         exception.
-        :param kw: Keyword arguments are passed on to
-                   :func:`property_manager.PropertyManager.__init__()`.
-        :param error_message: An error message to override the default message
-                              taken from :attr:`~ExternalCommand.error_message`.
+        :param options: Any keyword arguments are passed on to the initializer
+                        of the base class :class:`~property_manager.PropertyManager`
+                        to initialize the writable properties :attr:`pool` and
+                        :attr:`error_message`.
         """
         PropertyManager.__init__(self, command=command, **options)
         Exception.__init__(self, self.error_message)
