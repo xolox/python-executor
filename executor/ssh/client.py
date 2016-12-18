@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 29, 2016
+# Last Change: December 18, 2016
 # URL: https://executor.readthedocs.io
 
 """
@@ -21,8 +21,13 @@ import logging
 import os
 
 # External dependencies.
-from humanfriendly import concatenate, format, pluralize, Timer
-from property_manager import mutable_property, required_property
+from humanfriendly import Timer, concatenate, format, pluralize
+from property_manager import (
+    PropertyManager,
+    mutable_property,
+    required_property,
+    set_property,
+)
 
 # Modules included in our package.
 from executor import (
@@ -159,7 +164,7 @@ def remote(ssh_alias, *command, **options):
     """
     Execute a remote command (similar to :func:`.execute()`).
 
-    :param ssh_alias: Used to set :attr:`RemoteCommand.ssh_alias`.
+    :param ssh_alias: Used to set :attr:`RemoteAccount.ssh_alias`.
     :param command: All positional arguments are passed to
                     :func:`RemoteCommand.__init__()`.
     :param options: All keyword arguments are passed to
@@ -172,26 +177,121 @@ def remote(ssh_alias, *command, **options):
     return execute_prepared(RemoteCommand(ssh_alias, *command, **options))
 
 
-class RemoteCommand(ExternalCommand):
+class RemoteAccount(PropertyManager):
+
+    """
+    Trivial SSH alias parser.
+
+    This class acts as a base class for :class:`RemoteCommand` and
+    :class:`.RemoteContext` that provides three simple features:
+
+    - It defines the :attr:`ssh_alias` and :attr:`ssh_user` properties.
+
+    - When :attr:`ssh_alias` is set to a string that contains an ``@`` token it
+      parses the string and sets both :attr:`ssh_alias` and :attr:`ssh_user` [#]_.
+
+    - It allows for :attr:`ssh_alias` to be passed as the first positional
+      argument [#]_ or as a keyword argument [#]_.
+
+    .. [#] This enables :attr:`RemoteCommand.have_superuser_privileges` to know
+           that superuser privileges are available when the caller sets
+           :attr:`ssh_alias` to a value like ``root@host``. Of course the SSH
+           client configuration can also override the remote username without
+           the `executor` package knowing about it, but at least `executor`
+           will be able to use the information that it does have.
+
+    .. [#] This calling convention enables backwards compatibility with
+           `executor` versions 14 and below which required :attr:`ssh_alias` to
+           be set using the first positional argument to the initializer of the
+           :class:`RemoteCommand` class.
+
+    .. [#] This new calling convention provides a uniform calling convention
+           for the initializers of the local/remote command/context classes.
+    """
+
+    def __init__(self, *args, **options):
+        """
+        Initialize a :class:`RemoteAccount` object.
+
+        :param args: Positional arguments are passed on to the initializer of
+                     the :class:`~property_manager.PropertyManager` class
+                     (for future extensibility).
+        :param options: Any keyword arguments are passed on to the initializer
+                        of the :class:`~property_manager.PropertyManager`
+                        class.
+
+        If the keyword argument `ssh_alias` isn't given but positional
+        arguments are provided, the first positional argument is used to set
+        the :attr:`ssh_alias` property.
+        """
+        # Enable modification of the positional arguments.
+        args = list(args)
+        # We allow `ssh_alias' to be passed as a keyword argument but use the
+        # first positional argument when the keyword argument isn't given.
+        if options.get('ssh_alias') is None and args:
+            options['ssh_alias'] = args.pop(0)
+        # Initialize the superclass.
+        super(RemoteAccount, self).__init__(*args, **options)
+
+    @required_property
+    def ssh_alias(self):
+        """
+        The SSH alias of the remote host (a string).
+
+        If you set this property to a string that contains two nonempty tokens
+        delimited by an ``@`` character, the first token is used to set
+        :attr:`ssh_user` and the second token is used to set
+        :attr:`ssh_alias`. Here's an example:
+
+        >>> from executor.ssh.client import RemoteAccount
+        >>> RemoteAccount('root@server')
+        RemoteAccount(ssh_alias='server', ssh_user='root')
+        >>> RemoteAccount(ssh_alias='server', ssh_user='root')
+        RemoteAccount(ssh_alias='server', ssh_user='root')
+        >>> RemoteAccount('server')
+        RemoteAccount(ssh_alias='server', ssh_user=None)
+        """
+
+    @ssh_alias.setter
+    def ssh_alias(self, value):
+        """Set the value of :attr:`ssh_alias` and optionally :attr:`ssh_user`."""
+        user, _, host = value.partition('@')
+        if user and host:
+            set_property(self, 'ssh_alias', host)
+            set_property(self, 'ssh_user', user)
+        else:
+            set_property(self, 'ssh_alias', value)
+
+    @mutable_property
+    def ssh_user(self):
+        """
+        The username on the remote system (a string or :data:`None`).
+
+        If the value of :attr:`ssh_user` is :data:`None` the SSH client program
+        gets to decide about the remote username.
+        """
+
+
+class RemoteCommand(RemoteAccount, ExternalCommand):
 
     """:class:`RemoteCommand` objects use the SSH client program to execute remote commands."""
 
-    def __init__(self, ssh_alias, *command, **options):
+    def __init__(self, *args, **options):
         """
         Initialize a :class:`RemoteCommand` object.
 
-        :param ssh_alias: Used to set :attr:`ssh_alias` and optionally
-                          :attr:`ssh_user` (if the value contains two tokens
-                          delimited by a ``@`` character).
-        :param command: Any additional positional arguments are converted to a
-                        list and used to set :attr:`~.ExternalCommand.command`.
+        :param args: Refer to the initializers of the :class:`RemoteAccount`
+                     and :class:`.ExternalCommand` classes.
         :param options: Keyword arguments can be used to conveniently override
-                        the default values of :attr:`batch_mode`,
-                        :attr:`connect_timeout`, :attr:`ssh_command`,
-                        :attr:`strict_host_key_checking` and the writable
-                        properties of the :class:`.ExternalCommand` class. Any
-                        other keyword argument will raise :exc:`TypeError` as
-                        usual.
+                        the values of :attr:`batch_mode`,
+                        :attr:`connect_timeout`, :attr:`identity_file`,
+                        :attr:`ignore_known_hosts`, :attr:`log_level`,
+                        :attr:`port`, :attr:`strict_host_key_checking`,
+                        :attr:`known_hosts_file`, :attr:`ssh_command` and the
+                        writable properties of the base classes
+                        :class:`RemoteAccount` and :class:`.ExternalCommand`.
+                        Any other keyword argument will raise :exc:`TypeError`
+                        as usual.
 
         The remote command is not started until you call
         :func:`~executor.ExternalCommand.start()` or
@@ -201,15 +301,8 @@ class RemoteCommand(ExternalCommand):
         options.setdefault('logger', logger)
         # Set the default remote working directory.
         self.remote_directory = DEFAULT_WORKING_DIRECTORY
-        # Store the SSH alias (and an optional username prefixed to it).
-        user, _, host = ssh_alias.rpartition('@')
-        if user and host:
-            self.ssh_user = user
-            self.ssh_alias = host
-        else:
-            self.ssh_alias = ssh_alias
         # Initialize the super class.
-        super(RemoteCommand, self).__init__(*command, **options)
+        super(RemoteCommand, self).__init__(*args, **options)
 
     @mutable_property
     def batch_mode(self):
@@ -357,11 +450,11 @@ class RemoteCommand(ExternalCommand):
     @property
     def have_superuser_privileges(self):
         """
-        :data:`True` if :attr:`ssh_user` is set to 'root', :data:`False` otherwise.
+        :data:`True` if :attr:`.ssh_user` is set to 'root', :data:`False` otherwise.
 
         There's no easy way for :class:`RemoteCommand` to determine whether any
         given SSH alias logs into a remote system with `superuser privileges`_
-        so unless :attr:`ssh_user` is set to 'root' this is always
+        so unless :attr:`.ssh_user` is set to 'root' this is always
         :data:`False`.
 
         .. _superuser privileges: http://en.wikipedia.org/wiki/Superuser#Unix_and_Unix-like
@@ -418,10 +511,6 @@ class RemoteCommand(ExternalCommand):
         """
         return 'info'
 
-    @required_property
-    def ssh_alias(self):
-        """The SSH alias of the remote host on which :attr:`~.ExternalCommand.command` should be executed (a string)."""
-
     @mutable_property
     def ssh_command(self):
         """
@@ -429,15 +518,11 @@ class RemoteCommand(ExternalCommand):
 
         This is a list of strings, by default the list contains just
         :data:`SSH_PROGRAM_NAME`. The :attr:`batch_mode`, :attr:`connect_timeout`,
-        :attr:`log_level`, :attr:`ssh_alias` and :attr:`strict_host_key_checking`
+        :attr:`log_level`, :attr:`.ssh_alias` and :attr:`strict_host_key_checking`
         properties also influence the SSH client command line used (see
         :attr:`~.ExternalCommand.command_line`).
         """
         return [SSH_PROGRAM_NAME]
-
-    @mutable_property
-    def ssh_user(self):
-        """The username on the remote system (defaults to :data:`None` which means the SSH client program decides)."""
 
     @mutable_property
     def port(self):

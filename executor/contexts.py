@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 12, 2016
+# Last Change: December 18, 2016
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -68,11 +68,11 @@ import random
 import socket
 
 # External dependencies.
-from property_manager import lazy_property
+from property_manager import PropertyManager, lazy_property, writable_property
 
 # Modules included in our package.
 from executor import DEFAULT_SHELL, ExternalCommand, quote
-from executor.ssh.client import RemoteCommand
+from executor.ssh.client import RemoteAccount, RemoteCommand
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ def create_context(**options):
         return LocalContext(**options)
 
 
-class AbstractContext(object):
+class AbstractContext(PropertyManager):
 
     """
     Abstract base class for shared logic of all context classes.
@@ -108,18 +108,41 @@ class AbstractContext(object):
     :func:`write_file()`.
     """
 
-    def __init__(self, **options):
+    def __init__(self, *args, **options):
         """
         Initialize an :class:`AbstractContext` object.
 
-        :param options: Any keyword arguments are passed on to all
-                        :class:`.ExternalCommand` objects constructed
-                        using this context.
+        :param args: Any positional arguments are passed on to the initializer
+                     of the :class:`~property_manager.PropertyManager` class
+                     (for future extensibility).
+        :param options: The keyword arguments are handled as follows:
 
-        .. note:: This constructor must be called by subclasses.
+                        - Keyword arguments whose name matches a property of
+                          the context object are used to set that property
+                          (by passing them to the initializer of the
+                          :class:`~property_manager.PropertyManager` class).
+
+                        - Any other keyword arguments are collected into the
+                          :attr:`options` dictionary.
         """
-        self.options = options
+        # Separate the command and context options.
+        context_opts = {}
+        command_opts = options.pop('options', {})
+        for name, value in options.items():
+            if self.have_property(name):
+                context_opts[name] = value
+            else:
+                command_opts[name] = value
+        # Embed the command options in the context options.
+        context_opts['options'] = command_opts
+        # Initialize the superclass.
+        super(AbstractContext, self).__init__(*args, **context_opts)
+        # Initialize instance variables.
         self.undo_stack = []
+
+    @writable_property
+    def options(self):
+        """The options that are passed to commands created by the context (a dictionary)."""
 
     def prepare_command(self, command, options):
         """
@@ -455,7 +478,12 @@ class AbstractContext(object):
 
 class LocalContext(AbstractContext):
 
-    """Context for executing commands on the local system."""
+    """
+    Context for executing commands on the local system.
+
+    Please refer to the base class :class:`AbstractContext` for details about
+    initialization of :class:`LocalContext` objects.
+    """
 
     @lazy_property
     def cpu_count(self):
@@ -479,19 +507,15 @@ class LocalContext(AbstractContext):
         return "local system (%s)" % socket.gethostname()
 
 
-class RemoteContext(AbstractContext):
+class RemoteContext(RemoteAccount, AbstractContext):
 
-    """Context for executing commands on a remote system over SSH."""
+    """
+    Context for executing commands on a remote system over SSH.
 
-    def __init__(self, ssh_alias, **options):
-        """
-        Initialize a :class:`RemoteContext` object.
-
-        :param ssh_alias: The SSH alias of the remote system (a string).
-        :param options: Refer to :func:`AbstractContext.__init__()`.
-        """
-        super(RemoteContext, self).__init__(**options)
-        self.ssh_alias = ssh_alias
+    Please refer to the base classes :class:`.RemoteAccount` and
+    :class:`AbstractContext` for details about initialization of
+    :class:`RemoteContext` objects.
+    """
 
     @lazy_property
     def cpu_count(self):
