@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 18, 2016
+# Last Change: December 19, 2016
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -68,7 +68,7 @@ import random
 import socket
 
 # External dependencies.
-from property_manager import PropertyManager, lazy_property, writable_property
+from property_manager import PropertyManager, lazy_property, required_property, writable_property
 
 # Modules included in our package.
 from executor import DEFAULT_SHELL, ExternalCommand, quote
@@ -140,37 +140,25 @@ class AbstractContext(PropertyManager):
         # Initialize instance variables.
         self.undo_stack = []
 
+    @required_property
+    def command_type(self):
+        """The type of command objects created by this context (:class:`.ExternalCommand` or a subclass)."""
+
     @writable_property
     def options(self):
         """The options that are passed to commands created by the context (a dictionary)."""
 
-    def prepare_command(self, command, options):
+    def get_options(self):
         """
-        Construct an :class:`.ExternalCommand` object based on the current context.
+        Get the options that are passed to commands created by the context.
 
-        :param command: A tuple of strings (the positional arguments to the
-                        constructor of :class:`.ExternalCommand`).
-        :param options: A dictionary (the keyword arguments to the constructor
-                        of :class:`.ExternalCommand`).
-        :returns: Expected to return an :class:`.ExternalCommand` object *that
-                  hasn't been started yet*.
+        :returns: A dictionary of command options.
 
-        .. note:: This is an abstract method that must be implemented by subclasses.
+        By default this method simply returns the :attr:`options` dictionary,
+        however the purpose of :func:`get_options()` is to enable subclasses to
+        customize the options passed to commands on the fly.
         """
-        raise NotImplementedError()
-
-    def prepare_interactive_shell(self, options):
-        """
-        Construct an :class:`.ExternalCommand` object that starts an interactive shell.
-
-        :param options: A dictionary (the keyword arguments to the constructor
-                        of :class:`.ExternalCommand`).
-        :returns: Expected to return an :class:`.ExternalCommand` object *that
-                  hasn't been started yet*.
-
-        .. note:: This is an abstract method that must be implemented by subclasses.
-        """
-        raise NotImplementedError()
+        return self.options
 
     def merge_options(self, overrides):
         """
@@ -179,28 +167,53 @@ class AbstractContext(PropertyManager):
         :param overrides: A dictionary with any keyword arguments given to
                           :func:`execute()` or :func:`start_interactive_shell()`.
         :returns: The dictionary with overrides, but any keyword arguments
-                  given to the constructor of :class:`AbstractContext` that are
+                  given to the initializer of :class:`AbstractContext` that are
                   not set in the overrides are set to the value of the
-                  constructor argument.
+                  initializer argument.
         """
-        for name, value in self.options.items():
+        defaults = self.get_options()
+        for name, value in defaults.items():
             overrides.setdefault(name, value)
         return overrides
+
+    def prepare_command(self, command, options):
+        """
+        Create a :attr:`command_type` object based on :attr:`options`.
+
+        :param command: A tuple of strings (the positional arguments to the
+                        initializer of the :attr:`command_type` class).
+        :param options: A dictionary (the keyword arguments to the initializer
+                        of the :attr:`command_type` class).
+        :returns: A :attr:`command_type` object *that hasn't been started yet*.
+        """
+        return self.command_type(*command, **self.merge_options(options))
+
+    def prepare_interactive_shell(self, options):
+        """
+        Create a :attr:`command_type` object that starts an interactive shell.
+
+        :param options: A dictionary (the keyword arguments to the initializer
+                        of the :attr:`command_type` class).
+        :returns: A :attr:`command_type` object *that hasn't been started yet*.
+        """
+        options = self.merge_options(options)
+        options.update(tty=True)
+        return self.command_type(DEFAULT_SHELL, shell=False, **options)
 
     def prepare(self, *command, **options):
         """
         Prepare to execute an external command in the current context.
 
         :param command: All positional arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
+                        initializer of the :attr:`command_type` class.
         :param options: All keyword arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
-        :returns: The :class:`.ExternalCommand` object.
+                        initializer of the :attr:`command_type` class.
+        :returns: The :attr:`command_type` object.
 
-        .. note:: After constructing an :class:`.ExternalCommand` object this
-                  method doesn't call :func:`~executor.ExternalCommand.start()`
-                  which means you control if and when the command is started.
-                  This can be useful to prepare a large batch of commands and
+        .. note:: After constructing a :attr:`command_type` object this method
+                  doesn't call :func:`~executor.ExternalCommand.start()` which
+                  means you control if and when the command is started. This
+                  can be useful to prepare a large batch of commands and
                   execute them concurrently using a :class:`.CommandPool`.
         """
         return self.prepare_command(command, options)
@@ -210,13 +223,13 @@ class AbstractContext(PropertyManager):
         Execute an external command in the current context.
 
         :param command: All positional arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
+                        initializer of the :attr:`command_type` class.
         :param options: All keyword arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
-        :returns: The :class:`.ExternalCommand` object.
+                        initializer of the :attr:`command_type` class.
+        :returns: The :attr:`command_type` object.
 
-        .. note:: After constructing an :class:`.ExternalCommand` object this
-                  method calls :func:`~executor.ExternalCommand.start()` on the
+        .. note:: After constructing a :attr:`command_type` object this method
+                  calls :func:`~executor.ExternalCommand.start()` on the
                   command before returning it to the caller, so by the time the
                   caller gets the command object a synchronous command will
                   have already ended. Asynchronous commands don't have this
@@ -231,9 +244,9 @@ class AbstractContext(PropertyManager):
         Execute an external command in the current context and get its status.
 
         :param command: All positional arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
+                        initializer of the :attr:`command_type` class.
         :param options: All keyword arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
+                        initializer of the :attr:`command_type` class.
         :returns: The value of :attr:`.ExternalCommand.succeeded`.
 
         This method automatically sets :attr:`~.ExternalCommand.check` to
@@ -249,9 +262,9 @@ class AbstractContext(PropertyManager):
         Execute an external command in the current context and capture its output.
 
         :param command: All positional arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
+                        initializer of the :attr:`command_type` class.
         :param options: All keyword arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
+                        initializer of the :attr:`command_type` class.
         :returns: The value of :attr:`.ExternalCommand.output`.
         """
         options['capture'] = True
@@ -264,9 +277,9 @@ class AbstractContext(PropertyManager):
         Register an external command to be called before the context ends.
 
         :param command: All positional arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
+                        initializer of the :attr:`command_type` class.
         :param options: All keyword arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
+                        initializer of the :attr:`command_type` class.
         :raises: :exc:`~exceptions.ValueError` when :func:`cleanup()` is called
                  outside a :keyword:`with` statement.
 
@@ -295,11 +308,11 @@ class AbstractContext(PropertyManager):
         Start an interactive shell in the current context.
 
         :param options: All keyword arguments are passed on to the
-                        constructor of the :class:`.ExternalCommand` class.
-        :returns: The :class:`.ExternalCommand` object.
+                        initializer of the :attr:`command_type` class.
+        :returns: The :attr:`command_type` object.
 
-        .. note:: After constructing an :class:`.ExternalCommand` object this
-                  method calls :func:`~executor.ExternalCommand.start()` on the
+        .. note:: After constructing a :attr:`command_type` object this method
+                  calls :func:`~executor.ExternalCommand.start()` on the
                   command before returning it to the caller, so by the time the
                   caller gets the command object a synchronous command will
                   have already ended. Asynchronous commands don't have this
@@ -485,6 +498,8 @@ class LocalContext(AbstractContext):
     initialization of :class:`LocalContext` objects.
     """
 
+    command_type = ExternalCommand
+
     @lazy_property
     def cpu_count(self):
         """
@@ -493,14 +508,6 @@ class LocalContext(AbstractContext):
         This property's value is computed using :func:`multiprocessing.cpu_count()`.
         """
         return multiprocessing.cpu_count()
-
-    def prepare_command(self, command, options):
-        """Refer to :attr:`AbstractContext.prepare_command`."""
-        return ExternalCommand(*command, **self.merge_options(options))
-
-    def prepare_interactive_shell(self, options):
-        """Refer to :attr:`AbstractContext.prepare_interactive_shell`."""
-        return ExternalCommand(DEFAULT_SHELL, **self.merge_options(options))
 
     def __str__(self):
         """Render a human friendly string representation of the context."""
@@ -516,6 +523,8 @@ class RemoteContext(RemoteAccount, AbstractContext):
     :class:`AbstractContext` for details about initialization of
     :class:`RemoteContext` objects.
     """
+
+    command_type = RemoteCommand
 
     @lazy_property
     def cpu_count(self):
@@ -533,15 +542,11 @@ class RemoteContext(RemoteAccount, AbstractContext):
         except Exception:
             return int(self.capture('grep', '-ci', '^processor\s*:', '/proc/cpuinfo'))
 
-    def prepare_command(self, command, options):
-        """Refer to :attr:`AbstractContext.prepare_command`."""
-        return RemoteCommand(self.ssh_alias, *command, **self.merge_options(options))
-
-    def prepare_interactive_shell(self, options):
-        """Refer to :attr:`AbstractContext.prepare_interactive_shell`."""
-        options = self.merge_options(options)
-        options['tty'] = True
-        return RemoteCommand(self.ssh_alias, DEFAULT_SHELL, **options)
+    def get_options(self):
+        """The :attr:`~AbstractContext.options` including :attr:`ssh_alias` and :attr:`ssh_user`."""
+        options = dict(self.options)
+        options.update(ssh_alias=self.ssh_alias, ssh_user=self.ssh_user)
+        return options
 
     def __str__(self):
         """Render a human friendly string representation of the context."""
