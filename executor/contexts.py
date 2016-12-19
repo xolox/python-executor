@@ -7,13 +7,16 @@
 r"""
 Dependency injection for command execution contexts.
 
-The :mod:`~executor.contexts` module defines the :class:`LocalContext` and
-:class:`RemoteContext` classes. Both of these classes support the same API for
-executing external commands (they are simple wrappers for
-:class:`.ExternalCommand` and :class:`.RemoteCommand`). This allows you to
-script interaction with external commands in Python and perform that
-interaction on your local system or on a remote system (over SSH) using the
-exact same Python code. `Dependency injection`_ on steroids anyone? :-)
+The :mod:`~executor.contexts` module defines the :class:`LocalContext`,
+:class:`RemoteContext` and :class:`ChangeRootContext` classes. All of these
+classes support the same API for executing external commands, they are simple
+wrappers for :class:`.ExternalCommand`, :class:`.RemoteCommand` and
+:class:`.ChangeRootCommand`.
+
+This allows you to script interaction with external commands in Python and
+perform that interaction on your local system, on a remote system over SSH_ or
+inside a chroot_ using the exact same Python code. `Dependency injection`_ on
+steroids anyone? :-)
 
 Here's a simple example:
 
@@ -56,6 +59,8 @@ integration tools developed using Python:
  a :class:`RemoteContext` object, I install the `executor` package and the code
  I wrote on the remote system and I'm done!
 
+.. _SSH: https://en.wikipedia.org/wiki/Secure_Shell
+.. _chroot: http://en.wikipedia.org/wiki/Chroot
 .. _Dependency injection: http://en.wikipedia.org/wiki/Dependency_injection
 """
 
@@ -68,11 +73,17 @@ import random
 import socket
 
 # External dependencies.
-from property_manager import PropertyManager, lazy_property, required_property, writable_property
+from property_manager import (
+    PropertyManager,
+    lazy_property,
+    mutable_property,
+    required_property,
+    writable_property,
+)
 
 # Modules included in our package.
 from executor import DEFAULT_SHELL, ExternalCommand, quote
-from executor.schroot import ChangeRootCommand
+from executor.schroot import DEFAULT_NAMESPACE, SCHROOT_PROGRAM_NAME, ChangeRootCommand
 from executor.ssh.client import RemoteAccount, RemoteCommand
 
 # Initialize a logger.
@@ -162,6 +173,32 @@ class AbstractContext(PropertyManager):
     def options(self):
         """The options that are passed to commands created by the context (a dictionary)."""
 
+    @mutable_property
+    def parent(self):
+        """
+        The parent context (a context object or :data:`None`).
+
+        The :attr:`parent` property (and the code in :func:`prepare_command()`
+        that uses the :attr:`parent` property) enables the use of "nested
+        contexts".
+
+        For example :func:`find_chroots()` creates :class:`ChangeRootContext`
+        objects whose :attr:`parent` is set to the context that found the
+        chroots. Because of this the :class:`ChangeRootContext` objects can be
+        used to create commands without knowing or caring whether the chroots
+        reside on the local system or on a remote system accessed via SSH.
+
+        .. warning:: Support for parent contexts was introduced in `executor`
+                     version 15 and for now this feature is considered
+                     experimental and subject to change. While I'm definitely
+                     convinced of the usefulness of nested contexts I'm not
+                     happy with the current implementation at all. The most
+                     important reason for this is that it's *very surprising*
+                     (and not in a good way) that a context with a
+                     :attr:`parent` will create commands with the parent's
+                     :attr:`command_type` instead of the expected type.
+        """
+
     def get_options(self):
         """
         Get the options that are passed to commands created by the context.
@@ -200,7 +237,22 @@ class AbstractContext(PropertyManager):
                         of the :attr:`command_type` class).
         :returns: A :attr:`command_type` object *that hasn't been started yet*.
         """
-        return self.command_type(*command, **self.merge_options(options))
+        # Prepare our command.
+        options = self.merge_options(options)
+        cmd = self.command_type(*command, **options)
+        # Prepare the command of the parent context?
+        if self.parent:
+            # Figure out if any of our command options are unknown to the
+            # parent context because we need to avoid passing any of these
+            # options to the parent's prepare_command() method.
+            nested_opts = set(dir(self.command_type))
+            parent_opts = set(dir(self.parent.command_type))
+            for name in nested_opts - parent_opts:
+                if options.pop(name, None) is not None:
+                    logger.debug("Swallowing %r option! (parent context won't understand)", name)
+            # Prepare the command of the parent context.
+            cmd = self.parent.prepare_command(cmd.command_line, options)
+        return cmd
 
     def prepare_interactive_shell(self, options):
         """
@@ -490,6 +542,29 @@ class AbstractContext(PropertyManager):
         listing = self.capture('find', directory, '-mindepth', '1', '-maxdepth', '1', '-print0')
         return [os.path.basename(fn) for fn in listing.split('\0') if fn]
 
+    def find_chroots(self, namespace=DEFAULT_NAMESPACE):
+        """
+        Find the chroots available in the current context.
+
+        :param namespace: The chroot namespace to look for (a string, defaults
+                          to :data:`~executor.schroot.DEFAULT_NAMESPACE`).
+                          Refer to the schroot_ documentation for more
+                          information about chroot namespaces.
+        :returns: A generator of :class:`ChangeRootContext` objects whose
+                  :attr:`~AbstractContext.parent` is set to the context where
+                  the chroots were found.
+        :raises: :exc:`~executor.ExternalCommandFailed` (or a subclass) when
+                 the ``schroot`` program isn't installed or the ``schroot
+                 --list`` command fails.
+        """
+        for entry in self.capture(SCHROOT_PROGRAM_NAME, '--list').splitlines():
+            entry_ns, _, entry_name = entry.rpartition(':')
+            if not entry_ns:
+                entry_ns = DEFAULT_NAMESPACE
+            if entry_ns == namespace:
+                short_name = entry_name if entry_ns == DEFAULT_NAMESPACE else entry
+                yield ChangeRootContext(chroot_name=short_name, parent=self)
+
     def __enter__(self):
         """Initialize a new "undo stack" (refer to :func:`cleanup()`)."""
         self.undo_stack.append([])
@@ -512,7 +587,7 @@ class LocalContext(AbstractContext):
     initialization of :class:`LocalContext` objects.
     """
 
-    @required_property
+    @property
     def command_type(self):
         """The type of command objects created by this context (:class:`.ExternalCommand`)."""
         return ExternalCommand
@@ -562,7 +637,7 @@ class ChangeRootContext(AbstractContext):
     def chroot_name(self):
         """The name of a chroot managed by schroot_ (a string)."""
 
-    @required_property
+    @property
     def command_type(self):
         """The type of command objects created by this context (:class:`.ChangeRootCommand`)."""
         return ChangeRootCommand
@@ -597,7 +672,7 @@ class RemoteContext(RemoteAccount, AbstractContext):
     :class:`RemoteContext` objects.
     """
 
-    @required_property
+    @property
     def command_type(self):
         """The type of command objects created by this context (:class:`.RemoteCommand`)."""
         return RemoteCommand
