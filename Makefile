@@ -1,17 +1,18 @@
-# Makefile for executor.
+# Makefile for the `executor' package.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: August 10, 2016
+# Last Change: December 19, 2016
 # URL: https://github.com/xolox/python-executor
 
+PACKAGE_NAME = executor
 WORKON_HOME ?= $(HOME)/.virtualenvs
-VIRTUAL_ENV ?= $(WORKON_HOME)/executor
+VIRTUAL_ENV ?= $(WORKON_HOME)/$(PACKAGE_NAME)
 PATH := $(VIRTUAL_ENV)/bin:$(PATH)
 MAKE := $(MAKE) --no-print-directory
 SHELL = bash
 
 default:
-	@echo 'Makefile for executor'
+	@echo "Makefile for $(PACKAGE_NAME)"
 	@echo
 	@echo 'Usage:'
 	@echo
@@ -30,10 +31,10 @@ install:
 	@test -d "$(VIRTUAL_ENV)" || mkdir -p "$(VIRTUAL_ENV)"
 	@test -x "$(VIRTUAL_ENV)/bin/python" || virtualenv --quiet "$(VIRTUAL_ENV)"
 	@test -x "$(VIRTUAL_ENV)/bin/pip" || easy_install pip
-	@test -x "$(VIRTUAL_ENV)/bin/pip-accel" || (pip install --quiet pip-accel && pip-accel install --quiet 'urllib3[secure]')
-	@echo "Updating requirements .." >&2
+	@test -x "$(VIRTUAL_ENV)/bin/pip-accel" || pip install --quiet pip-accel
 	@pip-accel install --quiet --requirement=requirements.txt
-	@which executor &>/dev/null || pip install --quiet --no-deps --editable .
+	@pip uninstall --yes $(PACKAGE_NAME) &>/dev/null || true
+	@pip install --quiet --no-deps --ignore-installed .
 
 reset:
 	$(MAKE) clean
@@ -44,9 +45,10 @@ check: install
 	@scripts/check-code-style.sh
 
 test: install
-	@pip-accel install --quiet coverage pytest pytest-cov
-	@py.test -v --cov --cov-report=html --no-cov-on-fail
-	@coverage report --fail-under=90
+	@pip-accel install --quiet --requirement=requirements-tests.txt
+	@py.test --cov
+	@coverage html
+	@coverage report --fail-under=90 &>/dev/null
 
 tox: install
 	@pip-accel install --quiet tox && tox
@@ -56,7 +58,7 @@ readme: install
 
 docs: readme
 	@pip-accel install --quiet sphinx
-	cd docs && sphinx-build -nb html -d build/doctrees . build/html
+	@cd docs && sphinx-build -nb html -d build/doctrees . build/html
 
 publish: install
 	git push origin && git push --tags origin
@@ -67,7 +69,7 @@ publish: install
 	$(MAKE) clean
 
 clean:
-	@rm -Rf *.egg .cache .coverage build dist docs/build htmlcov
+	@rm -Rf *.egg .cache .coverage .tox build dist docs/build htmlcov
 	@find -depth -type d -name __pycache__ -exec rm -Rf {} \;
 	@find -type f -name '*.pyc' -delete
 

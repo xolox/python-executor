@@ -12,7 +12,9 @@ before_install:
 install:
   - pip install pip-accel
   - pip-accel install coveralls
+  - pip-accel install --requirement=requirements.txt
   - pip-accel install --requirement=requirements-checks.txt
+  - pip-accel install --requirement=requirements-tests.txt
   - LC_ALL=C pip-accel install .
 script:
   - make check
