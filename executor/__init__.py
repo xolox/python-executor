@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 18, 2016
+# Last Change: December 19, 2016
 # URL: https://executor.readthedocs.io
 
 """
@@ -681,9 +681,8 @@ class ExternalCommand(ControllableProcess):
         """
         Whether the external command has been terminated (a boolean).
 
-        :data:`True` if the external command was terminated using
-        :data:`signal.SIGTERM` (e.g. by
-        :func:`~executor.process.ControllableProcess.terminate()`),
+        :data:`True` if the external command was terminated using ``SIGTERM``
+        (e.g. by :func:`~executor.process.ControllableProcess.terminate()`),
         :data:`False` otherwise.
         """
         return abs(self.returncode) == signal.SIGTERM if self.is_finished and self.returncode < 0 else False

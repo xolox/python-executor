@@ -498,7 +498,10 @@ class LocalContext(AbstractContext):
     initialization of :class:`LocalContext` objects.
     """
 
-    command_type = ExternalCommand
+    @required_property
+    def command_type(self):
+        """The type of command objects created by this context (:class:`.ExternalCommand`)."""
+        return ExternalCommand
 
     @lazy_property
     def cpu_count(self):
@@ -524,7 +527,10 @@ class RemoteContext(RemoteAccount, AbstractContext):
     :class:`RemoteContext` objects.
     """
 
-    command_type = RemoteCommand
+    @required_property
+    def command_type(self):
+        """The type of command objects created by this context (:class:`.RemoteCommand`)."""
+        return RemoteCommand
 
     @lazy_property
     def cpu_count(self):
@@ -543,7 +549,7 @@ class RemoteContext(RemoteAccount, AbstractContext):
             return int(self.capture('grep', '-ci', '^processor\s*:', '/proc/cpuinfo'))
 
     def get_options(self):
-        """The :attr:`~AbstractContext.options` including :attr:`ssh_alias` and :attr:`ssh_user`."""
+        """The :attr:`~AbstractContext.options` including the SSH alias and remote user."""
         options = dict(self.options)
         options.update(ssh_alias=self.ssh_alias, ssh_user=self.ssh_user)
         return options

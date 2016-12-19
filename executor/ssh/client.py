@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 18, 2016
+# Last Change: December 19, 2016
 # URL: https://executor.readthedocs.io
 
 """
@@ -415,6 +415,7 @@ class RemoteCommand(RemoteAccount, ExternalCommand):
 
     @directory.setter
     def directory(self, value):
+        """Redirect assignment from `directory` to `remote_directory`."""
         self.remote_directory = value
 
     @mutable_property
@@ -519,8 +520,7 @@ class RemoteCommand(RemoteAccount, ExternalCommand):
         This is a list of strings, by default the list contains just
         :data:`SSH_PROGRAM_NAME`. The :attr:`batch_mode`, :attr:`connect_timeout`,
         :attr:`log_level`, :attr:`.ssh_alias` and :attr:`strict_host_key_checking`
-        properties also influence the SSH client command line used (see
-        :attr:`~.ExternalCommand.command_line`).
+        properties also influence the SSH client command line used.
         """
         return [SSH_PROGRAM_NAME]
 

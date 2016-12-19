@@ -1,7 +1,7 @@
 # Command line interface for the executor package.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 14, 2015
+# Last Change: December 19, 2016
 # URL: https://executor.readthedocs.io
 #
 # TODO Expose a clean way to interrupt the fudge factor of other processes.
@@ -189,10 +189,9 @@ def apply_fudge_factor(fudge_factor):
     :param fudge_factor: The maximum number of seconds to sleep (a number).
 
     Previous implementations of the fudge factor interrupt used UNIX signals
-    (specifically :data:`~signal.SIGUSR1`) but the use of this signal turned
-    out to be sensitive to awkward race conditions and it wasn't very cross
-    platform, so now the creation of a regular file is used to interrupt the
-    fudge factor.
+    (specifically ``SIGUSR1``) but the use of this signal turned out to be
+    sensitive to awkward race conditions and it wasn't very cross platform, so
+    now the creation of a regular file is used to interrupt the fudge factor.
     """
     if fudge_factor:
         timer = Timer()
