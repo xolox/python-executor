@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 19, 2016
+# Last Change: December 20, 2016
 # URL: https://executor.readthedocs.io
 
 """
@@ -54,18 +54,10 @@ import tempfile
 from humanfriendly import compact, format
 from humanfriendly.terminal import connected_to_terminal
 from property_manager import PropertyManager, mutable_property, required_property, writable_property
+from six import text_type
 
 # Modules included in our package.
 from executor.process import ControllableProcess
-
-# Define an alias for Unicode strings that's unambiguous
-# whether we are running under Python 2 or Python 3.
-try:
-    # This will raise a NameError exception in Python 3.
-    unicode
-except NameError:
-    # In Python 3 all strings are Unicode strings.
-    unicode = str
 
 # Semi-standard module versioning.
 __version__ = '14.1'
@@ -523,7 +515,7 @@ class ExternalCommand(ControllableProcess):
         :class:`python3:bytes` object (in Python 3).
         """
         return (self.input.encode(self.encoding)
-                if isinstance(self.input, unicode)
+                if isinstance(self.input, text_type)
                 else self.input)
 
     @mutable_property
