@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 12, 2016
+# Last Change: December 20, 2016
 # URL: https://executor.readthedocs.io
 
 """
@@ -64,6 +64,7 @@ from humanfriendly.compat import StringIO
 # Modules included in our package.
 from executor import (
     DEFAULT_SHELL,
+    DEFAULT_WORKING_DIRECTORY,
     CommandNotFound,
     ExternalCommand,
     ExternalCommandFailed,
@@ -75,6 +76,7 @@ from executor.cli import main
 from executor.concurrent import CommandPool, CommandPoolFailed
 from executor.contexts import LocalContext, RemoteContext, create_context
 from executor.process import ProcessTerminationFailed
+from executor.schroot import SCHROOT_PROGRAM_NAME, ChangeRootCommand
 from executor.ssh.client import (
     DEFAULT_CONNECT_TIMEOUT,
     RemoteCommand,
@@ -796,6 +798,32 @@ class ExecutorTestCase(unittest.TestCase):
             log_files = os.listdir(directory)
             assert len(log_files) == len(ssh_aliases)
             assert all(os.path.getsize(os.path.join(directory, fn)) > 0 for fn in log_files)
+
+    def test_chroot_command(self):
+        """
+        Test support for chroot commands.
+
+        For now this test doesn't actually run ``schroot`` because automating
+        the installation of ``schroot`` and the creation of chroots using
+        ``debootstrap`` just to run these tests is a lot of work that I haven't
+        done (yet).
+        """
+        chroot_name = 'name-of-chroot'
+        chroot_user = 'user-in-chroot'
+        chroot_directory = '/path/relative/to/chroot'
+        command = ['echo', '42']
+        cmd = ChangeRootCommand(chroot_name, *command,
+                                chroot_directory=chroot_directory,
+                                chroot_user=chroot_user)
+        assert SCHROOT_PROGRAM_NAME in cmd.command_line
+        assert ('--chroot=%s' % chroot_name) in cmd.command_line
+        assert ('--user=%s' % chroot_user) in cmd.command_line
+        assert ('--directory=%s' % chroot_directory) in cmd.command_line
+        assert cmd.command_line[-len(command):] == command
+        other_chroot_directory = '/other/path/relative/to/chroot'
+        cmd.directory = other_chroot_directory
+        assert cmd.directory == DEFAULT_WORKING_DIRECTORY
+        assert cmd.chroot_directory == other_chroot_directory
 
     def test_create_context(self):
         """Test context creation."""
