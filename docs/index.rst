@@ -39,6 +39,12 @@ The :mod:`executor.contexts` module
 .. automodule:: executor.contexts
    :members:
 
+The :mod:`executor.schroot` module
+----------------------------------
+
+.. automodule:: executor.schroot
+   :members:
+
 The :mod:`executor.ssh.client` module
 -------------------------------------
 

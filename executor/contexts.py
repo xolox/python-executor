@@ -72,6 +72,7 @@ from property_manager import PropertyManager, lazy_property, required_property, 
 
 # Modules included in our package.
 from executor import DEFAULT_SHELL, ExternalCommand, quote
+from executor.schroot import ChangeRootCommand
 from executor.ssh.client import RemoteAccount, RemoteCommand
 
 # Initialize a logger.
@@ -83,15 +84,28 @@ def create_context(**options):
     Create an execution context.
 
     :param options: Any keyword arguments are passed on to the context's initializer.
-    :returns: A :class:`LocalContext` or :class:`RemoteContext` object.
+    :returns: A :class:`LocalContext`, :class:`ChangeRootContext` or
+              :class:`RemoteContext` object.
 
     This function provides an easy to use shortcut for constructing context
-    objects: If the keyword argument ``ssh_alias`` is given (and not
-    :data:`None`) then a :class:`RemoteContext` object will be created,
-    otherwise a :class:`LocalContext` object is created.
+    objects:
+
+    - If the keyword argument ``chroot_name`` is given (and not :data:`None`)
+      then a :class:`ChangeRootContext` object will be created.
+
+    - If the keyword argument ``ssh_alias`` is given (and not :data:`None`)
+      then a :class:`RemoteContext` object will be created.
+
+    - Otherwise a :class:`LocalContext` object is created.
     """
+    # Remove the `chroot_name' and `ssh_alias' keyword arguments from the
+    # options dictionary to make sure these keyword arguments are only ever
+    # passed to a constructor that supports them.
+    chroot_name = options.pop('chroot_name', None)
     ssh_alias = options.pop('ssh_alias', None)
-    if ssh_alias is not None:
+    if chroot_name is not None:
+        return ChangeRootContext(chroot_name, **options)
+    elif ssh_alias is not None:
         return RemoteContext(ssh_alias, **options)
     else:
         return LocalContext(**options)
@@ -515,6 +529,62 @@ class LocalContext(AbstractContext):
     def __str__(self):
         """Render a human friendly string representation of the context."""
         return "local system (%s)" % socket.gethostname()
+
+
+class ChangeRootContext(AbstractContext):
+
+    """Context for executing commands in change roots using schroot_."""
+
+    def __init__(self, *args, **options):
+        """
+        Initialize a :class:`ChangeRootContext` object.
+
+        :param args: Positional arguments are passed on to the initializer of
+                     the :class:`AbstractContext` class (for future
+                     extensibility).
+        :param options: Any keyword arguments are passed on to the initializer
+                        of the :class:`AbstractContext` class.
+
+        If the keyword argument `chroot_name` isn't given but positional
+        arguments are provided, the first positional argument is used to set
+        the :attr:`chroot_name` property.
+        """
+        # Enable modification of the positional arguments.
+        args = list(args)
+        # We allow `chroot_name' to be passed as a keyword argument but use the
+        # first positional argument when the keyword argument isn't given.
+        if options.get('chroot_name') is None and args:
+            options['chroot_name'] = args.pop(0)
+        # Initialize the superclass.
+        super(ChangeRootContext, self).__init__(*args, **options)
+
+    @required_property
+    def chroot_name(self):
+        """The name of a chroot managed by schroot_ (a string)."""
+
+    @required_property
+    def command_type(self):
+        """The type of command objects created by this context (:class:`.ChangeRootCommand`)."""
+        return ChangeRootCommand
+
+    @lazy_property
+    def cpu_count(self):
+        """
+        The number of CPUs in the system (an integer).
+
+        This property's value is computed using :func:`multiprocessing.cpu_count()`.
+        """
+        return multiprocessing.cpu_count()
+
+    def get_options(self):
+        """The :attr:`~AbstractContext.options` including :attr:`chroot_name`."""
+        options = dict(self.options)
+        options.update(chroot_name=self.chroot_name)
+        return options
+
+    def __str__(self):
+        """Render a human friendly string representation of the context."""
+        return "chroot (%s)" % self.chroot_name
 
 
 class RemoteContext(RemoteAccount, AbstractContext):
