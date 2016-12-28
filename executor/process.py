@@ -18,6 +18,7 @@ packages, see for example the :class:`proc.core.Process` class.
 
 # Standard library modules.
 import logging
+import time
 
 # External dependencies.
 from humanfriendly import Spinner, Timer
@@ -108,30 +109,36 @@ class ControllableProcess(PropertyManager):
           representation of a :class:`ControllableProcess` object.
         """
 
-    def wait_for_process(self, timeout=0):
+    def wait_for_process(self, timeout=0, use_spinner=True):
         """
         Wait until the process ends or the timeout expires.
 
         :param timeout: The number of seconds to wait for the process to
                         terminate after we've asked it nicely (defaults
                         to zero which means we wait indefinitely).
+        :param use_spinner: Whether or not to display an interactive spinner
+                            on the terminal (using :class:`~humanfriendly.Spinner`)
+                            to explain to the user what they are waiting for.
+                            Defaults to :data:`True`.
         :returns: A :class:`~humanfriendly.Timer` object telling you how long
                   it took to wait for the process.
-
-        This method renders an interactive spinner on the terminal using
-        :class:`~humanfriendly.Spinner` to explain to the user what they are
-        waiting for.
         """
         timer = Timer()
-        with Spinner(timer=timer) as spinner:
+        if use_spinner:
+            with Spinner(timer=timer) as spinner:
+                while self.is_running:
+                    if timeout and timer.elapsed_time >= timeout:
+                        break
+                    spinner.step(label="Waiting for process %i to terminate" % self.pid)
+                    spinner.sleep()
+        else:
             while self.is_running:
                 if timeout and timer.elapsed_time >= timeout:
                     break
-                spinner.step(label="Waiting for process %i to terminate" % self.pid)
-                spinner.sleep()
+                time.sleep(0.2)
         return timer
 
-    def terminate(self, wait=True, timeout=DEFAULT_TIMEOUT):
+    def terminate(self, wait=True, timeout=DEFAULT_TIMEOUT, use_spinner=True):
         """
         Gracefully terminate the process.
 
@@ -141,6 +148,10 @@ class ControllableProcess(PropertyManager):
                         terminate after we've signaled it (defaults to
                         :data:`DEFAULT_TIMEOUT`). Zero means to wait
                         indefinitely.
+        :param use_spinner: Whether or not to display an interactive spinner
+                            on the terminal (using :class:`~humanfriendly.Spinner`)
+                            to explain to the user what they are waiting for.
+                            Defaults to :data:`True`.
         :returns: :data:`True` if the process was terminated, :data:`False`
                   otherwise.
         :raises: Any exceptions raised by :func:`terminate_helper()`
@@ -168,7 +179,7 @@ class ControllableProcess(PropertyManager):
             self.logger.info("Gracefully terminating process %s ..", self)
             self.terminate_helper()
             if wait:
-                timer = self.wait_for_process(timeout=timeout)
+                timer = self.wait_for_process(timeout=timeout, use_spinner=use_spinner)
                 if self.is_running:
                     self.logger.warning("Failed to gracefully terminate process! (waited %s)", timer)
                     return self.kill(wait=True, timeout=timeout)
@@ -183,7 +194,7 @@ class ControllableProcess(PropertyManager):
         """Request the process to gracefully terminate itself (needs to be implemented by subclasses)."""
         raise NotImplementedError("You need to implement the terminate_helper() method!")
 
-    def kill(self, wait=True, timeout=DEFAULT_TIMEOUT):
+    def kill(self, wait=True, timeout=DEFAULT_TIMEOUT, use_spinner=True):
         """
         Forcefully kill the process.
 
@@ -193,6 +204,10 @@ class ControllableProcess(PropertyManager):
                         terminate after we've signaled it (defaults to
                         :data:`DEFAULT_TIMEOUT`). Zero means to wait
                         indefinitely.
+        :param use_spinner: Whether or not to display an interactive spinner
+                            on the terminal (using :class:`~humanfriendly.Spinner`)
+                            to explain to the user what they are waiting for.
+                            Defaults to :data:`True`.
         :returns: :data:`True` if the process was killed, :data:`False`
                   otherwise.
         :raises: - Any exceptions raised by :func:`kill_helper()`
@@ -207,7 +222,7 @@ class ControllableProcess(PropertyManager):
             self.logger.info("Forcefully killing process %s ..", self)
             self.kill_helper()
             if wait:
-                timer = self.wait_for_process(timeout=timeout)
+                timer = self.wait_for_process(timeout=timeout, use_spinner=use_spinner)
                 if self.is_running:
                     self.logger.warning("Failed to forcefully kill process! (waited %s)", timer)
                     raise ProcessTerminationFailed(process=self, message="Failed to kill process! (%s)" % self)
