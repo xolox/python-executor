@@ -127,14 +127,14 @@ class ControllableProcess(PropertyManager):
         :returns: A :class:`~humanfriendly.Timer` object telling you how long
                   it took to wait for the process.
         """
-        timer = Timer()
-        with Spinner(interactive=use_spinner, timer=timer) as spinner:
-            while self.is_running:
-                if timeout and timer.elapsed_time >= timeout:
-                    break
-                spinner.step(label="Waiting for process %i to terminate" % self.pid)
-                spinner.sleep()
-        return timer
+        with Timer(resumable=True) as timer:
+            with Spinner(interactive=use_spinner, timer=timer) as spinner:
+                while self.is_running:
+                    if timeout and timer.elapsed_time >= timeout:
+                        break
+                    spinner.step(label="Waiting for process %i to terminate" % self.pid)
+                    spinner.sleep()
+            return timer
 
     def terminate(self, wait=True, timeout=DEFAULT_TIMEOUT, use_spinner=None):
         """
