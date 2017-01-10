@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 19, 2016
+# Last Change: January 10, 2017
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -263,8 +263,8 @@ class AbstractContext(PropertyManager):
         :returns: A :attr:`command_type` object *that hasn't been started yet*.
         """
         options = self.merge_options(options)
-        options.update(tty=True)
-        return self.command_type(DEFAULT_SHELL, shell=False, **options)
+        options.update(shell=False, tty=True)
+        return self.prepare(DEFAULT_SHELL, **options)
 
     def prepare(self, *command, **options):
         """
