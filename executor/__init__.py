@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 20, 2016
+# Last Change: January 10, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -60,7 +60,7 @@ from six import text_type
 from executor.process import ControllableProcess
 
 # Semi-standard module versioning.
-__version__ = '15.0'
+__version__ = '15.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
