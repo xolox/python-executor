@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 1, 2016
+# Last Change: January 10, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -108,22 +108,27 @@ class ControllableProcess(PropertyManager):
           representation of a :class:`ControllableProcess` object.
         """
 
-    def wait_for_process(self, timeout=0):
+    def wait_for_process(self, timeout=0, use_spinner=None):
         """
         Wait until the process ends or the timeout expires.
 
         :param timeout: The number of seconds to wait for the process to
                         terminate after we've asked it nicely (defaults
                         to zero which means we wait indefinitely).
+        :param use_spinner: Whether or not to display an interactive spinner
+                            on the terminal (using :class:`~humanfriendly.Spinner`)
+                            to explain to the user what they are waiting for:
+
+                            - :data:`True` enables the spinner,
+                            - :data:`False` disables the spinner,
+                            - :data:`None` (the default) means the spinner is
+                              enabled when the program is connected to an
+                              interactive terminal, otherwise it's disabled.
         :returns: A :class:`~humanfriendly.Timer` object telling you how long
                   it took to wait for the process.
-
-        This method renders an interactive spinner on the terminal using
-        :class:`~humanfriendly.Spinner` to explain to the user what they are
-        waiting for.
         """
         timer = Timer()
-        with Spinner(timer=timer) as spinner:
+        with Spinner(interactive=use_spinner, timer=timer) as spinner:
             while self.is_running:
                 if timeout and timer.elapsed_time >= timeout:
                     break
@@ -131,7 +136,7 @@ class ControllableProcess(PropertyManager):
                 spinner.sleep()
         return timer
 
-    def terminate(self, wait=True, timeout=DEFAULT_TIMEOUT):
+    def terminate(self, wait=True, timeout=DEFAULT_TIMEOUT, use_spinner=None):
         """
         Gracefully terminate the process.
 
@@ -141,6 +146,7 @@ class ControllableProcess(PropertyManager):
                         terminate after we've signaled it (defaults to
                         :data:`DEFAULT_TIMEOUT`). Zero means to wait
                         indefinitely.
+        :param use_spinner: See the :func:`wait_for_process()` documentation.
         :returns: :data:`True` if the process was terminated, :data:`False`
                   otherwise.
         :raises: Any exceptions raised by :func:`terminate_helper()`
@@ -168,7 +174,7 @@ class ControllableProcess(PropertyManager):
             self.logger.info("Gracefully terminating process %s ..", self)
             self.terminate_helper()
             if wait:
-                timer = self.wait_for_process(timeout=timeout)
+                timer = self.wait_for_process(timeout=timeout, use_spinner=use_spinner)
                 if self.is_running:
                     self.logger.warning("Failed to gracefully terminate process! (waited %s)", timer)
                     return self.kill(wait=True, timeout=timeout)
@@ -183,7 +189,7 @@ class ControllableProcess(PropertyManager):
         """Request the process to gracefully terminate itself (needs to be implemented by subclasses)."""
         raise NotImplementedError("You need to implement the terminate_helper() method!")
 
-    def kill(self, wait=True, timeout=DEFAULT_TIMEOUT):
+    def kill(self, wait=True, timeout=DEFAULT_TIMEOUT, use_spinner=None):
         """
         Forcefully kill the process.
 
@@ -193,6 +199,7 @@ class ControllableProcess(PropertyManager):
                         terminate after we've signaled it (defaults to
                         :data:`DEFAULT_TIMEOUT`). Zero means to wait
                         indefinitely.
+        :param use_spinner: See the :func:`wait_for_process()` documentation.
         :returns: :data:`True` if the process was killed, :data:`False`
                   otherwise.
         :raises: - Any exceptions raised by :func:`kill_helper()`
@@ -207,7 +214,7 @@ class ControllableProcess(PropertyManager):
             self.logger.info("Forcefully killing process %s ..", self)
             self.kill_helper()
             if wait:
-                timer = self.wait_for_process(timeout=timeout)
+                timer = self.wait_for_process(timeout=timeout, use_spinner=use_spinner)
                 if self.is_running:
                     self.logger.warning("Failed to forcefully kill process! (waited %s)", timer)
                     raise ProcessTerminationFailed(process=self, message="Failed to kill process! (%s)" % self)
