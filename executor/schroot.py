@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 19, 2016
+# Last Change: January 11, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -116,8 +116,14 @@ class ChangeRootCommand(ExternalCommand):
             schroot_command.append('--user=%s' % self.chroot_user)
         if self.chroot_directory:
             schroot_command.append('--directory=%s' % self.chroot_directory)
-        schroot_command.append('--')
-        schroot_command.extend(super(ChangeRootCommand, self).command_line)
+        # We only add the `--' to the command line when it will be followed by
+        # a command to execute inside the chroot. Emitting a trailing `--' that
+        # isn't followed by anything doesn't appear to bother schroot, but it
+        # does look a bit weird and may cause unnecessary confusion.
+        super_cmdline = list(super(ChangeRootCommand, self).command_line)
+        if super_cmdline:
+            schroot_command.append('--')
+            schroot_command.extend(super_cmdline)
         return schroot_command
 
     @property
