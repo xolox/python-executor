@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 11, 2017
+# Last Change: April 13, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -74,16 +74,21 @@ class ChangeRootCommand(ExternalCommand):
     @mutable_property
     def chroot_directory(self):
         """
-        The working directory inside the chroot (a string or :data:`None`).
+        The working directory _inside the chroot_ (a string or :data:`None`, defaults to ``/``).
 
-        This defaults to :data:`None` which means schroot_ gets to decide about
-        the working directory. Usually the working directory will be inherited
-        from the host system, but when this is not possible schroot_ will try
-        to figure out an alternative directory (please refer to the schroot
-        documentation). Because of this (and to avoid warning messages) it may
-        be a good idea to pick a directory that you know will exist (even if
-        it's just ``/``).
+        When :attr:`chroot_directory` is :data:`None` the schroot_ program gets
+        to pick the working directory inside the chroot (refer to the schroot
+        documentation for the complete details).
+
+        For non-interactive usage (which I anticipate to be the default usage
+        of :class:`ChangeRootCommand`) the schroot program simply assumes that
+        the working directory outside of the chroot also exists inside the
+        chroot, then fails with an error message when this is not the case.
+
+        Because this isn't a very robust default, :attr:`chroot_directory`
+        defaults to ``/`` instead.
         """
+        return '/'
 
     @required_property
     def chroot_name(self):
