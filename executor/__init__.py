@@ -66,7 +66,7 @@ from six import text_type
 from executor.process import ControllableProcess
 
 # Semi-standard module versioning.
-__version__ = '16.0'
+__version__ = '16.0.1'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -677,7 +677,9 @@ class ExternalCommand(ControllableProcess):
     @ionice.setter
     def ionice(self, value):
         """Validate and set the I/O scheduling class."""
-        set_property(self, 'ionice', validate_ionice_class(value))
+        if value is not None:
+            validate_ionice_class(value)
+        set_property(self, 'ionice', value)
 
     @property
     def ionice_command(self):
