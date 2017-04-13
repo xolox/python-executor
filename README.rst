@@ -11,15 +11,16 @@ The `executor` package is a simple wrapper for Python's subprocess_ module
 that makes it very easy to handle subprocesses on UNIX systems with proper
 escaping of arguments and error checking:
 
- * An object oriented interface is used to execute commands using sane but
-   customizable (and well documented) defaults.
+- An object oriented interface is used to execute commands using sane but
+  customizable (and well documented) defaults.
 
- * Remote commands (executed over SSH_) are supported using the same object
-   oriented interface.
+- Remote commands (executed over SSH_) are supported using the same object
+  oriented interface, as are commands inside chroots_ (executed using
+  schroot_).
 
- * There's also support for executing a group of commands concurrently in
-   what's called a "command pool". The concurrency level can be customized and
-   of course both local and remote commands are supported.
+- There's also support for executing a group of commands concurrently in
+  what's called a "command pool". The concurrency level can be customized and
+  of course both local and remote commands are supported.
 
 The package is currently tested on Python 2.6, 2.7, 3.4, 3.5 and PyPy. For
 usage instructions please refer to following sections and the documentation_.
@@ -226,9 +227,10 @@ License
 
 This software is licensed under the `MIT license`_.
 
-© 2016 Peter Odding.
+© 2017 Peter Odding.
 
 .. External references:
+.. _chroots: http://en.wikipedia.org/wiki/Chroot
 .. _CommandPool: https://executor.readthedocs.io/en/latest/#executor.concurrent.CommandPool
 .. _documentation: https://executor.readthedocs.io
 .. _execute(): http://executor.readthedocs.io/en/latest/#executor.execute
@@ -241,6 +243,7 @@ This software is licensed under the `MIT license`_.
 .. _PyPI: https://pypi.python.org/pypi/executor
 .. _Read the Docs: https://executor.readthedocs.io/en/latest/#api-documentation
 .. _RemoteCommand: https://executor.readthedocs.io/en/latest/#executor.ssh.client.RemoteCommand
+.. _schroot: https://wiki.debian.org/Schroot
 .. _SSH: https://en.wikipedia.org/wiki/Secure_Shell
 .. _subprocess: https://docs.python.org/2/library/subprocess.html
 .. _virtual environments: http://docs.python-guide.org/en/latest/dev/virtualenvs/
