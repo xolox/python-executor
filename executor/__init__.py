@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 10, 2017
+# Last Change: April 13, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -51,9 +51,15 @@ import sys
 import tempfile
 
 # External dependencies.
-from humanfriendly import compact, format
+from humanfriendly import compact, concatenate, format
 from humanfriendly.terminal import connected_to_terminal
-from property_manager import PropertyManager, mutable_property, required_property, writable_property
+from property_manager import (
+    PropertyManager,
+    mutable_property,
+    required_property,
+    set_property,
+    writable_property,
+)
 from six import text_type
 
 # Modules included in our package.
@@ -226,22 +232,24 @@ class ExternalCommand(ControllableProcess):
      The :attr:`async`, :attr:`callback`, :attr:`capture`,
      :attr:`capture_stderr`, :attr:`check`, :attr:`directory`,
      :attr:`encoding`, :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
-     :attr:`~executor.process.ControllableProcess.logger`, :attr:`merge_streams`,
-     :attr:`shell`, :attr:`silent`, :attr:`stdout_file`, :attr:`stderr_file`,
-     :attr:`uid`, :attr:`user`, :attr:`sudo` and :attr:`virtual_environment`
-     properties allow you to configure how the external command will be run
-     (before it is started).
+     :attr:`ionice`, :attr:`~executor.process.ControllableProcess.logger`,
+     :attr:`merge_streams`, :attr:`shell`, :attr:`silent`, :attr:`stdout_file`,
+     :attr:`stderr_file`, :attr:`uid`, :attr:`user`, :attr:`sudo` and
+     :attr:`virtual_environment` properties allow you to configure how the
+     external command will be run (before it is started).
 
     **Computed properties**
      The :attr:`command`, :attr:`command_line`, :attr:`decoded_stderr`,
      :attr:`decoded_stdout`, :attr:`encoded_input`, :attr:`error_message`,
      :attr:`error_type`, :attr:`failed`, :attr:`have_superuser_privileges`,
-     :attr:`is_finished`, :attr:`~executor.process.ControllableProcess.is_running`,
-     :attr:`is_terminated`, :attr:`output`,  :attr:`~executor.process.ControllableProcess.pid`,
-     :attr:`result`, :attr:`returncode`, :attr:`stderr`, :attr:`stdout`,
-     :attr:`succeeded` and :attr:`was_started` properties allow you to inspect
-     if and how the external command was started, what its current status is
-     and what its output is.
+     :attr:`ionice_command`, :attr:`is_finished`,
+     :attr:`~executor.process.ControllableProcess.is_running`,
+     :attr:`is_terminated`, :attr:`output`,
+     :attr:`~executor.process.ControllableProcess.pid`, :attr:`result`,
+     :attr:`returncode`, :attr:`stderr`, :attr:`stdout`, :attr:`succeeded`,
+     :attr:`sudo_command` and :attr:`was_started` properties allow you to
+     inspect if and how the external command was started, what its current
+     status is and what its output is.
 
     **Public methods**
      The public methods :func:`start()`, :func:`wait()`,
@@ -425,6 +433,9 @@ class ExternalCommand(ControllableProcess):
           name is prefixed to the command line generated here (``sudo`` is only
           prefixed when the current process doesn't already have super user
           privileges).
+
+        - If :attr:`ionice` is set the appropriate command is prefixed to the
+          command line generated here.
         """
         command_line = list(self.command)
         use_shell = self.shell
@@ -453,8 +464,8 @@ class ExternalCommand(ControllableProcess):
         # Run the command under `fakeroot' to fake super user privileges?
         if self.fakeroot:
             command_line = ['fakeroot'] + command_line
-        # Run the command under `sudo' to elevate or change privileges?
-        return self.sudo_command + command_line
+        # Allow running of the command under `sudo' and/or `ionice'.
+        return self.sudo_command + self.ionice_command + command_line
 
     @property
     def decoded_stdout(self):
@@ -648,6 +659,30 @@ class ExternalCommand(ControllableProcess):
         The conversion logic is implemented in the :attr:`encoded_input`
         attribute.
         """
+
+    @mutable_property
+    def ionice(self):
+        """
+        The I/O scheduling class for the external command (a string or :data:`None`).
+
+        When this property is set then ionice_ will be used to set the I/O
+        scheduling class for the external command. This can be useful to reduce
+        the impact of heavy disk operations on the rest of the system.
+
+        :raises: Any exceptions raised by :func:`validate_ionice_class()`.
+
+        .. _ionice: https://linux.die.net/man/1/ionice
+        """
+
+    @ionice.setter
+    def ionice(self, value):
+        """Validate and set the I/O scheduling class."""
+        set_property(self, 'ionice', validate_ionice_class(value))
+
+    @property
+    def ionice_command(self):
+        """The ionice_ command based on :attr:`ionice` (a list of strings)."""
+        return ['ionice', '--class', self.ionice] if self.ionice else []
 
     @property
     def is_finished(self):
@@ -1601,6 +1636,23 @@ def is_executable(filename, mode=os.F_OK | os.X_OK):
               :data:`False` otherwise.
     """
     return os.path.exists(filename) and os.access(filename, mode) and not os.path.isdir(filename)
+
+
+def validate_ionice_class(value):
+    """
+    Ensure that the given value is a valid I/O scheduling class for ionice_.
+
+    :param value: The value to validate (a string).
+    :returns: The validated value (one of the strings 'idle',
+              'best-effort' or 'realtime').
+    :raises: :exc:`~exceptions.ValueError` when the given value isn't one of
+             the strings mentioned above.
+    """
+    expected = ('idle', 'best-effort', 'realtime')
+    if value not in expected:
+        msg = "Invalid I/O scheduling class! (got %r while valid options are %s)"
+        raise ValueError(msg % (value, concatenate(expected)))
+    return value
 
 
 class ExternalCommandFailed(PropertyManager, Exception):

@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 20, 2016
+# Last Change: April 13, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -435,6 +435,22 @@ class ExecutorTestCase(unittest.TestCase):
             self.assertEqual(execute('stat', '--format=%a', filename, sudo=True, capture=True), '600')
         finally:
             self.assertTrue(execute('rm', '-R', self.sudo_enabled_directory, sudo=True))
+
+    def test_ionice_option(self):
+        """Make sure ``ionice`` can be used."""
+        rsync_command_line = ['rsync', '-a', '/', '/mnt/backups/latest/']
+        expected_ionice_command = ['ionice', '--class', 'idle']
+        command = ExternalCommand(*rsync_command_line, ionice='idle')
+        assert command.ionice == 'idle'
+        print(command.ionice_command)
+        assert command.ionice_command == expected_ionice_command
+        assert command.command_line == (expected_ionice_command + rsync_command_line)
+        self.assertRaises(
+            ValueError,
+            ExternalCommand,
+            'touch', 'something-inappropriate',
+            ionice='unknown-class',
+        )
 
     def test_environment_variable_handling(self):
         """Make sure environment variables can be overridden."""

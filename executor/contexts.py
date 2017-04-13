@@ -221,10 +221,17 @@ class AbstractContext(PropertyManager):
                   given to the initializer of :class:`AbstractContext` that are
                   not set in the overrides are set to the value of the
                   initializer argument.
+
+        The :attr:`~ExternalCommand.ionice` option is automatically unset when
+        :attr:`have_ionice` is :data:`False`, regardless of whether the option
+        was set from defaults or overrides.
         """
         defaults = self.get_options()
         for name, value in defaults.items():
             overrides.setdefault(name, value)
+        if overrides.get('ionice') and not self.have_ionice:
+            logger.debug("Ignoring `ionice' option because required program isn't installed.")
+            overrides.pop('ionice')
         return overrides
 
     def prepare_command(self, command, options):
@@ -387,6 +394,11 @@ class AbstractContext(PropertyManager):
         cmd = self.prepare_interactive_shell(options)
         cmd.start()
         return cmd
+
+    @lazy_property
+    def have_ionice(self):
+        """:data:`True` when ionice_ is installed, :data:`False` otherwise."""
+        return bool(self.find_program('ionice'))
 
     @property
     def have_superuser_privileges(self):
