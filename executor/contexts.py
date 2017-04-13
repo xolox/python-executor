@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 10, 2017
+# Last Change: April 13, 2017
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -541,6 +541,20 @@ class AbstractContext(PropertyManager):
         """
         listing = self.capture('find', directory, '-mindepth', '1', '-maxdepth', '1', '-print0')
         return [os.path.basename(fn) for fn in listing.split('\0') if fn]
+
+    def find_program(self, program_name, *args):
+        """
+        Find the absolute pathname(s) of one or more programs.
+
+        :param program_name: Each of the positional arguments is expected to
+                             be a string containing the name of a program to
+                             search for in the ``$PATH``. At least one is
+                             required.
+        :returns: A list of strings with absolute pathnames.
+
+        This method is a simple wrapper around ``which``.
+        """
+        return self.capture('which', program_name, *args, check=False).splitlines()
 
     def find_chroots(self, namespace=DEFAULT_NAMESPACE):
         """
