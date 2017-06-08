@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 13, 2017
+# Last Change: June 8, 2017
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -394,6 +394,24 @@ class AbstractContext(PropertyManager):
         cmd = self.prepare_interactive_shell(options)
         cmd.start()
         return cmd
+
+    @lazy_property
+    def distributor_id(self):
+        """
+        The distributor ID of the system (a lowercased string like ``debian`` or ``ubuntu``).
+
+        This is the lowercased output of ``lsb_release --short --id``.
+        """
+        return self.capture('lsb_release', '--short', '--id').lower()
+
+    @lazy_property
+    def distribution_codename(self):
+        """
+        The code name of the system's distribution (a lowercased string like ``precise`` or ``trusty``).
+
+        This is the lowercased output of ``lsb_release --short --codename``.
+        """
+        return self.capture('lsb_release', '--short', '--codename').lower()
 
     @lazy_property
     def have_ionice(self):

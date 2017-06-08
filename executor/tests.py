@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 13, 2017
+# Last Change: June 8, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -113,6 +113,22 @@ class ExecutorTestCase(unittest.TestCase):
         # and/or py.test without a newline at the end) from the first line of
         # logging output that the test method is likely going to generate.
         sys.stderr.write("\n")
+
+    def skipTest(self, text, *args, **kw):
+        """
+        Enable backwards compatible "marking of tests to skip".
+
+        By calling this method from a return statement in the test to be
+        skipped the test can be marked as skipped when possible, without
+        breaking the test suite when unittest.TestCase.skipTest() isn't
+        available.
+        """
+        reason = compact(text, *args, **kw)
+        try:
+            super(ExecutorTestCase, self).skipTest(reason)
+        except AttributeError:
+            # unittest.TestCase.skipTest() isn't available in Python 2.6.
+            logger.warning("%s", reason)
 
     def assertRaises(self, type, callable, *args, **kw):
         """Replacement for :func:`unittest.TestCase.assertRaises()` that returns the exception."""
@@ -849,6 +865,18 @@ class ExecutorTestCase(unittest.TestCase):
         assert create_context(ssh_alias='whatever').ssh_alias == 'whatever'
         assert create_context(sudo=True).options['sudo'] is True
         assert create_context(sudo=False).options['sudo'] is False
+
+    def test_lsb_release_shortcuts(self):
+        """Test the ``lsb_release`` shortcuts."""
+        try:
+            context = LocalContext()
+            # The following tests should pass on my laptops and Travis CI.
+            assert context.distributor_id == 'ubuntu'
+            assert context.distribution_codename in ('precise', 'trusty', 'xenial')
+        except (AssertionError, ExternalCommandFailed):
+            # But I don't want this test to fail on `unexpected'
+            # platforms so here's a pragmatic compromise :-).
+            self.skipTest("assuming unsupported platform")
 
     def test_local_context(self):
         """Test a local command context."""
