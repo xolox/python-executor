@@ -1,17 +1,17 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 8, 2017
+# Last Change: June 10, 2017
 # URL: https://executor.readthedocs.io
 
 r"""
 Dependency injection for command execution contexts.
 
 The :mod:`~executor.contexts` module defines the :class:`LocalContext`,
-:class:`RemoteContext` and :class:`ChangeRootContext` classes. All of these
-classes support the same API for executing external commands, they are simple
-wrappers for :class:`.ExternalCommand`, :class:`.RemoteCommand` and
-:class:`.ChangeRootCommand`.
+:class:`RemoteContext` and :class:`SecureChangeRootContext` classes. All of
+these classes support the same API for executing external commands, they are
+simple wrappers for :class:`.ExternalCommand`, :class:`.RemoteCommand` and
+:class:`.SecureChangeRootCommand`.
 
 This allows you to script interaction with external commands in Python and
 perform that interaction on your local system, on a remote system over SSH_ or
@@ -83,7 +83,7 @@ from property_manager import (
 
 # Modules included in our package.
 from executor import DEFAULT_SHELL, ExternalCommand, quote
-from executor.schroot import DEFAULT_NAMESPACE, SCHROOT_PROGRAM_NAME, ChangeRootCommand
+from executor.schroot import DEFAULT_NAMESPACE, SCHROOT_PROGRAM_NAME, SecureChangeRootCommand
 from executor.ssh.client import RemoteAccount, RemoteCommand
 
 # Initialize a logger.
@@ -95,14 +95,14 @@ def create_context(**options):
     Create an execution context.
 
     :param options: Any keyword arguments are passed on to the context's initializer.
-    :returns: A :class:`LocalContext`, :class:`ChangeRootContext` or
+    :returns: A :class:`LocalContext`, :class:`SecureChangeRootContext` or
               :class:`RemoteContext` object.
 
     This function provides an easy to use shortcut for constructing context
     objects:
 
     - If the keyword argument ``chroot_name`` is given (and not :data:`None`)
-      then a :class:`ChangeRootContext` object will be created.
+      then a :class:`SecureChangeRootContext` object will be created.
 
     - If the keyword argument ``ssh_alias`` is given (and not :data:`None`)
       then a :class:`RemoteContext` object will be created.
@@ -115,7 +115,7 @@ def create_context(**options):
     chroot_name = options.pop('chroot_name', None)
     ssh_alias = options.pop('ssh_alias', None)
     if chroot_name is not None:
-        return ChangeRootContext(chroot_name, **options)
+        return SecureChangeRootContext(chroot_name, **options)
     elif ssh_alias is not None:
         return RemoteContext(ssh_alias, **options)
     else:
@@ -182,9 +182,9 @@ class AbstractContext(PropertyManager):
         that uses the :attr:`parent` property) enables the use of "nested
         contexts".
 
-        For example :func:`find_chroots()` creates :class:`ChangeRootContext`
+        For example :func:`find_chroots()` creates :class:`SecureChangeRootContext`
         objects whose :attr:`parent` is set to the context that found the
-        chroots. Because of this the :class:`ChangeRootContext` objects can be
+        chroots. Because of this the :class:`SecureChangeRootContext` objects can be
         used to create commands without knowing or caring whether the chroots
         reside on the local system or on a remote system accessed via SSH.
 
@@ -594,7 +594,7 @@ class AbstractContext(PropertyManager):
                           to :data:`~executor.schroot.DEFAULT_NAMESPACE`).
                           Refer to the schroot_ documentation for more
                           information about chroot namespaces.
-        :returns: A generator of :class:`ChangeRootContext` objects whose
+        :returns: A generator of :class:`SecureChangeRootContext` objects whose
                   :attr:`~AbstractContext.parent` is set to the context where
                   the chroots were found.
         :raises: :exc:`~executor.ExternalCommandFailed` (or a subclass) when
@@ -607,7 +607,7 @@ class AbstractContext(PropertyManager):
                 entry_ns = DEFAULT_NAMESPACE
             if entry_ns == namespace:
                 short_name = entry_name if entry_ns == DEFAULT_NAMESPACE else entry
-                yield ChangeRootContext(chroot_name=short_name, parent=self)
+                yield SecureChangeRootContext(chroot_name=short_name, parent=self)
 
     def __enter__(self):
         """Initialize a new "undo stack" (refer to :func:`cleanup()`)."""
@@ -650,13 +650,13 @@ class LocalContext(AbstractContext):
         return "local system (%s)" % socket.gethostname()
 
 
-class ChangeRootContext(AbstractContext):
+class SecureChangeRootContext(AbstractContext):
 
     """Context for executing commands in change roots using schroot_."""
 
     def __init__(self, *args, **options):
         """
-        Initialize a :class:`ChangeRootContext` object.
+        Initialize a :class:`SecureChangeRootContext` object.
 
         :param args: Positional arguments are passed on to the initializer of
                      the :class:`AbstractContext` class (for future
@@ -675,7 +675,7 @@ class ChangeRootContext(AbstractContext):
         if options.get('chroot_name') is None and args:
             options['chroot_name'] = args.pop(0)
         # Initialize the superclass.
-        super(ChangeRootContext, self).__init__(*args, **options)
+        super(SecureChangeRootContext, self).__init__(*args, **options)
 
     @required_property
     def chroot_name(self):
@@ -683,8 +683,8 @@ class ChangeRootContext(AbstractContext):
 
     @property
     def command_type(self):
-        """The type of command objects created by this context (:class:`.ChangeRootCommand`)."""
-        return ChangeRootCommand
+        """The type of command objects created by this context (:class:`.SecureChangeRootCommand`)."""
+        return SecureChangeRootCommand
 
     @lazy_property
     def cpu_count(self):

@@ -1,15 +1,15 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 13, 2017
+# Last Change: June 10, 2017
 # URL: https://executor.readthedocs.io
 
 """
 Secure command execution in chroot environments.
 
-The :mod:`executor.schroot` module defines the :class:`ChangeRootCommand` class
-which makes it easy to run commands inside chroots_ that are managed using the
-schroot_ program.
+The :mod:`executor.schroot` module defines the :class:`SecureChangeRootCommand`
+class which makes it easy to run commands inside chroots_ that are managed
+using the schroot_ program.
 
 .. _chroots: http://en.wikipedia.org/wiki/Chroot
 .. _schroot: https://wiki.debian.org/Schroot
@@ -39,13 +39,13 @@ namespaces.
 """
 
 
-class ChangeRootCommand(ExternalCommand):
+class SecureChangeRootCommand(ExternalCommand):
 
-    """:class:`ChangeRootCommand` objects use the schroot_ program to execute commands inside chroots."""
+    """:class:`SecureChangeRootCommand` objects use the schroot_ program to execute commands inside chroots."""
 
     def __init__(self, *args, **options):
         """
-        Initialize a :class:`ChangeRootCommand` object.
+        Initialize a :class:`SecureChangeRootCommand` object.
 
         :param args: Positional arguments are passed on to the initializer of
                      the :class:`.ExternalCommand` class.
@@ -69,7 +69,7 @@ class ChangeRootCommand(ExternalCommand):
         # Inject our logger as a default.
         options.setdefault('logger', logger)
         # Initialize the superclass.
-        super(ChangeRootCommand, self).__init__(*args, **options)
+        super(SecureChangeRootCommand, self).__init__(*args, **options)
 
     @mutable_property
     def chroot_directory(self):
@@ -81,8 +81,8 @@ class ChangeRootCommand(ExternalCommand):
         documentation for the complete details).
 
         For non-interactive usage (which I anticipate to be the default usage
-        of :class:`ChangeRootCommand`) the schroot program simply assumes that
-        the working directory outside of the chroot also exists inside the
+        of :class:`SecureChangeRootCommand`) the schroot program simply assumes
+        that the working directory outside of the chroot also exists inside the
         chroot, then fails with an error message when this is not the case.
 
         Because this isn't a very robust default, :attr:`chroot_directory`
@@ -125,7 +125,7 @@ class ChangeRootCommand(ExternalCommand):
         # a command to execute inside the chroot. Emitting a trailing `--' that
         # isn't followed by anything doesn't appear to bother schroot, but it
         # does look a bit weird and may cause unnecessary confusion.
-        super_cmdline = list(super(ChangeRootCommand, self).command_line)
+        super_cmdline = list(super(SecureChangeRootCommand, self).command_line)
         if super_cmdline:
             schroot_command.append('--')
             schroot_command.extend(super_cmdline)

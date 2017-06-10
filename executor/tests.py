@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 8, 2017
+# Last Change: June 10, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -76,7 +76,7 @@ from executor.cli import main
 from executor.concurrent import CommandPool, CommandPoolFailed
 from executor.contexts import LocalContext, RemoteContext, create_context
 from executor.process import ProcessTerminationFailed
-from executor.schroot import SCHROOT_PROGRAM_NAME, ChangeRootCommand
+from executor.schroot import SCHROOT_PROGRAM_NAME, SecureChangeRootCommand
 from executor.ssh.client import (
     DEFAULT_CONNECT_TIMEOUT,
     RemoteCommand,
@@ -844,9 +844,9 @@ class ExecutorTestCase(unittest.TestCase):
         chroot_user = 'user-in-chroot'
         chroot_directory = '/path/relative/to/chroot'
         command = ['echo', '42']
-        cmd = ChangeRootCommand(chroot_name, *command,
-                                chroot_directory=chroot_directory,
-                                chroot_user=chroot_user)
+        cmd = SecureChangeRootCommand(chroot_name, *command,
+                                      chroot_directory=chroot_directory,
+                                      chroot_user=chroot_user)
         assert SCHROOT_PROGRAM_NAME in cmd.command_line
         assert ('--chroot=%s' % chroot_name) in cmd.command_line
         assert ('--user=%s' % chroot_user) in cmd.command_line
