@@ -15,10 +15,10 @@ The :mod:`executor` module
 .. automodule:: executor
    :members:
 
-The :mod:`executor.process` module
-----------------------------------
+The :mod:`executor.chroot` module
+---------------------------------
 
-.. automodule:: executor.process
+.. automodule:: executor.chroot
    :members:
 
 The :mod:`executor.cli` module
@@ -37,6 +37,12 @@ The :mod:`executor.contexts` module
 -----------------------------------
 
 .. automodule:: executor.contexts
+   :members:
+
+The :mod:`executor.process` module
+----------------------------------
+
+.. automodule:: executor.process
    :members:
 
 The :mod:`executor.schroot` module

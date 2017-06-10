@@ -74,9 +74,16 @@ from executor import (
 )
 from executor.cli import main
 from executor.concurrent import CommandPool, CommandPoolFailed
-from executor.contexts import LocalContext, RemoteContext, create_context
+from executor.contexts import (
+    ChangeRootContext,
+    create_context,
+    LocalContext,
+    RemoteContext,
+    SecureChangeRootContext,
+)
 from executor.process import ProcessTerminationFailed
-from executor.schroot import SCHROOT_PROGRAM_NAME, SecureChangeRootCommand
+from executor.chroot import CHROOT_PROGRAM_NAME
+from executor.schroot import SCHROOT_PROGRAM_NAME
 from executor.ssh.client import (
     DEFAULT_CONNECT_TIMEOUT,
     RemoteCommand,
@@ -835,6 +842,38 @@ class ExecutorTestCase(unittest.TestCase):
         """
         Test support for chroot commands.
 
+        For now this test doesn't actually run ``chroot`` because automating
+        the creation of chroots using ``debootstrap`` just to run these tests
+        is a lot of work that I haven't done (yet).
+        """
+        chroot = '/var/lib/chroots/executor'
+        chroot_group = 'my-group'
+        chroot_user = 'my-user'
+        command = ['echo', '42']
+        context = ChangeRootContext(chroot)
+        cmd = context.prepare(*command, chroot_group=chroot_group, chroot_user=chroot_user)
+        assert CHROOT_PROGRAM_NAME in cmd.command_line
+        assert '--userspec=%s:%s' % (chroot_user, chroot_group) in cmd.command_line
+        assert cmd.command_line[-len(command):] == command
+        # Make sure sudo is avoided when possible.
+        cmd = context.prepare('apt-get', 'update', sudo=True)
+        command_in_chroot = cmd.command_line[cmd.command_line.index('chroot'):]
+        assert 'sudo' not in command_in_chroot
+        # Make sure sudo is used when necessary.
+        cmd = context.prepare('apt-get', 'update', chroot_user='nobody', sudo=True)
+        command_in_chroot = cmd.command_line[cmd.command_line.index('chroot'):]
+        assert 'sudo' in command_in_chroot
+        # Make sure the working directory is handled correctly.
+        directory_in_chroot = '/relative/to/chroot'
+        cmd = context.prepare('pwd', directory=directory_in_chroot)
+        assert cmd.directory == DEFAULT_WORKING_DIRECTORY
+        assert cmd.chroot_directory == directory_in_chroot
+        assert any(directory_in_chroot in token for token in cmd.command_line)
+
+    def test_schroot_command(self):
+        """
+        Test support for schroot commands.
+
         For now this test doesn't actually run ``schroot`` because automating
         the installation of ``schroot`` and the creation of chroots using
         ``debootstrap`` just to run these tests is a lot of work that I haven't
@@ -844,9 +883,8 @@ class ExecutorTestCase(unittest.TestCase):
         chroot_user = 'user-in-chroot'
         chroot_directory = '/path/relative/to/chroot'
         command = ['echo', '42']
-        cmd = SecureChangeRootCommand(chroot_name, *command,
-                                      chroot_directory=chroot_directory,
-                                      chroot_user=chroot_user)
+        context = SecureChangeRootContext(chroot_name, chroot_directory=chroot_directory, chroot_user=chroot_user)
+        cmd = context.prepare(*command)
         assert SCHROOT_PROGRAM_NAME in cmd.command_line
         assert ('--chroot=%s' % chroot_name) in cmd.command_line
         assert ('--user=%s' % chroot_user) in cmd.command_line

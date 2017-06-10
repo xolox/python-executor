@@ -83,6 +83,7 @@ from property_manager import (
 
 # Modules included in our package.
 from executor import DEFAULT_SHELL, ExternalCommand, quote
+from executor.chroot import ChangeRootCommand
 from executor.schroot import DEFAULT_NAMESPACE, SCHROOT_PROGRAM_NAME, SecureChangeRootCommand
 from executor.ssh.client import RemoteAccount, RemoteCommand
 
@@ -650,6 +651,62 @@ class LocalContext(AbstractContext):
         return "local system (%s)" % socket.gethostname()
 
 
+class ChangeRootContext(AbstractContext):
+
+    """Context for executing commands in change roots using chroot_."""
+
+    def __init__(self, *args, **options):
+        """
+        Initialize a :class:`ChangeRootContext` object.
+
+        :param args: Positional arguments are passed on to the initializer of
+                     the :class:`AbstractContext` class (for future
+                     extensibility).
+        :param options: Any keyword arguments are passed on to the initializer
+                        of the :class:`AbstractContext` class.
+
+        If the keyword argument `chroot` isn't given but positional arguments
+        are provided, the first positional argument is used to set the
+        :attr:`chroot` property.
+        """
+        # Enable modification of the positional arguments.
+        args = list(args)
+        # We allow `chroot_name' to be passed as a keyword argument but use the
+        # first positional argument when the keyword argument isn't given.
+        if options.get('chroot') is None and args:
+            options['chroot'] = args.pop(0)
+        # Initialize the superclass.
+        super(ChangeRootContext, self).__init__(*args, **options)
+
+    @required_property
+    def chroot(self):
+        """The pathname of the root directory of the chroot (a string)."""
+
+    @property
+    def command_type(self):
+        """The type of command objects created by this context (:class:`.ChangeRootCommand`)."""
+        return ChangeRootCommand
+
+    @lazy_property
+    def cpu_count(self):
+        """
+        The number of CPUs in the system (an integer).
+
+        This property's value is computed using :func:`multiprocessing.cpu_count()`.
+        """
+        return multiprocessing.cpu_count()
+
+    def get_options(self):
+        """The :attr:`~AbstractContext.options` including :attr:`chroot`."""
+        options = dict(self.options)
+        options.update(chroot=self.chroot)
+        return options
+
+    def __str__(self):
+        """Render a human friendly string representation of the context."""
+        return "chroot (%s)" % self.chroot
+
+
 class SecureChangeRootContext(AbstractContext):
 
     """Context for executing commands in change roots using schroot_."""
@@ -703,7 +760,7 @@ class SecureChangeRootContext(AbstractContext):
 
     def __str__(self):
         """Render a human friendly string representation of the context."""
-        return "chroot (%s)" % self.chroot_name
+        return "secure chroot (%s)" % self.chroot_name
 
 
 class RemoteContext(RemoteAccount, AbstractContext):
