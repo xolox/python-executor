@@ -45,6 +45,7 @@ import errno
 import logging
 import os
 import pipes
+import shlex
 import signal
 import subprocess
 import sys
@@ -60,7 +61,7 @@ from property_manager import (
     set_property,
     writable_property,
 )
-from six import text_type
+from six import string_types, text_type
 
 # Modules included in our package.
 from executor.process import ControllableProcess
@@ -449,15 +450,13 @@ class ExternalCommand(ControllableProcess):
             command_line = [DEFAULT_SHELL, '-']
         # Apply the `shell' and/or `virtual_environment' options.
         if self.virtual_environment:
-            activate_script = os.path.join(self.virtual_environment, 'bin', 'activate')
+            activate_command = 'source %s' % quote(os.path.join(self.virtual_environment, 'bin', 'activate'))
             if use_shell:
                 # Shell command(s) provided via positional arguments or standard input.
-                shell_command = 'source %s && %s' % (quote(activate_script), command_line[0])
-                command_line = [DEFAULT_SHELL, '-c', shell_command] + command_line[1:]
+                command_line = self.prefix_shell_command(activate_command, command_line[0]) + command_line[1:]
             else:
                 # Non-shell command line provided via positional arguments.
-                shell_command = 'source %s && %s' % (quote(activate_script), quote(command_line))
-                command_line = [DEFAULT_SHELL, '-c', shell_command]
+                command_line = self.prefix_shell_command(activate_command, command_line)
         elif use_shell:
             # Prepare to execute a shell command.
             command_line = [DEFAULT_SHELL, '-c'] + command_line
@@ -1068,6 +1067,49 @@ class ExternalCommand(ControllableProcess):
         called yet.
         """
         return False
+
+    def prefix_shell_command(self, preamble, command):
+        """
+        Prefix a shell command to a command line.
+
+        :param preamble: Any shell command (a string).
+        :param command: The command line (a string, tuple or list).
+        :returns: The command line to run the combined commands
+                  through a shell (a list of strings).
+
+        This function uses :func:`reduce_shell_command()` to convert `command`
+        into a string and then prefixes the `preamble` to the command,
+        delimited by ``&&``.
+        """
+        return [DEFAULT_SHELL, '-c', '%s && %s' % (preamble, self.reduce_shell_command(command))]
+
+    def reduce_shell_command(self, command):
+        """
+        Reduce a command line to a shell command.
+
+        :param command: The command line (a string, tuple or list).
+        :returns: The shell command (a string).
+
+        If the given `command` is a :data:`DEFAULT_SHELL` invocation that uses
+        the ``-c`` option it is reduced to the argument of the ``-c`` option.
+        All other command lines are simply quoted and returned.
+
+        This method is used in various places where a command needs to be
+        transformed into a shell command so that a command like ``cd`` or
+        ``source`` can be prefixed to the command line.
+        """
+        is_quoted = isinstance(command, string_types)
+        # Get the parsed command line.
+        command_line = shlex.split(command) if is_quoted else command
+        # Check if the parsed command line invokes a shell.
+        if (len(command_line) == 3 and
+                command_line[0] == DEFAULT_SHELL and
+                command_line[1] == '-c'):
+            # Reduce the command line to just the command that is given to the shell.
+            return command_line[2]
+        else:
+            # Quote the tokens in the command line when necessary.
+            return command if is_quoted else quote(command)
 
     def start(self):
         """

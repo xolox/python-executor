@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 19, 2016
+# Last Change: June 10, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -377,7 +377,8 @@ class RemoteCommand(RemoteAccount, ExternalCommand):
         remote_command = quote(super(RemoteCommand, self).command_line)
         if remote_command:
             if self.remote_directory != DEFAULT_WORKING_DIRECTORY:
-                remote_command = 'cd %s && %s' % (quote(self.remote_directory), remote_command)
+                cd_command = 'cd %s' % quote(self.remote_directory)
+                remote_command = quote(self.prefix_shell_command(cd_command, remote_command))
             ssh_command.append(remote_command)
         return ssh_command
 
