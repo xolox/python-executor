@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 8, 2017
+# Last Change: June 10, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -641,7 +641,7 @@ class ExternalCommand(ControllableProcess):
 
         :data:`True` if running with `superuser privileges`_, :data:`False`
         otherwise. Used by :attr:`command_line` to decide whether
-        :attr:`fakeroot` or :attr:`sudo` needs to be used.
+        :attr:`sudo` needs to be used.
         """
         return os.getuid() == 0
 
