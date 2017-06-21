@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 10, 2017
+# Last Change: June 21, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -60,6 +60,7 @@ import uuid
 import coloredlogs
 from humanfriendly import Timer, compact, dedent
 from humanfriendly.compat import StringIO
+from mock import MagicMock
 
 # Modules included in our package.
 from executor import (
@@ -933,7 +934,11 @@ class ExecutorTestCase(unittest.TestCase):
         assert context.cpu_count >= 1
         # Test context.execute() and cleanup().
         random_file = os.path.join(self.sudo_enabled_directory, uuid.uuid4().hex)
+        # Prepare to test context.cleanup() with a callable.
+        cleanup_callback = MagicMock()
         with context:
+            # Schedule to invoke our callback before the with block ends.
+            context.cleanup(cleanup_callback, 42, keyword='value')
             # Make sure the test directory exists.
             assert context.exists(self.sudo_enabled_directory)
             assert context.is_directory(self.sudo_enabled_directory)
@@ -962,6 +967,8 @@ class ExecutorTestCase(unittest.TestCase):
                 # Make sure the file is no longer readable or writable.
                 assert not context.is_readable(random_file)
                 assert not context.is_writable(random_file)
+        # Make sure our cleanup callback was invoked correctly.
+        assert cleanup_callback.called_with(42, keyword='value')
         # Make sure the file has been removed (__exit__).
         assert not context.exists(random_file)
         # Test context.capture().

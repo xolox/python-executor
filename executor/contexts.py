@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 10, 2017
+# Last Change: June 21, 2017
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -346,26 +346,36 @@ class AbstractContext(PropertyManager):
         cmd.start()
         return cmd.output
 
-    def cleanup(self, *command, **options):
+    def cleanup(self, *args, **kw):
         """
-        Register an external command to be called before the context ends.
+        Register an action to be performed before the context ends.
 
-        :param command: All positional arguments are passed on to the
-                        initializer of the :attr:`command_type` class.
-        :param options: All keyword arguments are passed on to the
-                        initializer of the :attr:`command_type` class.
+        :param args: The external command to execute or callable to invoke.
+        :param kw: Options to the command or keyword arguments to the callable.
         :raises: :exc:`~exceptions.ValueError` when :func:`cleanup()` is called
                  outside a :keyword:`with` statement.
 
-        This method registers *the intent* to run an external command in the
-        current context before the context ends. To actually run the command
-        you need to use (the subclass of) the :class:`AbstractContext` object
-        as a context manager (using the :keyword:`with` statement).
+        This method registers *the intent* to perform an action just before the
+        context ends. To actually perform the action(s) you need to use (the
+        subclass of) the :class:`AbstractContext` object as a context manager
+        using the :keyword:`with` statement.
 
-        The last command that is registered is the first one to be executed.
-        This gives the equivalent functionality of a deeply nested
-        :keyword:`try` / :keyword:`finally` structure without actually needing
-        to write such ugly code :-).
+        The last action that is registered is the first one to be
+        performed. This gives the equivalent functionality of a
+        deeply nested :keyword:`try` / :keyword:`finally` structure
+        without actually having to write such ugly code :-).
+
+        The handling of arguments in :func:`cleanup()` depends on the type of
+        the first positional argument:
+
+        - If the first positional argument is a string, the positional
+          arguments and keyword arguments are passed on to the initializer
+          of the :attr:`command_type` class to execute an external command
+          just before the context ends.
+
+        - If the first positional argument is a callable, it is called with any
+          remaining positional arguments and keyword arguments before the
+          context ends.
 
         .. warning:: If a cleanup command fails and raises an exception no
                      further cleanup commands are executed. If you don't care
@@ -375,7 +385,7 @@ class AbstractContext(PropertyManager):
         """
         if not self.undo_stack:
             raise ValueError("Cleanup stack can only be used inside with statements!")
-        self.undo_stack[-1].append((command, options))
+        self.undo_stack[-1].append((args, kw))
 
     def start_interactive_shell(self, **options):
         """
@@ -619,8 +629,13 @@ class AbstractContext(PropertyManager):
         """Execute any commands on the "undo stack" (refer to :func:`cleanup()`)."""
         old_scope = self.undo_stack.pop()
         while old_scope:
-            command, options = old_scope.pop()
-            self.execute(*command, **options)
+            args, kw = old_scope.pop()
+            if args and callable(args[0]):
+                args = list(args)
+                function = args.pop(0)
+                function(*args, **kw)
+            else:
+                self.execute(*args, **kw)
 
 
 class LocalContext(AbstractContext):
