@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 21, 2017
+# Last Change: June 24, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -48,18 +48,15 @@ import os
 import pwd
 import random
 import shlex
-import shutil
 import socket
 import sys
 import tempfile
 import time
-import unittest
 import uuid
 
 # External dependencies.
-import coloredlogs
 from humanfriendly import Timer, compact, dedent
-from humanfriendly.compat import StringIO
+from humanfriendly.testing import TemporaryDirectory, TestCase, retry, run_cli
 from mock import MagicMock
 
 # Modules included in our package.
@@ -102,55 +99,20 @@ MISSING_COMMAND = 'a-program-name-that-no-one-would-ever-use'
 logger = logging.getLogger(__name__)
 
 
-class ExecutorTestCase(unittest.TestCase):
+class ExecutorTestCase(TestCase):
 
     """Container for the `executor` test suite."""
 
     def setUp(self):
-        """Set up logging to the terminal and initialize test directories."""
-        # Enable very verbose logging to the terminal, for the current process
-        # as well as child processes.
-        coloredlogs.install()
-        coloredlogs.set_level(logging.DEBUG)
+        """Set up logging for subprocesses and initialize test directories."""
+        # Set up our superclass.
+        super(ExecutorTestCase, self).setUp()
+        # Enable verbose logging to the terminal for subprocesses.
         os.environ['COLOREDLOGS_LOG_LEVEL'] = 'DEBUG'
         # Create the directory where superuser privileges are tested.
         self.sudo_enabled_directory = os.path.join(tempfile.gettempdir(), 'executor-test-suite')
         if not os.path.isdir(self.sudo_enabled_directory):
             os.makedirs(self.sudo_enabled_directory)
-        # Separate the name of the test method (printed by the superclass
-        # and/or py.test without a newline at the end) from the first line of
-        # logging output that the test method is likely going to generate.
-        sys.stderr.write("\n")
-
-    def skipTest(self, text, *args, **kw):
-        """
-        Enable backwards compatible "marking of tests to skip".
-
-        By calling this method from a return statement in the test to be
-        skipped the test can be marked as skipped when possible, without
-        breaking the test suite when unittest.TestCase.skipTest() isn't
-        available.
-        """
-        reason = compact(text, *args, **kw)
-        try:
-            super(ExecutorTestCase, self).skipTest(reason)
-        except AttributeError:
-            # unittest.TestCase.skipTest() isn't available in Python 2.6.
-            logger.warning("%s", reason)
-
-    def assertRaises(self, type, callable, *args, **kw):
-        """Replacement for :func:`unittest.TestCase.assertRaises()` that returns the exception."""
-        try:
-            callable(*args, **kw)
-        except Exception as e:
-            if isinstance(e, type):
-                # Return the expected exception as a regular return value.
-                return e
-            else:
-                # Don't swallow exceptions we can't handle.
-                raise
-        else:
-            assert False, "Expected an exception to be raised!"
 
     def test_graceful_termination(self):
         """Test graceful termination of processes."""
@@ -1031,33 +993,50 @@ class ExecutorTestCase(unittest.TestCase):
     def test_cli_usage(self):
         """Make sure the command line interface properly presents its usage message."""
         for arguments in [], ['-h'], ['--help']:
-            with CaptureOutput() as stream:
-                assert run_cli(*arguments) == 0
-                assert "Usage: executor" in str(stream)
+            returncode, output = run_cli(main, *arguments)
+            assert returncode == 0
+            assert "Usage: executor" in output
 
     def test_cli_return_codes(self):
         """Make sure the command line interface doesn't swallow exit codes."""
-        assert run_cli(*python_golf('import sys; sys.exit(0)')) == 0
-        assert run_cli(*python_golf('import sys; sys.exit(1)')) == 1
-        assert run_cli(*python_golf('import sys; sys.exit(42)')) == 42
+        returncode, output = run_cli(main, *python_golf('import sys; sys.exit(0)'))
+        assert returncode == 0
+        returncode, output = run_cli(main, *python_golf('import sys; sys.exit(1)'))
+        assert returncode == 1
+        returncode, output = run_cli(main, *python_golf('import sys; sys.exit(42)'))
+        assert returncode == 42
 
     def test_cli_fudge_factor(self, fudge_factor=5):
         """Try to ensure that the fudge factor applies (a bit tricky to get right) ..."""
         def fudge_factor_hammer():
             timer = Timer()
-            assert run_cli('--fudge-factor=%i' % fudge_factor, *python_golf('import sys; sys.exit(0)')) == 0
+            returncode, output = run_cli(
+                main,
+                '--fudge-factor=%i' % fudge_factor,
+                *python_golf('import sys; sys.exit(0)')
+            )
+            assert returncode == 0
             assert timer.elapsed_time > (fudge_factor / 2.0)
         retry(fudge_factor_hammer, 60)
 
     def test_cli_exclusive_locking(self):
         """Ensure that exclusive locking works as expected."""
-        run_cli('--exclusive', *python_golf('import sys; sys.exit(0)')) == 0
+        returncode, output = run_cli(
+            main,
+            '--exclusive',
+            *python_golf('import sys; sys.exit(0)')
+        )
+        assert returncode == 0
 
     def test_cli_timeout(self):
         """Ensure that external commands can be timed out."""
         def timeout_hammer():
             timer = Timer()
-            assert run_cli('--timeout=5', *python_golf('import time; time.sleep(10)')) != 0
+            returncode, output = run_cli(
+                main, '--timeout=5',
+                *python_golf('import time; time.sleep(10)')
+            )
+            assert returncode != 0
             assert timer.elapsed_time < 10
         retry(timeout_hammer, 60)
 
@@ -1077,35 +1056,9 @@ def tokenize_command_line(cmd):
     return sum(map(shlex.split, cmd.command_line), [])
 
 
-def retry(func, timeout):
-    """Retry a function until it no longer raises assertion errors or time runs out before then."""
-    time_started = time.time()
-    while True:
-        timeout_expired = (time.time() - time_started) >= timeout
-        try:
-            return func()
-        except AssertionError:
-            if timeout_expired:
-                raise
-
-
 def python_golf(statements):
     """Generate a Python command line."""
     return sys.executable, '-c', dedent(statements)
-
-
-def run_cli(*arguments):
-    """Run the command line interface (in the same process)."""
-    saved_argv = sys.argv
-    try:
-        sys.argv = ['executor'] + list(arguments)
-        main()
-    except SystemExit as e:
-        return e.code
-    else:
-        return 0
-    finally:
-        sys.argv = saved_argv
 
 
 class NonGracefulCommand(ExternalCommand):
@@ -1132,61 +1085,3 @@ class NonForcefulCommand(NonGracefulCommand):
             disabled to simulate processes that refuse to terminate
             forcefully ..
         """))
-
-
-class CaptureOutput(object):
-
-    """Context manager that captures what's written to :data:`sys.stdout`."""
-
-    def __init__(self):
-        """Initialize a string IO object to be used as :data:`sys.stdout`."""
-        self.stream = StringIO()
-
-    def __enter__(self):
-        """Start capturing what's written to :data:`sys.stdout`."""
-        self.original_stdout = sys.stdout
-        sys.stdout = self.stream
-        return self
-
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
-        """Stop capturing what's written to :data:`sys.stdout`."""
-        sys.stdout = self.original_stdout
-
-    def __str__(self):
-        """Get the text written to :data:`sys.stdout`."""
-        return self.stream.getvalue()
-
-
-class TemporaryDirectory(object):
-
-    """
-    Easy temporary directory creation & cleanup using the :keyword:`with` statement.
-
-    Here's an example of how to use this:
-
-    .. code-block:: python
-
-       with TemporaryDirectory() as directory:
-           # Do something useful here.
-           assert os.path.isdir(directory)
-    """
-
-    def __init__(self, **options):
-        """
-        Initialize a :class:`TemporaryDirectory` object.
-
-        :param options: Any keyword arguments are passed on to :func:`tempfile.mkdtemp()`.
-        """
-        self.options = options
-        self.temporary_directory = None
-
-    def __enter__(self):
-        """Create the temporary directory."""
-        self.temporary_directory = tempfile.mkdtemp(**self.options)
-        return self.temporary_directory
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        """Destroy the temporary directory."""
-        if self.temporary_directory is not None:
-            shutil.rmtree(self.temporary_directory)
-            self.temporary_directory = None
