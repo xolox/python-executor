@@ -1,7 +1,7 @@
 # Command line interface for the executor package.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 19, 2016
+# Last Change: June 24, 2017
 # URL: https://executor.readthedocs.io
 #
 # TODO Expose a clean way to interrupt the fudge factor of other processes.
@@ -58,11 +58,11 @@ Supported options:
 
   -v, --verbose
 
-    Make more noise than usual (increase logging verbosity).
+    Increase logging verbosity (can be repeated).
 
   -q, --quiet
 
-    Make less noise than usual (decrease logging verbosity).
+    Decrease logging verbosity (can be repeated).
 
   -h, --help
 

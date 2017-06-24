@@ -68,9 +68,13 @@ Command line
 
 **Usage:** `executor [OPTIONS] COMMAND ...`
 
-Easy subprocess management on the command line based on the Python package with the same name. The "executor" program runs external commands with support for timeouts, dynamic startup delay (fudge factor) and exclusive locking.
+Easy subprocess management on the command line based on the Python package with
+the same name. The "executor" program runs external commands with support for
+timeouts, dynamic startup delay (fudge factor) and exclusive locking.
 
-You can think of "executor" as a combination of the "flock" and "timelimit" programs with some additional niceties (namely the dynamic startup delay and integrated system logging on UNIX platforms).
+You can think of "executor" as a combination of the "flock" and "timelimit"
+programs with some additional niceties (namely the dynamic startup delay and
+integrated system logging on UNIX platforms).
 
 **Supported options:**
 
@@ -98,10 +102,9 @@ You can think of "executor" as a combination of the "flock" and "timelimit" prog
    "``-l``, ``--lock-file=NAME``","Customize the name of the lock file. By default this is the base name of
    the external command, so if you're running something generic like ""bash""
    or ""python"" you might want to change this :-)."
-   "``-v``, ``--verbose``",Make more noise than usual (increase logging verbosity).
-   "``-q``, ``--quiet``",Make less noise than usual (decrease logging verbosity).
-   "``-h``, ``--help``","Show this message and exit.
-   "
+   "``-v``, ``--verbose``",Increase logging verbosity (can be repeated).
+   "``-q``, ``--quiet``",Decrease logging verbosity (can be repeated).
+   "``-h``, ``--help``",Show this message and exit.
 
 .. [[[end]]]
 
