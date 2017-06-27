@@ -244,6 +244,15 @@ class ExecutorTestCase(TestCase):
         assert stdout_value in cmd.decoded_stdout
         assert stderr_value in cmd.decoded_stderr
 
+    def test_output_on_error(self):
+        """Check the combination of output capturing and error handling."""
+        for shell in True, False:
+            cmd = ExternalCommand(MISSING_COMMAND, capture=True, check=False, shell=shell)
+            cmd.start()
+            cmd.wait()
+            assert cmd.returncode == COMMAND_NOT_FOUND_STATUS
+            assert cmd.stdout == ''
+
     def test_merged_streams(self):
         """Make sure standard output/error of external commands can be captured together."""
         stdout_value = 'this goes to standard output'
