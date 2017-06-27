@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 21, 2017
+# Last Change: June 27, 2017
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -413,7 +413,7 @@ class AbstractContext(PropertyManager):
 
         This is the lowercased output of ``lsb_release --short --id``.
         """
-        return self.capture('lsb_release', '--short', '--id').lower()
+        return self.capture('lsb_release', '--short', '--id', check=False, silent=True).lower()
 
     @lazy_property
     def distribution_codename(self):
@@ -422,7 +422,7 @@ class AbstractContext(PropertyManager):
 
         This is the lowercased output of ``lsb_release --short --codename``.
         """
-        return self.capture('lsb_release', '--short', '--codename').lower()
+        return self.capture('lsb_release', '--short', '--codename', check=False, silent=True).lower()
 
     @lazy_property
     def have_ionice(self):
