@@ -1174,6 +1174,8 @@ class ExternalCommand(ControllableProcess):
                 # Translate errno.ENOENT into a CommandNotFound exception.
                 self.error_type = CommandNotFound
                 self.returncode = COMMAND_NOT_FOUND_STATUS
+                self.stdout_stream.finalize(b'')
+                self.stderr_stream.finalize(b'')
                 # Cleanup temporary resources and raise the exception (or not).
                 self.wait()
             else:
