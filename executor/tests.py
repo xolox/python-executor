@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 24, 2017
+# Last Change: June 27, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -61,6 +61,7 @@ from mock import MagicMock
 
 # Modules included in our package.
 from executor import (
+    COMMAND_NOT_FOUND_STATUS,
     DEFAULT_SHELL,
     DEFAULT_WORKING_DIRECTORY,
     CommandNotFound,
@@ -182,6 +183,7 @@ class ExecutorTestCase(TestCase):
             for shell in True, False:
                 cmd = ExternalCommand(MISSING_COMMAND, async=async, shell=shell)
                 self.assertRaises(CommandNotFound, cmd.wait)
+                assert cmd.returncode == COMMAND_NOT_FOUND_STATUS
 
     def test_shell_opt_out(self):
         """Test that callers can always opt out of shell evaluation."""
