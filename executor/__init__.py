@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 21, 2017
+# Last Change: June 27, 2017
 # URL: https://executor.readthedocs.io
 
 """
@@ -1173,6 +1173,7 @@ class ExternalCommand(ControllableProcess):
             if e.errno in COMMAND_NOT_FOUND_CODES:
                 # Translate errno.ENOENT into a CommandNotFound exception.
                 self.error_type = CommandNotFound
+                self.returncode = COMMAND_NOT_FOUND_STATUS
                 # Cleanup temporary resources and raise the exception (or not).
                 self.wait()
             else:
