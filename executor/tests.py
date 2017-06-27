@@ -251,7 +251,7 @@ class ExecutorTestCase(TestCase):
             cmd.start()
             cmd.wait()
             assert cmd.returncode == COMMAND_NOT_FOUND_STATUS
-            assert cmd.stdout == ''
+            assert cmd.stdout == b''
 
     def test_merged_streams(self):
         """Make sure standard output/error of external commands can be captured together."""
