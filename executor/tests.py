@@ -881,14 +881,20 @@ class ExecutorTestCase(TestCase):
     def test_lsb_release_shortcuts(self):
         """Test the ``lsb_release`` shortcuts."""
         try:
-            context = LocalContext()
             # The following tests should pass on my laptops and Travis CI.
+            context = LocalContext()
             assert context.distributor_id == 'ubuntu'
             assert context.distribution_codename in ('precise', 'trusty', 'xenial')
-        except (AssertionError, ExternalCommandFailed):
+        except AssertionError:
             # But I don't want this test to fail on `unexpected'
             # platforms so here's a pragmatic compromise :-).
-            self.skipTest("assuming unsupported platform")
+            return self.skipTest("assuming unsupported platform")
+
+    def test_lsb_release_error_handling(self):
+        """Test that the ``lsb_release`` shortcuts don't raise exceptions on unsupported platforms."""
+        context = LocalContext(environment=dict(PATH=''))
+        assert context.distributor_id == ''
+        assert context.distribution_codename == ''
 
     def test_local_context(self):
         """Test a local command context."""
