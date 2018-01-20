@@ -161,6 +161,24 @@ class ExecutorTestCase(TestCase):
             assert not cmd.is_running, "Child still running despite graceful termination request!"
             assert timer.elapsed_time < 10, "It look too long to terminate the child!"
 
+    def test_iterate_buffered(self):
+        """Make sure we can iterate over a command's buffered output."""
+        cmd = ExternalCommand(
+            'for ((i=0; i<10; i++)); do echo $i; done',
+            capture=True, buffered=True,
+        )
+        for i, line in enumerate(cmd):
+            assert i == int(line)
+
+    def test_iterate_unbuffered(self):
+        """Make sure we can iterate over a command's unbuffered output."""
+        cmd = ExternalCommand(
+            'for ((i=0; i<10; i++)); do echo $i; done',
+            capture=True, buffered=False,
+        )
+        for i, line in enumerate(cmd):
+            assert i == int(line)
+
     def test_program_searching(self):
         """Make sure which() works as expected."""
         assert which('python')

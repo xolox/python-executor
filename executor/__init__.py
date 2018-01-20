@@ -381,6 +381,43 @@ class ExternalCommand(ControllableProcess):
         This enables runtime processing of the standard input, output and error
         streams and makes it possible to run commands that never return but
         keep producing output (for example ``xscreensaver-command -watch``).
+        Here's an example that sets :attr:`buffered` to :data:`False` and uses
+        the magic method :func:`__iter__()` to iterate over the lines of output
+        in realtime:
+
+        .. code-block:: python
+
+           # Run external commands when xscreensaver changes state.
+
+           import os
+           from executor import execute
+
+           known_states = set(['BLANK', 'LOCK', 'UNBLANK'])
+
+           while True:
+               options = dict(async=True, capture=True, buffered=False)
+               with execute('xscreensaver-command', '-watch', **options) as command:
+                   for line in command:
+                       tokens = line.split()
+                       if tokens and tokens[0] in known_states:
+                           value = os.environ.get('XSCREENSAVER_%s_COMMAND' % tokens[0])
+                           if value:
+                               execute(value)
+
+        Some sanity checks and error handling have been omitted from the
+        example above, in order to keep it simple, but I did test it and
+        it should actually work (at least it did for me):
+
+        .. code-block:: sh
+
+           $ export XSCREENSAVER_BLANK_COMMAND='echo $(date) - Screen is now blanked'
+           $ export XSCREENSAVER_LOCK_COMMAND='echo $(date) - Screen is now locked'
+           $ export XSCREENSAVER_UNBLANK_COMMAND='echo $(date) - Screen is now unblanked'
+           $ python xscreensaver-monitor.py
+           Sat Jan 20 16:03:07 CET 2018 - Screen is now blanked
+           Sat Jan 20 16:03:15 CET 2018 - Screen is now unblanked
+           Sat Jan 20 16:03:20 CET 2018 - Screen is now locked
+           Sat Jan 20 16:03:34 CET 2018 - Screen is now unblanked
         """
         return True
 
@@ -797,6 +834,9 @@ class ExternalCommand(ControllableProcess):
         easy to deal with external commands that output a single line) while
         providing an escape hatch when the default assumptions don't hold (you
         can always use :attr:`stdout` to get the raw output).
+
+        See also the :func:`__iter__()` magic method which makes it very easy
+        to iterate over the lines of output produced by the command.
         """
         text_output = self.decoded_stdout
         if text_output is not None:
@@ -1479,6 +1519,56 @@ class ExternalCommand(ControllableProcess):
                 # Check for external command errors only when not already
                 # handling an exception.
                 self.check_errors()
+
+    def __iter__(self):
+        """
+        Iterate over the lines of text in the captured output.
+
+        :returns: An iterator of Unicode strings (:func:`python2:unicode`
+                  objects in Python 2 or :class:`python3:str` objects in
+                  Python 3).
+
+        If :attr:`capture` is :data:`True` this will iterate over the lines in
+        :attr:`stdout`, alternatively if :attr:`capture_stderr` is :data:`True`
+        this will iterate over the lines in :attr:`stderr` instead. In both
+        cases the output will be decoded using :attr:`encoding`.
+
+        If :attr:`buffered` is :data:`True` the captured output will be split
+        into a list of strings which is then iterated. If it is :data:`False`
+        then the following idiom is used to create an iterator instead:
+
+        .. code-block:: python
+
+           iter(handle.readline, b'')
+
+        To understand why this is useful, consider the following:
+
+        - Iteration over file-like objects in Python uses a hidden read-ahead
+          buffer for efficiency. Refer to the :func:`file.next()` documentation
+          for details.
+
+        - Pipes are file-like objects so if you iterate over them but the
+          command doesn't emit a lot of output, the iteration may not produce
+          any lines until the hidden read-ahead buffer is full. This makes
+          realtime processing of command output harder than it should be.
+        """
+        if not self.was_started:
+            if not self.buffered:
+                self.async = True
+            self.start()
+        for is_enabled, value_property in (('capture', 'stdout'), ('capture_stderr', 'stderr')):
+            if getattr(self, is_enabled):
+                stream = getattr(self, value_property)
+                if self.buffered:
+                    text = stream.decode(self.encoding)
+                    return iter(text.splitlines())
+                else:
+                    # For posterity: I've tried codecs.getreader(self.encoding)
+                    # here (because it seemed a more elegant and performant
+                    # solution then decoding per line) but the resulting stream
+                    # is affected by the `hidden read-ahead buffer' problem and
+                    # I found no way to work around that.
+                    return iter(lambda: stream.readline().decode(self.encoding), u'')
 
 
 class CachedStream(object):
