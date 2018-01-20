@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 27, 2017
+# Last Change: January 21, 2018
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -223,9 +223,9 @@ class AbstractContext(PropertyManager):
                   not set in the overrides are set to the value of the
                   initializer argument.
 
-        The :attr:`~ExternalCommand.ionice` option is automatically unset when
-        :attr:`have_ionice` is :data:`False`, regardless of whether the option
-        was set from defaults or overrides.
+        The :attr:`~executor.ExternalCommand.ionice` option is automatically
+        unset when :attr:`have_ionice` is :data:`False`, regardless of whether
+        the option was set from defaults or overrides.
         """
         defaults = self.get_options()
         for name, value in defaults.items():
