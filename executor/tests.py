@@ -340,13 +340,6 @@ class ExecutorTestCase(TestCase):
                 assert len(lines) > 0
                 assert len(lines) < 25
 
-        def expect_most_output():
-            """Expect most but not all output to be readable at some point."""
-            with open(filename) as handle:
-                lines = list(handle)
-                assert len(lines) > 15
-                assert len(lines) < 25
-
         def expect_all_output():
             """Expect all output to be readable at some point."""
             with open(filename) as handle:
@@ -354,8 +347,7 @@ class ExecutorTestCase(TestCase):
                 assert len(lines) == 25
 
         retry(expect_some_output, 10)
-        retry(expect_most_output, 20)
-        retry(expect_all_output, 30)
+        retry(expect_all_output, 20)
 
     def test_asynchronous_unbuffered_output(self):
         """Make sure output buffering to temporary files can be disabled."""
