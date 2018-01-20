@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 27, 2017
+# Last Change: January 21, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -55,7 +55,7 @@ import time
 import uuid
 
 # External dependencies.
-from humanfriendly import Timer, compact, dedent
+from humanfriendly import Timer, compact
 from humanfriendly.testing import TemporaryDirectory, TestCase, retry, run_cli
 from mock import MagicMock
 
@@ -311,7 +311,7 @@ class ExecutorTestCase(TestCase):
         """Make sure the standard streams can be redirected to a file and asynchronously stream output to that file."""
         fd, filename = tempfile.mkstemp(prefix='executor-', suffix='-streaming.txt')
         with open(filename, 'w') as handle:
-            cmd = ExternalCommand('for ((i=0; i<25; i++)); do command echo $i; sleep 0.1; done',
+            cmd = ExternalCommand('for ((i=0; i<25; i++)); do echo $i; sleep 0.1; done',
                                   async=True, stdout_file=handle)
             cmd.start()
 
@@ -339,12 +339,32 @@ class ExecutorTestCase(TestCase):
         retry(expect_most_output, 20)
         retry(expect_all_output, 30)
 
+    def test_asynchronous_unbuffered_output(self):
+        """Make sure output buffering to temporary files can be disabled."""
+        cmd = ExternalCommand(
+            *python_golf('import sys',
+                         'sys.stdout.write(sys.stdin.readline().upper())',
+                         'sys.stdout.flush()',
+                         'sys.stdout.write(sys.stdin.readline().upper())'),
+            async=True, buffered=False, capture=True, input=True
+        )
+        with cmd:
+            # Message the command.
+            first_line = 'Hello world?\n'
+            cmd.stdin.write(first_line.lower().encode('ascii'))
+            # Read and check the response.
+            assert cmd.stdout.readline().decode('ascii') == first_line.upper()
+            # Message the command again.
+            second_line = 'Are you still alive?\n'
+            cmd.stdin.write(second_line.lower().encode('ascii'))
+            assert cmd.stdout.readline().decode('ascii') == second_line.upper()
+
     def test_tty_option(self):
         """Make sure the ``tty`` option works as expected."""
         # By default we expect the external command to inherit our standard
         # input stream (of course this test suite is expected to work
         # regardless of whether it's connected to a terminal).
-        test_stdin_isatty = python_golf('import sys; sys.exit(0 if sys.stdin.isatty() else 1)')
+        test_stdin_isatty = python_golf('import sys', 'sys.exit(0 if sys.stdin.isatty() else 1)')
         assert sys.stdin.isatty() == execute(*test_stdin_isatty, check=False)
         # If the command's output is being captured then its standard
         # input stream should be redirected to /dev/null.
@@ -1016,11 +1036,11 @@ class ExecutorTestCase(TestCase):
 
     def test_cli_return_codes(self):
         """Make sure the command line interface doesn't swallow exit codes."""
-        returncode, output = run_cli(main, *python_golf('import sys; sys.exit(0)'))
+        returncode, output = run_cli(main, *python_golf('import sys', 'sys.exit(0)'))
         assert returncode == 0
-        returncode, output = run_cli(main, *python_golf('import sys; sys.exit(1)'))
+        returncode, output = run_cli(main, *python_golf('import sys', 'sys.exit(1)'))
         assert returncode == 1
-        returncode, output = run_cli(main, *python_golf('import sys; sys.exit(42)'))
+        returncode, output = run_cli(main, *python_golf('import sys', 'sys.exit(42)'))
         assert returncode == 42
 
     def test_cli_fudge_factor(self, fudge_factor=5):
@@ -1030,7 +1050,7 @@ class ExecutorTestCase(TestCase):
             returncode, output = run_cli(
                 main,
                 '--fudge-factor=%i' % fudge_factor,
-                *python_golf('import sys; sys.exit(0)')
+                *python_golf('import sys', 'sys.exit(0)')
             )
             assert returncode == 0
             assert timer.elapsed_time > (fudge_factor / 2.0)
@@ -1041,7 +1061,7 @@ class ExecutorTestCase(TestCase):
         returncode, output = run_cli(
             main,
             '--exclusive',
-            *python_golf('import sys; sys.exit(0)')
+            *python_golf('import sys', 'sys.exit(0)')
         )
         assert returncode == 0
 
@@ -1051,7 +1071,7 @@ class ExecutorTestCase(TestCase):
             timer = Timer()
             returncode, output = run_cli(
                 main, '--timeout=5',
-                *python_golf('import time; time.sleep(10)')
+                *python_golf('import time', 'time.sleep(10)')
             )
             assert returncode != 0
             assert timer.elapsed_time < 10
@@ -1073,9 +1093,9 @@ def tokenize_command_line(cmd):
     return sum(map(shlex.split, cmd.command_line), [])
 
 
-def python_golf(statements):
+def python_golf(*statements):
     """Generate a Python command line."""
-    return sys.executable, '-c', dedent(statements)
+    return sys.executable, '-c', '; '.join(statements)
 
 
 class NonGracefulCommand(ExternalCommand):

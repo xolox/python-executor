@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 28, 2017
+# Last Change: January 21, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -346,6 +346,44 @@ class ExternalCommand(ControllableProcess):
         """
         return False
 
+    @mutable_property
+    def buffer_size(self):
+        """
+        Control the size of the stdin/stdout/stderr pipe buffers.
+
+        The value of :attr:`buffer_size` becomes the `bufsize` argument
+        that's passed to :class:`subprocess.Popen` by :func:`start()`.
+
+        If :data:`async` is :data:`True` and :attr:`buffered` is :data:`False`
+        the value of :attr:`buffer_size` defaults to 0 which means unbuffered,
+        in all other cases its value defaults to -1 which means to use the
+        system default buffer size.
+        """
+        return 0 if self.async and not self.buffered else -1
+
+    @mutable_property
+    def buffered(self):
+        """
+        Control whether command output is buffered to temporary files.
+
+        When :attr:`async` is :data:`True` and the standard output and/or error
+        streams are being captured, temporary files will be used to collect the
+        output. This enables the use of the :attr:`output`, :attr:`stdout` and
+        :attr:`stderr` properties to easily get the full output of the command
+        in a single string.
+
+        You can set :data:`buffered` to :data:`False` to disable the use of
+        temporary files, in this case :data:`subprocess.PIPE` is passed to
+        :class:`subprocess.Popen`. Once :attr:`is_running` is :data:`True` you
+        can use the :attr:`stdin`, :attr:`stdout` and/or :attr:`stderr`
+        properties to communicate with the command.
+
+        This enables runtime processing of the standard input, output and error
+        streams and makes it possible to run commands that never return but
+        keep producing output (for example ``xscreensaver-command -watch``).
+        """
+        return True
+
     @writable_property
     def callback(self):
         """
@@ -649,14 +687,18 @@ class ExternalCommand(ControllableProcess):
         """
         The input to feed to the external command on the standard input stream.
 
-        Defaults to :data:`None`. When you provide a :func:`python2:unicode`
-        object (in Python 2) or a :class:`python3:str` object (in Python 3) as
-        input it will be encoded using :attr:`encoding`. To avoid the automatic
-        conversion you can simply pass a :class:`python2:str` object (in Python
-        2) or a :class:`python3:bytes` object (in Python 3).
+        When you provide a :func:`python2:unicode` object (in Python 2) or a
+        :class:`python3:str` object (in Python 3) as input it will be encoded
+        using :attr:`encoding`. To avoid the automatic conversion you can
+        simply pass a :class:`python2:str` object (in Python 2) or a
+        :class:`python3:bytes` object (in Python 3). This conversion logic is
+        implemented in the :attr:`encoded_input` attribute.
 
-        The conversion logic is implemented in the :attr:`encoded_input`
-        attribute.
+        When :attr:`input` is set to :data:`True` a pipe will be created to
+        communicate with the external command in real time. See also the
+        :attr:`buffered` and :attr:`stdin` properties.
+
+        Defaults to :data:`None`.
         """
 
     @mutable_property
@@ -835,16 +877,24 @@ class ExternalCommand(ControllableProcess):
     @property
     def stderr(self):
         """
-        The output of the external command on its standard error stream.
+        The standard error stream of the external command.
 
-        This is a :class:`python2:str` object (in Python 2) or a
-        :class:`python3:bytes` object (in Python 3).
-
-        This is only available when :attr:`capture_stderr` is :data:`True`. If
-        :attr:`capture_stderr` is not :data:`True` then :attr:`stderr` will be
+        This property is only available when :attr:`capture_stderr` is
+        :data:`True`. In all other cases the value of :attr:`stderr` will be
         :data:`None`.
+
+        When :attr:`buffered` is :data:`True` (the default) this is a
+        :class:`python2:str` object (in Python 2) or a :class:`python3:bytes`
+        object (in Python 3).
+
+        If you set :attr:`buffered` to :data:`False` then :attr:`stderr` will
+        be a pipe that's connected to the standard error stream of the command
+        (for as long as :attr:`is_running` is :data:`True`).
         """
-        return self.stderr_stream.load()
+        if self.buffered:
+            return self.stderr_stream.load()
+        elif self.subprocess is not None:
+            return self.subprocess.stderr
 
     @mutable_property
     def stderr_file(self):
@@ -872,18 +922,40 @@ class ExternalCommand(ControllableProcess):
         """
 
     @property
+    def stdin(self):
+        """
+        The standard input stream of the external command.
+
+        If you set :attr:`input` to :data:`True` and :attr:`buffered` to
+        :data:`False` then :attr:`stdin` will be a pipe that's connected to the
+        standard input stream of the command (for as long as :attr:`is_running`
+        is :data:`True`).
+
+        In all other cases the value of :attr:`stdin` will be :data:`None`.
+        """
+        if self.input is True and self.buffered is False and self.subprocess is not None:
+            return self.subprocess.stdin
+
+    @property
     def stdout(self):
         """
-        The output of the external command on its standard output stream.
+        The standard output stream of the external command.
 
-        This is a :class:`python2:str` object (in Python 2) or a
-        :class:`python3:bytes` object (in Python 3).
+        This property is only available when :attr:`capture` is :data:`True`.
+        In all other cases the value of :attr:`stdout` will be :data:`None`.
 
-        This is only available when :attr:`capture` is :data:`True`. If
-        :attr:`capture` is not :data:`True` then :attr:`stdout` will be
-        :data:`None`.
+        When :attr:`buffered` is :data:`True` (the default) this is a
+        :class:`python2:str` object (in Python 2) or a :class:`python3:bytes`
+        object (in Python 3).
+
+        If you set :attr:`buffered` to :data:`False` then :attr:`stdout` will
+        be a pipe that's connected to the standard output stream of the command
+        (for as long as :attr:`is_running` is :data:`True`).
         """
-        return self.stdout_stream.load()
+        if self.buffered:
+            return self.stdout_stream.load()
+        elif self.subprocess is not None:
+            return self.subprocess.stdout
 
     @mutable_property
     def stdout_file(self):
@@ -1147,6 +1219,7 @@ class ExternalCommand(ControllableProcess):
             """))
         # Prepare the keyword arguments to subprocess.Popen().
         kw = dict(args=self.command_line,
+                  bufsize=self.buffer_size,
                   cwd=self.directory,
                   env=os.environ.copy())
         kw['env'].update(self.environment)
@@ -1446,7 +1519,7 @@ class CachedStream(object):
                   :class:`subprocess.Popen` as the ``stdin`` argument.
         """
         if self.command.input is not None:
-            if self.command.async:
+            if self.command.async and self.command.input is not True:
                 # Store the input provided by the caller in a temporary file
                 # and connect the file to the command's standard input stream.
                 self.prepare_temporary_file()
@@ -1481,7 +1554,7 @@ class CachedStream(object):
             self.redirect(file)
             return self.fd
         elif capture:
-            if self.command.async:
+            if self.command.async and self.command.buffered:
                 # Capture the stream to a temporary file.
                 self.prepare_temporary_file()
                 return self.fd
