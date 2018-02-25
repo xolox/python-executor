@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 21, 2018
+# Last Change: February 25, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -191,10 +191,12 @@ class ExecutorTestCase(TestCase):
         # Make sure execute('false') raises an exception.
         self.assertRaises(ExternalCommandFailed, execute, 'false')
         # Make sure execute('exit 42') raises an exception.
-        e = self.assertRaises(ExternalCommandFailed, execute, 'exit 42')
+        shell_cmd = 'echo -n what; echo -n ever; exit 42'
+        e = self.assertRaises(ExternalCommandFailed, execute, shell_cmd, silent=True)
         # Make sure the exception has the expected properties.
-        self.assertEqual(e.command.command_line, ['bash', '-c', 'exit 42'])
+        self.assertEqual(e.command.command_line, ['bash', '-c', shell_cmd])
         self.assertEqual(e.returncode, 42)
+        self.assertTrue('whatever' in e.error_message)
         # Make sure the CommandNotFound exception is raised consistently
         # regardless of the values of the `shell' and `async' options.
         for async in True, False:

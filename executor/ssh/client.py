@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 10, 2017
+# Last Change: February 25, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -21,7 +21,7 @@ import logging
 import os
 
 # External dependencies.
-from humanfriendly import Timer, concatenate, format, pluralize
+from humanfriendly import Timer, concatenate, pluralize
 from property_manager import (
     PropertyManager,
     mutable_property,
@@ -422,15 +422,15 @@ class RemoteCommand(RemoteAccount, ExternalCommand):
     @mutable_property
     def error_message(self):
         """A user friendly explanation of how the remote command failed (a string or :data:`None`)."""
-        if self.error_type is RemoteConnectFailed:
-            return format("SSH connection to %s failed! (SSH command: %s)",
-                          self.ssh_alias, quote(self.command_line))
-        elif self.error_type is RemoteCommandNotFound:
-            return format("External command on %s isn't available! (SSH command: %s)",
-                          self.ssh_alias, quote(self.command_line))
-        elif self.error_type is RemoteCommandFailed:
-            return format("External command on %s failed with exit code %s! (SSH command: %s)",
-                          self.ssh_alias, self.returncode, quote(self.command_line))
+        messages = {
+            RemoteCommandFailed: "External command on {a} failed with exit code {n}!",
+            RemoteCommandNotFound: "External command on {a} isn't available!",
+            RemoteConnectFailed: "SSH connection to {a} failed!",
+        }
+        if self.error_type in messages:
+            return self.format_error_message("\n\n".join([
+                messages[self.error_type], "SSH command:\n{c}",
+            ]), a=self.ssh_alias, n=self.returncode, c=quote(self.command_line))
 
     @mutable_property
     def error_type(self):

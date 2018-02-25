@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 21, 2018
+# Last Change: February 25, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -45,6 +45,7 @@ import errno
 import logging
 import os
 import pipes
+import pprint
 import shlex
 import signal
 import subprocess
@@ -234,10 +235,11 @@ class ExternalCommand(ControllableProcess):
      :attr:`capture_stderr`, :attr:`check`, :attr:`directory`,
      :attr:`encoding`, :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
      :attr:`ionice`, :attr:`~executor.process.ControllableProcess.logger`,
-     :attr:`merge_streams`, :attr:`shell`, :attr:`silent`, :attr:`stdout_file`,
-     :attr:`stderr_file`, :attr:`uid`, :attr:`user`, :attr:`sudo` and
-     :attr:`virtual_environment` properties allow you to configure how the
-     external command will be run (before it is started).
+     :attr:`merge_streams`, :attr:`really_silent`, :attr:`shell`,
+     :attr:`silent`, :attr:`stdout_file`, :attr:`stderr_file`, :attr:`uid`,
+     :attr:`user`, :attr:`sudo` and :attr:`virtual_environment` properties
+     allow you to configure how the external command will be run (before it is
+     started).
 
     **Computed properties**
      The :attr:`command`, :attr:`command_line`, :attr:`decoded_stderr`,
@@ -260,8 +262,9 @@ class ExternalCommand(ControllableProcess):
      too long.
 
     **Internal methods**
-     The internal methods :func:`check_errors()`, :func:`load_output()` and
-     :func:`cleanup()` are used by methods like :func:`start()`,
+     The internal methods :func:`check_errors()`, :func:`cleanup()`,
+     :func:`format_error_message()`, :func:`get_decoded_output()` and
+     :func:`load_output()` are used by methods like :func:`start()`,
      :func:`wait()`, :func:`~executor.process.ControllableProcess.terminate()`
      and :func:`~executor.process.ControllableProcess.kill()` so unless you're
      reimplementing one of those methods you probably don't need these internal
@@ -295,11 +298,12 @@ class ExternalCommand(ControllableProcess):
                         :attr:`directory`, :attr:`encoding`,
                         :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
                         :attr:`~executor.process.ControllableProcess.logger`,
-                        :attr:`merge_streams`, :attr:`shell`, :attr:`silent`,
-                        :attr:`stdout_file`, :attr:`stderr_file`, :attr:`uid`,
-                        :attr:`user`, :attr:`sudo` and
-                        :attr:`virtual_environment`. Any other keyword argument
-                        will raise :exc:`TypeError` as usual.
+                        :attr:`merge_streams`, :attr:`really_silent`,
+                        :attr:`shell`, :attr:`silent`, :attr:`stdout_file`,
+                        :attr:`stderr_file`, :attr:`uid`, :attr:`user`,
+                        :attr:`sudo` and :attr:`virtual_environment`. Keyword
+                        argument that are not supported will raise
+                        :exc:`TypeError` as usual.
 
         The external command is not started until you call :func:`start()` or
         :func:`wait()`.
@@ -628,11 +632,16 @@ class ExternalCommand(ControllableProcess):
     def error_message(self):
         """A string describing how the external command failed or :data:`None`."""
         if self.error_type is CommandNotFound:
-            return format("External command isn't available! (command: %s, search path: %s)",
-                          quote(self.command_line), get_search_path())
+            return self.format_error_message("\n\n".join([
+                "External command isn't available!",
+                "Command:\n%s" % quote(self.command_line),
+                "Search path:\n%s" % pprint.pformat(get_search_path()),
+            ]))
         elif self.error_type is ExternalCommandFailed:
-            return format("External command failed with exit code %s! (command: %s)",
-                          self.returncode, quote(self.command_line))
+            return self.format_error_message("\n\n".join([
+                "External command failed with exit code %s!" % self.returncode,
+                "Command:\n%s" % quote(self.command_line),
+            ]))
 
     @mutable_property
     def error_type(self):
@@ -843,6 +852,44 @@ class ExternalCommand(ControllableProcess):
             stripped_output = text_output.strip()
             return stripped_output if '\n' not in stripped_output else text_output
 
+    @mutable_property
+    def really_silent(self):
+        """
+        Whether output is really silenced or actually captured (a boolean).
+
+        When the :attr:`silent` option was originally added to executor it was
+        implemented by redirecting the output streams to :data:`os.devnull`,
+        similar to how ``command &> /dev/null` works in Bash.
+
+        Since I made that decision I've regretted it many times because I ran
+        into situations where :attr:`check` and :attr:`silent` were both set
+        and :exc:`ExternalCommandFailed` was raised but I had no way to
+        determine what had gone wrong.
+
+        This is why the :attr:`really_silent` property was introduced:
+
+        - When :attr:`silent` is :data:`True` and :attr:`check` is
+          :data:`False` the value of :attr:`really_silent` will be
+          :data:`True`, otherwise it is :data:`False`.
+
+        - When :attr:`really_silent` is :data:`False` (because :attr:`check` is
+          :data:`True`) the :attr:`silent` property effectively becomes an
+          alias for :attr:`capture` and :attr:`capture_stderr` which means the
+          output on both streams is captured instead of discarded.
+
+        - Because output is captured instead of discarded the output of
+          failing commands can be reported by :exc:`ExternalCommandFailed`
+          (which is raised because :attr:`check` is :data:`True`).
+
+        This change was made after much consideration because it is backwards
+        incompatible and not only in a theoretical sense: Imagine a daemon
+        process spewing megabytes of log output on its standard error stream.
+
+        As an escape hatch to restore backwards compatibility you can set
+        :attr:`really_silent` to :data:`True` to override the computed value.
+        """
+        return self.silent and not self.check
+
     @property
     def result(self):
         """
@@ -889,11 +936,12 @@ class ExternalCommand(ControllableProcess):
     @mutable_property
     def silent(self):
         """
-        Whether the external command's output should be silenced.
+        Whether the external command's output should be silenced (a boolean).
 
         If this is :data:`True` (not the default) any output of the external
         command is silenced by redirecting the output streams to
-        :data:`os.devnull`.
+        :data:`os.devnull` (if :attr:`really_silent` is :data:`True`) or by
+        capturing the output (if :attr:`really_silent` is :data:`False`).
 
         You can enable :attr:`capture` and :attr:`silent` together to capture
         the standard output stream while silencing the standard error stream.
@@ -1179,6 +1227,42 @@ class ExternalCommand(ControllableProcess):
         called yet.
         """
         return False
+
+    def format_error_message(self, message, *args, **kw):
+        """
+        Add the command's captured standard output and/or error to an error message.
+
+        Refer to :func:`~humanfriendly.text.compact()` for details on argument
+        handling. The :func:`get_decoded_output()` method is used to try to
+        decode the output without raising exceptions.
+        """
+        message = format(message, *args, **kw)
+        if self.buffered:
+            stdout = self.get_decoded_output('stdout')
+            stderr = self.get_decoded_output('stderr')
+            if stdout and self.merge_streams:
+                message += format("\n\nStandard output / error (merged):\n%s", stdout)
+            elif stdout:
+                message += format("\n\nStandard output:\n%s", stdout)
+            if stderr and not self.merge_streams:
+                message += format("\n\nStandard error:\n%s", stderr)
+        return message
+
+    def get_decoded_output(self, name):
+        """
+        Try to decode the output captured on standard output or error.
+
+        :param name: One of the strings 'stdout' or 'stderr'.
+        :returns: A Unicode string, byte string or :data:`None`.
+        """
+        value = getattr(self, name)
+        if value:
+            try:
+                value = value.decode(self.encoding)
+                value = value.strip()
+            except Exception:
+                pass
+        return value
 
     def prefix_shell_command(self, preamble, command):
         """
@@ -1643,7 +1727,7 @@ class CachedStream(object):
             # Capture the stream to a user defined file.
             self.redirect(file)
             return self.fd
-        elif capture:
+        elif capture or (self.command.silent and not self.command.really_silent):
             if self.command.async and self.command.buffered:
                 # Capture the stream to a temporary file.
                 self.prepare_temporary_file()
@@ -1651,7 +1735,7 @@ class CachedStream(object):
             else:
                 # Capture the stream in memory.
                 return subprocess.PIPE
-        elif self.command.silent:
+        elif self.command.really_silent:
             # Silence the stream by redirecting it to /dev/null.
             if self.null_device is None:
                 self.null_device = open(os.devnull, 'wb')
