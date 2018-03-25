@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: January 21, 2018
+# Last Change: March 25, 2018
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -479,6 +479,18 @@ class AbstractContext(PropertyManager):
         This is a shortcut for the ``test -d ...`` command.
         """
         return self.test('test', '-d', pathname)
+
+    def is_executable(self, pathname):
+        """
+        Check whether the given pathname points to an executable file.
+
+        :param pathname: The pathname to check (a string).
+        :returns: :data:`True` if the pathname points to an executable file,
+                  :data:`False` otherwise.
+
+        This is a shortcut for the ``test -x ...`` command.
+        """
+        return self.test('test', '-x', pathname)
 
     def is_readable(self, pathname):
         """

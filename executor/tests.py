@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: February 25, 2018
+# Last Change: March 25, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -965,6 +965,12 @@ class ExecutorTestCase(TestCase):
             # Make sure the file is readable and writable.
             assert context.is_readable(random_file)
             assert context.is_writable(random_file)
+            # Make sure the file isn't executable.
+            context.execute('chmod', '-x', random_file)
+            assert not context.is_executable(random_file)
+            # Make sure we can make the file executable.
+            context.execute('chmod', '+x', random_file)
+            assert context.is_executable(random_file)
             # Schedule to clean up the file.
             context.cleanup('rm', '-f', random_file)
             # Make sure the file hasn't actually been removed yet.
