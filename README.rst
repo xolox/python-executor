@@ -221,9 +221,9 @@ Contact
 -------
 
 The latest version of `executor` is available on PyPI_ and GitHub_. The
-documentation is hosted on `Read the Docs`_. For bug reports please create an
-issue on GitHub_. If you have questions, suggestions, etc. feel free to send me
-an e-mail at `peter@peterodding.com`_.
+documentation is hosted on `Read the Docs`_ and includes a changelog_. For bug
+reports please create an issue on GitHub_. If you have questions, suggestions,
+etc. feel free to send me an e-mail at `peter@peterodding.com`_.
 
 License
 -------
@@ -233,19 +233,20 @@ This software is licensed under the `MIT license`_.
 © 2018 Peter Odding.
 
 .. External references:
+.. _changelog: https://executor.readthedocs.io/en/latest/changelog.html
 .. _chroots: http://en.wikipedia.org/wiki/Chroot
-.. _CommandPool: https://executor.readthedocs.io/en/latest/#executor.concurrent.CommandPool
+.. _CommandPool: https://executor.readthedocs.io/en/latest/api.html#executor.concurrent.CommandPool
 .. _documentation: https://executor.readthedocs.io
-.. _execute(): http://executor.readthedocs.io/en/latest/#executor.execute
-.. _ExternalCommandFailed: http://executor.readthedocs.io/en/latest/#executor.ExternalCommandFailed
-.. _foreach(): https://executor.readthedocs.io/en/latest/#executor.ssh.client.foreach
+.. _execute(): http://executor.readthedocs.io/en/latest/api.html#executor.execute
+.. _ExternalCommandFailed: http://executor.readthedocs.io/en/latest/api.html#executor.ExternalCommandFailed
+.. _foreach(): https://executor.readthedocs.io/en/latest/api.html#executor.ssh.client.foreach
 .. _GitHub: https://github.com/xolox/python-executor
 .. _MIT license: http://en.wikipedia.org/wiki/MIT_License
 .. _per user site-packages directory: https://www.python.org/dev/peps/pep-0370/
 .. _peter@peterodding.com: peter@peterodding.com
 .. _PyPI: https://pypi.python.org/pypi/executor
-.. _Read the Docs: https://executor.readthedocs.io/en/latest/#api-documentation
-.. _RemoteCommand: https://executor.readthedocs.io/en/latest/#executor.ssh.client.RemoteCommand
+.. _Read the Docs: https://executor.readthedocs.io/en/latest/api.html#api-documentation
+.. _RemoteCommand: https://executor.readthedocs.io/en/latest/api.html#executor.ssh.client.RemoteCommand
 .. _schroot: https://wiki.debian.org/Schroot
 .. _SSH: https://en.wikipedia.org/wiki/Secure_Shell
 .. _subprocess: https://docs.python.org/2/library/subprocess.html

@@ -1,64 +1,33 @@
-.. include:: ../README.rst
+executor: Programmer friendly subprocess wrapper
+================================================
 
-API documentation
-=================
-
-The following documentation is based on the source code of version |release| of
-the `executor` package. The following modules are available:
+Welcome to the documentation of `executor` version |release|!
+The following sections are available:
 
 .. contents::
    :local:
 
-The :mod:`executor` module
---------------------------
+User documentation
+------------------
 
-.. automodule:: executor
-   :members:
+The readme is the best place to start reading, it's targeted at all users and
+documents the command line interface:
 
-The :mod:`executor.chroot` module
----------------------------------
+.. toctree::
+   readme.rst
 
-.. automodule:: executor.chroot
-   :members:
+API documentation
+-----------------
 
-The :mod:`executor.cli` module
-------------------------------
+The following API documentation is automatically generated from the source code:
 
-.. automodule:: executor.cli
-   :members:
+.. toctree::
+   api.rst
 
-The :mod:`executor.concurrent` module
--------------------------------------
+Change log
+----------
 
-.. automodule:: executor.concurrent
-   :members:
+The change log lists notable changes to the project:
 
-The :mod:`executor.contexts` module
------------------------------------
-
-.. automodule:: executor.contexts
-   :members:
-
-The :mod:`executor.process` module
-----------------------------------
-
-.. automodule:: executor.process
-   :members:
-
-The :mod:`executor.schroot` module
-----------------------------------
-
-.. automodule:: executor.schroot
-   :members:
-
-The :mod:`executor.ssh.client` module
--------------------------------------
-
-.. automodule:: executor.ssh.client
-   :members:
-
-The :mod:`executor.ssh.server` module
--------------------------------------
-
-.. automodule:: executor.ssh.server
-   :members:
+.. toctree::
+   changelog.rst
