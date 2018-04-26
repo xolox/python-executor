@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 8, 2017
+# Last Change: April 26, 2018
 # URL: https://executor.readthedocs.io
 
 """Setup script for the `executor` package."""
@@ -60,6 +60,7 @@ setup(name='executor',
       url='https://executor.readthedocs.io',
       author='Peter Odding',
       author_email='peter@peterodding.com',
+      license='MIT',
       packages=find_packages(),
       entry_points=dict(console_scripts=[
           'executor = executor.cli:main',
