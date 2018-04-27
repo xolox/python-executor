@@ -66,6 +66,7 @@ integration tools developed using Python:
 
 # Standard library modules.
 import contextlib
+import glob
 import logging
 import multiprocessing
 import os
@@ -73,6 +74,7 @@ import random
 import socket
 
 # External dependencies.
+from humanfriendly.text import dedent, split
 from property_manager import (
     PropertyManager,
     lazy_property,
@@ -422,6 +424,43 @@ class AbstractContext(PropertyManager):
         """
         return self.options
 
+    def glob(self, pattern):
+        """
+        Find matches for a given filename pattern.
+
+        :param pattern: A filename pattern (a string).
+        :returns: A list of strings with matches.
+
+        Some implementation notes:
+
+        - This method *emulates* filename globbing as supported by system
+          shells like Bash and ZSH. It works by forking a Python interpreter
+          and using that to call the :mod:`glob.glob()` function. This approach
+          is of course rather heavyweight.
+
+        - Initially this method used Bash for filename matching (similar to
+          `this StackOverflow answer <https://unix.stackexchange.com/a/34012/44309>`_)
+          but I found it impossible to make this work well for patterns
+          containing whitespace.
+
+        - I took the whitespace issue as a sign that I was heading down the
+          wrong path (trying to add robustness to a fragile solution) and so
+          the new implementation was born (which prioritizes robustness over
+          performance).
+        """
+        listing = self.capture(
+            'python',
+            input=dedent(
+                r'''
+                import glob
+                matches = glob.glob({pattern})
+                print('\x00'.join(matches))
+                ''',
+                pattern=repr(pattern),
+            ),
+        )
+        return split(listing, '\x00')
+
     def is_directory(self, pathname):
         """
         Check whether the given pathname points to an existing directory.
@@ -672,6 +711,27 @@ class LocalContext(AbstractContext):
         This property's value is computed using :func:`multiprocessing.cpu_count()`.
         """
         return multiprocessing.cpu_count()
+
+    def glob(self, pattern):
+        """
+        Find matches for a given filename pattern.
+
+        :param pattern: A filename pattern (a string).
+        :returns: A list of strings with matches.
+
+        This method overrides :func:`AbstractContext.glob()` to call
+        :func:`glob.glob()` directly instead of forking a new Python
+        interpreter.
+
+        This optimization is skipped when :attr:`~AbstractContext.options`
+        contains :func:`~ExternalCommand.sudo`, :func:`~ExternalCommand.uid` or
+        :func:`~ExternalCommand.user` to avoid reporting wrong matches due to
+        insufficient filesystem permissions.
+        """
+        if any(map(self.options.get, ('sudo', 'uid', 'user'))):
+            return super(LocalContext, self).glob(pattern)
+        else:
+            return glob.glob(pattern)
 
     def __str__(self):
         """Render a human friendly string representation of the context."""
