@@ -127,14 +127,7 @@ def create_context(**options):
 
 class AbstractContext(PropertyManager):
 
-    """
-    Abstract base class for shared logic of all context classes.
-
-    The most useful methods of this class are :func:`execute()`,
-    :func:`test()`, :func:`capture()`, :func:`cleanup()`,
-    :func:`start_interactive_shell()`, :func:`read_file()` and
-    :func:`write_file()`.
-    """
+    """Abstract base class for shared logic of all context classes."""
 
     def __init__(self, *args, **options):
         """
@@ -691,12 +684,7 @@ class AbstractContext(PropertyManager):
 
 class LocalContext(AbstractContext):
 
-    """
-    Context for executing commands on the local system.
-
-    Please refer to the base class :class:`AbstractContext` for details about
-    initialization of :class:`LocalContext` objects.
-    """
+    """Context for executing commands on the local system."""
 
     @property
     def command_type(self):
@@ -852,13 +840,7 @@ class SecureChangeRootContext(AbstractContext):
 
 class RemoteContext(RemoteAccount, AbstractContext):
 
-    """
-    Context for executing commands on a remote system over SSH.
-
-    Please refer to the base classes :class:`.RemoteAccount` and
-    :class:`AbstractContext` for details about initialization of
-    :class:`RemoteContext` objects.
-    """
+    """Context for executing commands on a remote system over SSH."""
 
     @property
     def command_type(self):

@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 25, 2018
+# Last Change: April 27, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -221,54 +221,11 @@ class ExternalCommand(ControllableProcess):
     features (e.g. asynchronous command execution that preserves the ability to
     provide input and capture output).
 
-    :class:`ExternalCommand` inherits from :class:`~executor.process.ControllableProcess`
-    which means that all of the process manipulation supported by
-    :class:`~executor.process.ControllableProcess` is also supported by
-    :class:`ExternalCommand` objects.
-
-    Because the :class:`ExternalCommand` class has a lot of properties and
-    methods here is an attempt to summarize them (this overview will no doubt
-    become out of date):
-
-    **Writable properties**
-     The :attr:`async`, :attr:`callback`, :attr:`capture`,
-     :attr:`capture_stderr`, :attr:`check`, :attr:`directory`,
-     :attr:`encoding`, :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
-     :attr:`ionice`, :attr:`~executor.process.ControllableProcess.logger`,
-     :attr:`merge_streams`, :attr:`really_silent`, :attr:`shell`,
-     :attr:`silent`, :attr:`stdout_file`, :attr:`stderr_file`, :attr:`uid`,
-     :attr:`user`, :attr:`sudo` and :attr:`virtual_environment` properties
-     allow you to configure how the external command will be run (before it is
-     started).
-
-    **Computed properties**
-     The :attr:`command`, :attr:`command_line`, :attr:`decoded_stderr`,
-     :attr:`decoded_stdout`, :attr:`encoded_input`, :attr:`error_message`,
-     :attr:`error_type`, :attr:`failed`, :attr:`have_superuser_privileges`,
-     :attr:`ionice_command`, :attr:`is_finished`,
-     :attr:`~executor.process.ControllableProcess.is_running`,
-     :attr:`is_terminated`, :attr:`output`,
-     :attr:`~executor.process.ControllableProcess.pid`, :attr:`result`,
-     :attr:`returncode`, :attr:`stderr`, :attr:`stdout`, :attr:`succeeded`,
-     :attr:`sudo_command` and :attr:`was_started` properties allow you to
-     inspect if and how the external command was started, what its current
-     status is and what its output is.
-
-    **Public methods**
-     The public methods :func:`start()`, :func:`wait()`,
-     :func:`~executor.process.ControllableProcess.terminate()` and
-     :func:`~executor.process.ControllableProcess.kill()` enable you to start
-     external commands, wait for them to finish and terminate them if they take
-     too long.
-
-    **Internal methods**
-     The internal methods :func:`check_errors()`, :func:`cleanup()`,
-     :func:`format_error_message()`, :func:`get_decoded_output()` and
-     :func:`load_output()` are used by methods like :func:`start()`,
-     :func:`wait()`, :func:`~executor.process.ControllableProcess.terminate()`
-     and :func:`~executor.process.ControllableProcess.kill()` so unless you're
-     reimplementing one of those methods you probably don't need these internal
-     methods.
+    **Process manipulation**
+     :class:`ExternalCommand` inherits from :class:`~executor.process.ControllableProcess`
+     which means that all of the process manipulation supported by
+     :class:`~executor.process.ControllableProcess` is also supported by
+     :class:`ExternalCommand` objects.
 
     **Context manager**
       :class:`ExternalCommand` objects can be used as context managers by using

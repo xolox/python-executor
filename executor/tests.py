@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 25, 2018
+# Last Change: April 27, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -975,6 +975,9 @@ class ExecutorTestCase(TestCase):
             context.cleanup('rm', '-f', random_file)
             # Make sure the file hasn't actually been removed yet.
             assert context.exists(random_file)
+            # Find the file using a filename pattern.
+            matches = context.glob(os.path.join(self.sudo_enabled_directory, '*'))
+            assert random_file in matches
             # The following tests only make sense when we're not already
             # running with superuser privileges.
             if os.getuid() != 0:
