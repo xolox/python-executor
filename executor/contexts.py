@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 25, 2018
+# Last Change: April 27, 2018
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -170,6 +170,44 @@ class AbstractContext(PropertyManager):
     def command_type(self):
         """The type of command objects created by this context (:class:`.ExternalCommand` or a subclass)."""
 
+    @property
+    def cpu_count(self):
+        """
+        The number of CPUs in the system (an integer).
+
+        .. note:: This is an abstract property that must be implemented by subclasses.
+        """
+        raise NotImplementedError()
+
+    @lazy_property
+    def distribution_codename(self):
+        """
+        The code name of the system's distribution (a lowercased string like ``precise`` or ``trusty``).
+
+        This is the lowercased output of ``lsb_release --short --codename``.
+        """
+        return self.capture('lsb_release', '--short', '--codename', check=False, silent=True).lower()
+
+    @lazy_property
+    def distributor_id(self):
+        """
+        The distributor ID of the system (a lowercased string like ``debian`` or ``ubuntu``).
+
+        This is the lowercased output of ``lsb_release --short --id``.
+        """
+        return self.capture('lsb_release', '--short', '--id', check=False, silent=True).lower()
+
+    @lazy_property
+    def have_ionice(self):
+        """:data:`True` when ionice_ is installed, :data:`False` otherwise."""
+        return bool(self.find_program('ionice'))
+
+    @property
+    def have_superuser_privileges(self):
+        """:data:`True` if the context has superuser privileges, :data:`False` otherwise."""
+        prototype = self.prepare('true')
+        return prototype.have_superuser_privileges or prototype.sudo
+
     @writable_property
     def options(self):
         """The options that are passed to commands created by the context (a dictionary)."""
@@ -200,136 +238,51 @@ class AbstractContext(PropertyManager):
                      :attr:`command_type` instead of the expected type.
         """
 
-    def get_options(self):
+    def __enter__(self):
+        """Initialize a new "undo stack" (refer to :func:`cleanup()`)."""
+        self.undo_stack.append([])
+        return self
+
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """Execute any commands on the "undo stack" (refer to :func:`cleanup()`)."""
+        old_scope = self.undo_stack.pop()
+        while old_scope:
+            args, kw = old_scope.pop()
+            if args and callable(args[0]):
+                args = list(args)
+                function = args.pop(0)
+                function(*args, **kw)
+            else:
+                self.execute(*args, **kw)
+
+    @contextlib.contextmanager
+    def atomic_write(self, filename):
         """
-        Get the options that are passed to commands created by the context.
+        Create or update the contents of a file atomically.
 
-        :returns: A dictionary of command options.
+        :param filename: The pathname of the file to create/update (a string).
+        :returns: A context manager (see the :keyword:`with` keyword) that
+                  returns a single string which is the pathname of the
+                  temporary file where the contents should be written to
+                  initially.
 
-        By default this method simply returns the :attr:`options` dictionary,
-        however the purpose of :func:`get_options()` is to enable subclasses to
-        customize the options passed to commands on the fly.
+        If an exception is raised from the :keyword:`with` block and the
+        temporary file exists, an attempt will be made to remove it but failure
+        to do so will be silenced instead of propagated (to avoid obscuring the
+        original exception).
+
+        The temporary file is created in the same directory as the real file,
+        but a dot is prefixed to the name (making it a hidden file) and the
+        suffix '.tmp-' followed by a random integer number is used.
         """
-        return self.options
-
-    def merge_options(self, overrides):
-        """
-        Merge default options and overrides into a single dictionary.
-
-        :param overrides: A dictionary with any keyword arguments given to
-                          :func:`execute()` or :func:`start_interactive_shell()`.
-        :returns: The dictionary with overrides, but any keyword arguments
-                  given to the initializer of :class:`AbstractContext` that are
-                  not set in the overrides are set to the value of the
-                  initializer argument.
-
-        The :attr:`~executor.ExternalCommand.ionice` option is automatically
-        unset when :attr:`have_ionice` is :data:`False`, regardless of whether
-        the option was set from defaults or overrides.
-        """
-        defaults = self.get_options()
-        for name, value in defaults.items():
-            overrides.setdefault(name, value)
-        if overrides.get('ionice') and not self.have_ionice:
-            logger.debug("Ignoring `ionice' option because required program isn't installed.")
-            overrides.pop('ionice')
-        return overrides
-
-    def prepare_command(self, command, options):
-        """
-        Create a :attr:`command_type` object based on :attr:`options`.
-
-        :param command: A tuple of strings (the positional arguments to the
-                        initializer of the :attr:`command_type` class).
-        :param options: A dictionary (the keyword arguments to the initializer
-                        of the :attr:`command_type` class).
-        :returns: A :attr:`command_type` object *that hasn't been started yet*.
-        """
-        # Prepare our command.
-        options = self.merge_options(options)
-        cmd = self.command_type(*command, **options)
-        # Prepare the command of the parent context?
-        if self.parent:
-            # Figure out if any of our command options are unknown to the
-            # parent context because we need to avoid passing any of these
-            # options to the parent's prepare_command() method.
-            nested_opts = set(dir(self.command_type))
-            parent_opts = set(dir(self.parent.command_type))
-            for name in nested_opts - parent_opts:
-                if options.pop(name, None) is not None:
-                    logger.debug("Swallowing %r option! (parent context won't understand)", name)
-            # Prepare the command of the parent context.
-            cmd = self.parent.prepare_command(cmd.command_line, options)
-        return cmd
-
-    def prepare_interactive_shell(self, options):
-        """
-        Create a :attr:`command_type` object that starts an interactive shell.
-
-        :param options: A dictionary (the keyword arguments to the initializer
-                        of the :attr:`command_type` class).
-        :returns: A :attr:`command_type` object *that hasn't been started yet*.
-        """
-        options = self.merge_options(options)
-        options.update(shell=False, tty=True)
-        return self.prepare(DEFAULT_SHELL, **options)
-
-    def prepare(self, *command, **options):
-        """
-        Prepare to execute an external command in the current context.
-
-        :param command: All positional arguments are passed on to the
-                        initializer of the :attr:`command_type` class.
-        :param options: All keyword arguments are passed on to the
-                        initializer of the :attr:`command_type` class.
-        :returns: The :attr:`command_type` object.
-
-        .. note:: After constructing a :attr:`command_type` object this method
-                  doesn't call :func:`~executor.ExternalCommand.start()` which
-                  means you control if and when the command is started. This
-                  can be useful to prepare a large batch of commands and
-                  execute them concurrently using a :class:`.CommandPool`.
-        """
-        return self.prepare_command(command, options)
-
-    def execute(self, *command, **options):
-        """
-        Execute an external command in the current context.
-
-        :param command: All positional arguments are passed on to the
-                        initializer of the :attr:`command_type` class.
-        :param options: All keyword arguments are passed on to the
-                        initializer of the :attr:`command_type` class.
-        :returns: The :attr:`command_type` object.
-
-        .. note:: After constructing a :attr:`command_type` object this method
-                  calls :func:`~executor.ExternalCommand.start()` on the
-                  command before returning it to the caller, so by the time the
-                  caller gets the command object a synchronous command will
-                  have already ended. Asynchronous commands don't have this
-                  limitation of course.
-        """
-        cmd = self.prepare_command(command, options)
-        cmd.start()
-        return cmd
-
-    def test(self, *command, **options):
-        """
-        Execute an external command in the current context and get its status.
-
-        :param command: All positional arguments are passed on to the
-                        initializer of the :attr:`command_type` class.
-        :param options: All keyword arguments are passed on to the
-                        initializer of the :attr:`command_type` class.
-        :returns: The value of :attr:`.ExternalCommand.succeeded`.
-
-        This method automatically sets :attr:`~.ExternalCommand.check` to
-        :data:`False` and :attr:`~.ExternalCommand.silent` to :data:`True`.
-        """
-        options.update(check=False, silent=True)
-        cmd = self.prepare_command(command, options)
-        cmd.start()
-        return cmd.succeeded
+        directory, entry = os.path.split(filename)
+        temporary_file = os.path.join(directory, '.%s.tmp-%i' % (entry, random.randint(1, 100000)))
+        try:
+            yield temporary_file
+        except Exception:
+            self.execute('rm', '-f', temporary_file, check=False)
+        else:
+            self.execute('mv', temporary_file, filename)
 
     def capture(self, *command, **options):
         """
@@ -387,10 +340,12 @@ class AbstractContext(PropertyManager):
             raise ValueError("Cleanup stack can only be used inside with statements!")
         self.undo_stack[-1].append((args, kw))
 
-    def start_interactive_shell(self, **options):
+    def execute(self, *command, **options):
         """
-        Start an interactive shell in the current context.
+        Execute an external command in the current context.
 
+        :param command: All positional arguments are passed on to the
+                        initializer of the :attr:`command_type` class.
         :param options: All keyword arguments are passed on to the
                         initializer of the :attr:`command_type` class.
         :returns: The :attr:`command_type` object.
@@ -402,47 +357,9 @@ class AbstractContext(PropertyManager):
                   have already ended. Asynchronous commands don't have this
                   limitation of course.
         """
-        cmd = self.prepare_interactive_shell(options)
+        cmd = self.prepare_command(command, options)
         cmd.start()
         return cmd
-
-    @lazy_property
-    def distributor_id(self):
-        """
-        The distributor ID of the system (a lowercased string like ``debian`` or ``ubuntu``).
-
-        This is the lowercased output of ``lsb_release --short --id``.
-        """
-        return self.capture('lsb_release', '--short', '--id', check=False, silent=True).lower()
-
-    @lazy_property
-    def distribution_codename(self):
-        """
-        The code name of the system's distribution (a lowercased string like ``precise`` or ``trusty``).
-
-        This is the lowercased output of ``lsb_release --short --codename``.
-        """
-        return self.capture('lsb_release', '--short', '--codename', check=False, silent=True).lower()
-
-    @lazy_property
-    def have_ionice(self):
-        """:data:`True` when ionice_ is installed, :data:`False` otherwise."""
-        return bool(self.find_program('ionice'))
-
-    @property
-    def have_superuser_privileges(self):
-        """:data:`True` if the context has superuser privileges, :data:`False` otherwise."""
-        prototype = self.prepare('true')
-        return prototype.have_superuser_privileges or prototype.sudo
-
-    @property
-    def cpu_count(self):
-        """
-        The number of CPUs in the system (an integer).
-
-        .. note:: This is an abstract property that must be implemented by subclasses.
-        """
-        raise NotImplementedError()
 
     def exists(self, pathname):
         """
@@ -456,17 +373,54 @@ class AbstractContext(PropertyManager):
         """
         return self.test('test', '-e', pathname)
 
-    def is_file(self, pathname):
+    def find_chroots(self, namespace=DEFAULT_NAMESPACE):
         """
-        Check whether the given pathname points to an existing file.
+        Find the chroots available in the current context.
 
-        :param pathname: The pathname to check (a string).
-        :returns: :data:`True` if the pathname points to an existing file,
-                  :data:`False` otherwise.
-
-        This is a shortcut for the ``test -f ...`` command.
+        :param namespace: The chroot namespace to look for (a string, defaults
+                          to :data:`~executor.schroot.DEFAULT_NAMESPACE`).
+                          Refer to the schroot_ documentation for more
+                          information about chroot namespaces.
+        :returns: A generator of :class:`SecureChangeRootContext` objects whose
+                  :attr:`~AbstractContext.parent` is set to the context where
+                  the chroots were found.
+        :raises: :exc:`~executor.ExternalCommandFailed` (or a subclass) when
+                 the ``schroot`` program isn't installed or the ``schroot
+                 --list`` command fails.
         """
-        return self.test('test', '-f', pathname)
+        for entry in self.capture(SCHROOT_PROGRAM_NAME, '--list').splitlines():
+            entry_ns, _, entry_name = entry.rpartition(':')
+            if not entry_ns:
+                entry_ns = DEFAULT_NAMESPACE
+            if entry_ns == namespace:
+                short_name = entry_name if entry_ns == DEFAULT_NAMESPACE else entry
+                yield SecureChangeRootContext(chroot_name=short_name, parent=self)
+
+    def find_program(self, program_name, *args):
+        """
+        Find the absolute pathname(s) of one or more programs.
+
+        :param program_name: Each of the positional arguments is expected to
+                             be a string containing the name of a program to
+                             search for in the ``$PATH``. At least one is
+                             required.
+        :returns: A list of strings with absolute pathnames.
+
+        This method is a simple wrapper around ``which``.
+        """
+        return self.capture('which', program_name, *args, check=False).splitlines()
+
+    def get_options(self):
+        """
+        Get the options that are passed to commands created by the context.
+
+        :returns: A dictionary of command options.
+
+        By default this method simply returns the :attr:`options` dictionary,
+        however the purpose of :func:`get_options()` is to enable subclasses to
+        customize the options passed to commands on the fly.
+        """
+        return self.options
 
     def is_directory(self, pathname):
         """
@@ -492,6 +446,18 @@ class AbstractContext(PropertyManager):
         """
         return self.test('test', '-x', pathname)
 
+    def is_file(self, pathname):
+        """
+        Check whether the given pathname points to an existing file.
+
+        :param pathname: The pathname to check (a string).
+        :returns: :data:`True` if the pathname points to an existing file,
+                  :data:`False` otherwise.
+
+        This is a shortcut for the ``test -f ...`` command.
+        """
+        return self.test('test', '-f', pathname)
+
     def is_readable(self, pathname):
         """
         Check whether the given pathname exists and is readable.
@@ -516,6 +482,101 @@ class AbstractContext(PropertyManager):
         """
         return self.test('test', '-w', pathname)
 
+    def list_entries(self, directory):
+        """
+        List the entries in a directory.
+
+        :param directory: The pathname of the directory (a string).
+        :returns: A list of strings with the names of the directory entries.
+
+        This method uses ``find -mindepth 1 -maxdepth 1 -print0`` to list
+        directory entries instead of going for the more obvious choice ``ls
+        -A1`` because ``find`` enables more reliable parsing of command output
+        (with regards to whitespace).
+        """
+        listing = self.capture('find', directory, '-mindepth', '1', '-maxdepth', '1', '-print0')
+        return [os.path.basename(fn) for fn in listing.split('\0') if fn]
+
+    def merge_options(self, overrides):
+        """
+        Merge default options and overrides into a single dictionary.
+
+        :param overrides: A dictionary with any keyword arguments given to
+                          :func:`execute()` or :func:`start_interactive_shell()`.
+        :returns: The dictionary with overrides, but any keyword arguments
+                  given to the initializer of :class:`AbstractContext` that are
+                  not set in the overrides are set to the value of the
+                  initializer argument.
+
+        The :attr:`~executor.ExternalCommand.ionice` option is automatically
+        unset when :attr:`have_ionice` is :data:`False`, regardless of whether
+        the option was set from defaults or overrides.
+        """
+        defaults = self.get_options()
+        for name, value in defaults.items():
+            overrides.setdefault(name, value)
+        if overrides.get('ionice') and not self.have_ionice:
+            logger.debug("Ignoring `ionice' option because required program isn't installed.")
+            overrides.pop('ionice')
+        return overrides
+
+    def prepare(self, *command, **options):
+        """
+        Prepare to execute an external command in the current context.
+
+        :param command: All positional arguments are passed on to the
+                        initializer of the :attr:`command_type` class.
+        :param options: All keyword arguments are passed on to the
+                        initializer of the :attr:`command_type` class.
+        :returns: The :attr:`command_type` object.
+
+        .. note:: After constructing a :attr:`command_type` object this method
+                  doesn't call :func:`~executor.ExternalCommand.start()` which
+                  means you control if and when the command is started. This
+                  can be useful to prepare a large batch of commands and
+                  execute them concurrently using a :class:`.CommandPool`.
+        """
+        return self.prepare_command(command, options)
+
+    def prepare_command(self, command, options):
+        """
+        Create a :attr:`command_type` object based on :attr:`options`.
+
+        :param command: A tuple of strings (the positional arguments to the
+                        initializer of the :attr:`command_type` class).
+        :param options: A dictionary (the keyword arguments to the initializer
+                        of the :attr:`command_type` class).
+        :returns: A :attr:`command_type` object *that hasn't been started yet*.
+        """
+        # Prepare our command.
+        options = self.merge_options(options)
+        cmd = self.command_type(*command, **options)
+        # Prepare the command of the parent context?
+        if self.parent:
+            # Figure out if any of our command options are unknown to the
+            # parent context because we need to avoid passing any of these
+            # options to the parent's prepare_command() method.
+            nested_opts = set(dir(self.command_type))
+            parent_opts = set(dir(self.parent.command_type))
+            for name in nested_opts - parent_opts:
+                if options.pop(name, None) is not None:
+                    logger.debug("Swallowing %r option! (parent context won't understand)", name)
+            # Prepare the command of the parent context.
+            cmd = self.parent.prepare_command(cmd.command_line, options)
+        return cmd
+
+    def prepare_interactive_shell(self, options):
+        """
+        Create a :attr:`command_type` object that starts an interactive shell.
+
+        :param options: A dictionary (the keyword arguments to the initializer
+                        of the :attr:`command_type` class).
+        :returns: A :attr:`command_type` object *that hasn't been started yet*.
+        """
+        options = self.merge_options(options)
+        options.update(shell=False, tty=True)
+        return self.prepare(DEFAULT_SHELL, **options)
+
     def read_file(self, filename):
         """
         Read the contents of a file.
@@ -531,6 +592,43 @@ class AbstractContext(PropertyManager):
         .. _cat: http://linux.die.net/man/1/cat
         """
         return self.execute('cat', filename, capture=True).stdout
+
+    def start_interactive_shell(self, **options):
+        """
+        Start an interactive shell in the current context.
+
+        :param options: All keyword arguments are passed on to the
+                        initializer of the :attr:`command_type` class.
+        :returns: The :attr:`command_type` object.
+
+        .. note:: After constructing a :attr:`command_type` object this method
+                  calls :func:`~executor.ExternalCommand.start()` on the
+                  command before returning it to the caller, so by the time the
+                  caller gets the command object a synchronous command will
+                  have already ended. Asynchronous commands don't have this
+                  limitation of course.
+        """
+        cmd = self.prepare_interactive_shell(options)
+        cmd.start()
+        return cmd
+
+    def test(self, *command, **options):
+        """
+        Execute an external command in the current context and get its status.
+
+        :param command: All positional arguments are passed on to the
+                        initializer of the :attr:`command_type` class.
+        :param options: All keyword arguments are passed on to the
+                        initializer of the :attr:`command_type` class.
+        :returns: The value of :attr:`.ExternalCommand.succeeded`.
+
+        This method automatically sets :attr:`~.ExternalCommand.check` to
+        :data:`False` and :attr:`~.ExternalCommand.silent` to :data:`True`.
+        """
+        options.update(check=False, silent=True)
+        cmd = self.prepare_command(command, options)
+        cmd.start()
+        return cmd.succeeded
 
     def write_file(self, filename, contents):
         """
@@ -550,104 +648,6 @@ class AbstractContext(PropertyManager):
         .. _output redirection: https://en.wikipedia.org/wiki/Redirection_(computing)
         """
         return self.execute('cat > %s' % quote(filename), shell=True, input=contents)
-
-    @contextlib.contextmanager
-    def atomic_write(self, filename):
-        """
-        Create or update the contents of a file atomically.
-
-        :param filename: The pathname of the file to create/update (a string).
-        :returns: A context manager (see the :keyword:`with` keyword) that
-                  returns a single string which is the pathname of the
-                  temporary file where the contents should be written to
-                  initially.
-
-        If an exception is raised from the :keyword:`with` block and the
-        temporary file exists, an attempt will be made to remove it but failure
-        to do so will be silenced instead of propagated (to avoid obscuring the
-        original exception).
-
-        The temporary file is created in the same directory as the real file,
-        but a dot is prefixed to the name (making it a hidden file) and the
-        suffix '.tmp-' followed by a random integer number is used.
-        """
-        directory, entry = os.path.split(filename)
-        temporary_file = os.path.join(directory, '.%s.tmp-%i' % (entry, random.randint(1, 100000)))
-        try:
-            yield temporary_file
-        except Exception:
-            self.execute('rm', '-f', temporary_file, check=False)
-        else:
-            self.execute('mv', temporary_file, filename)
-
-    def list_entries(self, directory):
-        """
-        List the entries in a directory.
-
-        :param directory: The pathname of the directory (a string).
-        :returns: A list of strings with the names of the directory entries.
-
-        This method uses ``find -mindepth 1 -maxdepth 1 -print0`` to list
-        directory entries instead of going for the more obvious choice ``ls
-        -A1`` because ``find`` enables more reliable parsing of command output
-        (with regards to whitespace).
-        """
-        listing = self.capture('find', directory, '-mindepth', '1', '-maxdepth', '1', '-print0')
-        return [os.path.basename(fn) for fn in listing.split('\0') if fn]
-
-    def find_program(self, program_name, *args):
-        """
-        Find the absolute pathname(s) of one or more programs.
-
-        :param program_name: Each of the positional arguments is expected to
-                             be a string containing the name of a program to
-                             search for in the ``$PATH``. At least one is
-                             required.
-        :returns: A list of strings with absolute pathnames.
-
-        This method is a simple wrapper around ``which``.
-        """
-        return self.capture('which', program_name, *args, check=False).splitlines()
-
-    def find_chroots(self, namespace=DEFAULT_NAMESPACE):
-        """
-        Find the chroots available in the current context.
-
-        :param namespace: The chroot namespace to look for (a string, defaults
-                          to :data:`~executor.schroot.DEFAULT_NAMESPACE`).
-                          Refer to the schroot_ documentation for more
-                          information about chroot namespaces.
-        :returns: A generator of :class:`SecureChangeRootContext` objects whose
-                  :attr:`~AbstractContext.parent` is set to the context where
-                  the chroots were found.
-        :raises: :exc:`~executor.ExternalCommandFailed` (or a subclass) when
-                 the ``schroot`` program isn't installed or the ``schroot
-                 --list`` command fails.
-        """
-        for entry in self.capture(SCHROOT_PROGRAM_NAME, '--list').splitlines():
-            entry_ns, _, entry_name = entry.rpartition(':')
-            if not entry_ns:
-                entry_ns = DEFAULT_NAMESPACE
-            if entry_ns == namespace:
-                short_name = entry_name if entry_ns == DEFAULT_NAMESPACE else entry
-                yield SecureChangeRootContext(chroot_name=short_name, parent=self)
-
-    def __enter__(self):
-        """Initialize a new "undo stack" (refer to :func:`cleanup()`)."""
-        self.undo_stack.append([])
-        return self
-
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
-        """Execute any commands on the "undo stack" (refer to :func:`cleanup()`)."""
-        old_scope = self.undo_stack.pop()
-        while old_scope:
-            args, kw = old_scope.pop()
-            if args and callable(args[0]):
-                args = list(args)
-                function = args.pop(0)
-                function(*args, **kw)
-            else:
-                self.execute(*args, **kw)
 
 
 class LocalContext(AbstractContext):
