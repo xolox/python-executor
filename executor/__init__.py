@@ -68,7 +68,7 @@ from six import string_types, text_type
 from executor.process import ControllableProcess
 
 # Semi-standard module versioning.
-__version__ = '19.1'
+__version__ = '19.2'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)

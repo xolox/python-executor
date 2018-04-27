@@ -11,12 +11,18 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
-Not yet released
-----------------
+`Release 19.2`_ (2018-04-27)
+----------------------------
 
-- Added this changelog.
-- Added license key to ``setup.py`` script.
+- Added a ``glob()`` method to contexts (this was triggered
+  by the  feature request in `rotate-backups issue #10
+  <https://github.com/xolox/python-rotate-backups/issues/10>`_).
+- Improved documentation using ``property_manager.sphinx``.
+- Added this changelog, restructured the online documentation.
 - Include documentation in source distributions.
+- Added ``license`` key to ``setup.py`` script.
+
+.. _Release 19.2: https://github.com/xolox/python-executor/compare/19.1...19.2
 
 `Release 19.1`_ (2018-03-25)
 ----------------------------
