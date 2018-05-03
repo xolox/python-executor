@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 27, 2018
+# Last Change: May 3, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -754,6 +754,9 @@ class ExecutorTestCase(TestCase):
                        'localhost', 'true',
         ):
             assert token in tokenize_command_line(cmd)
+        # Make sure compression can be enabled.
+        assert '-C' in \
+            RemoteCommand('localhost', 'date', compression=True).command_line
         # Make sure batch mode can be disabled.
         assert 'BatchMode=no' in \
             RemoteCommand('localhost', 'date', batch_mode=False).command_line

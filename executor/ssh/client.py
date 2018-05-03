@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: February 25, 2018
+# Last Change: May 3, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -371,6 +371,8 @@ class RemoteCommand(RemoteAccount, ExternalCommand):
         else:
             ssh_command.extend(('-o', 'StrictHostKeyChecking=%s' % ('yes' if self.strict_host_key_checking else 'no')))
         ssh_command.extend(('-o', 'UserKnownHostsFile=%s' % self.known_hosts_file))
+        if self.compression:
+            ssh_command.append('-C')
         if self.tty:
             ssh_command.append('-t')
         ssh_command.append(self.ssh_alias)
@@ -381,6 +383,11 @@ class RemoteCommand(RemoteAccount, ExternalCommand):
                 remote_command = quote(self.prefix_shell_command(cd_command, remote_command))
             ssh_command.append(remote_command)
         return ssh_command
+
+    @mutable_property
+    def compression(self):
+        """Whether compression is enabled (a boolean, defaults to :data:`False`)."""
+        return False
 
     @mutable_property
     def connect_timeout(self):
