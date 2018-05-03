@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 3, 2018
+# Last Change: May 4, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -9,11 +9,17 @@ Remote command execution using SSH.
 
 The :mod:`executor.ssh.client` module defines the :class:`RemoteCommand` class
 and the :func:`foreach()` function which make it easy to run a remote command
-in parallel on multiple remote hosts using SSH. The :func:`foreach()` function
-also serves as a simple example of how to use
+in parallel on multiple remote hosts using SSH.
+
+The :func:`foreach()` function also serves as a simple example of how to use
 :class:`~executor.concurrent.CommandPool` and :class:`RemoteCommand` objects
 (it's just 16 lines of code if you squint in the right way and that includes
 logging :-).
+
+The :class:`SecureTunnel` class makes it easy to use "tunnel only"
+SSH connections by waiting until the tunnel becomes connected and
+automatically selecting a free ephemeral port number if a
+local port number isn't provided by the caller.
 """
 
 # Standard library modules.
@@ -40,6 +46,10 @@ from executor import (
     quote,
 )
 from executor.concurrent import CommandPool
+from executor.tcp import (
+    EphemeralPortAllocator,
+    WaitUntilConnected,
+)
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -612,6 +622,95 @@ class RemoteCommandPool(CommandPool):
                         to the :class:`.CommandPool` constructor.
         """
         super(RemoteCommandPool, self).__init__(concurrency, **options)
+
+
+class SecureTunnel(RemoteCommand):
+
+    """
+    Easy to use SSH tunnels.
+
+    The :class:`SecureTunnel` class combines :class:`RemoteCommand` with
+    :class:`.EphemeralPortAllocator` and :class:`.WaitUntilConnected` to
+    implement easy to use SSH tunnel support.
+
+    The ``-L`` option of the SSH client program is used to open a tunnel
+    between the local system and a remote system that persists until the
+    command is terminated (tip: use a :keyword:`with` statement).
+
+    Additionally the ``-N`` option is used to prevent the client from executing
+    a remote command, this enables compatibility with "tunnel only" SSH
+    accounts that have their shell set to something like ``/usr/sbin/nologin``.
+
+    The :func:`start()` method waits for the tunnel to become available before
+    returning control to the caller.
+    """
+
+    @mutable_property
+    def async(self):
+        """Whether to enable asynchronous command execution (a boolean, defaults to :data:`True`)."""
+        return True
+
+    @property
+    def command_line(self):
+        """
+        The complete SSH client command to open the tunnel (a list of strings).
+
+        This property overrides :attr:`RemoteCommand.command_line`
+        to inject the command line options ``-L`` and ``-N``.
+        """
+        command_line = super(SecureTunnel, self).command_line
+        command_line.append('-N')
+        command_line.append('-L')
+        command_line.append('%i:%s:%i' % (self.local_port, self.remote_host, self.remote_port))
+        return command_line
+
+    @mutable_property
+    def compression(self):
+        """Whether to enable compression (a boolean, defaults to :data:`True`)."""
+        return True
+
+    @mutable_property(cached=True)
+    def local_port(self):
+        """
+        The port number on the side of the SSH client (an integer).
+
+        When the value of :attr:`local_port` isn't specified a free
+        ephemeral port number is automatically selected using
+        :class:`~executor.tcp.EphemeralPortAllocator`.
+        """
+        allocator = EphemeralPortAllocator()
+        return allocator.port_number
+
+    @mutable_property
+    def remote_host(self):
+        """The remote host name to connect to (a string, defaults to 'localhost')."""
+        return 'localhost'
+
+    @required_property
+    def remote_port(self):
+        """The remote port number to connect to (an integer)."""
+
+    @property
+    def tty(self):
+        """Override :attr:`~executor.ExternalCommand.tty` to :data:`False`."""
+        return False
+
+    def start(self, **options):
+        """
+        Start the SSH client and wait for the tunnel to become available.
+
+        :param options: Any keyword arguments are passed to the
+                        :func:`~executor.ExternalCommand.start()`
+                        method of the superclass.
+        :raises: Any exceptions raised by the following methods:
+
+                 - :func:`executor.ExternalCommand.start()`
+                 - :func:`executor.tcp.WaitUntilConnected.wait_until_connected()`
+        """
+        super(SecureTunnel, self).start(**options)
+        WaitUntilConnected(
+            port_number=self.local_port,
+        ).wait_until_connected()
 
 
 class RemoteConnectFailed(ExternalCommandFailed):

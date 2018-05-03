@@ -130,7 +130,7 @@ class EphemeralPortAllocator(WaitUntilConnected):
     def port_number(self):
         """A dynamically selected free ephemeral port number (an integer between 49152 and 65535)."""
         timer = Timer()
-        self.logger.debug("Looking for free ephemeral port (for %s traffic) ..", self.scheme.upper())
+        logger.debug("Looking for free ephemeral port number ..")
         for i in itertools.count(1):
             value = self.ephemeral_port_number
             set_property(self, 'port_number', value)
