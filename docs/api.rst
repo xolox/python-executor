@@ -60,3 +60,9 @@ The :mod:`executor.ssh.server` module
 
 .. automodule:: executor.ssh.server
    :members:
+
+The :mod:`executor.tcp` module
+------------------------------
+
+.. automodule:: executor.tcp
+   :members:
