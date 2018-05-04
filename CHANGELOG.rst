@@ -11,6 +11,17 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 19.3`_ (2018-05-04)
+----------------------------
+
+- Added ``SecureTunnel`` class for easy to use SSH tunnels (``ssh -NL ...``).
+- Added ``RemoteCommand.compression`` property to enable ``ssh -C``.
+- Extracted generic TCP functionality from the ``executor.ssh.server`` module
+  into a new ``executor.tcp`` module (so that the functionality could be reused
+  by the new SSH tunnel support).
+
+.. _Release 19.3: https://github.com/xolox/python-executor/compare/19.2...19.3
+
 `Release 19.2`_ (2018-04-27)
 ----------------------------
 
