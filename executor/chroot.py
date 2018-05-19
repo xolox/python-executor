@@ -1,14 +1,24 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 10, 2017
+# Last Change: May 20, 2018
 # URL: https://executor.readthedocs.io
 
 """
 Simple command execution in chroot environments.
 
 The :mod:`executor.chroot` module defines the :class:`ChangeRootCommand` class
-which makes it easy to run commands inside chroots_.
+which makes it easy to run commands inside chroots_. If this doesn't mean
+anything to you, here's a primer:
+
+- The word 'chroot' is an abbreviation of the phrase 'change root' which is
+  Unix functionality that changes the 'root' directory (``/``) of a running
+  process, so 'change root' describes an action.
+
+- Even though the phrase 'change root' describes an action the word 'chroot'
+  is also used to refer to the directory which serves as the new root directory
+  (English is flexible like that :-). This is why it makes sense to say that
+  "you're entering the chroot".
 
 .. warning:: This is low level functionality. This module performs absolutely
              no chroot initialization, for example ``/etc/resolv.conf`` may be
@@ -17,7 +27,7 @@ which makes it easy to run commands inside chroots_.
 
 If you need your chroot to be initialized for you then consider using the
 :mod:`executor.schroot` module instead. It takes a bit of time to set up
-schroot_ but it provides a more high level experience than chroot.
+schroot_ but it provides a more high level experience than chroot_.
 
 .. _chroots: http://en.wikipedia.org/wiki/Chroot
 .. _chroot: https://manpages.debian.org/8/chroot

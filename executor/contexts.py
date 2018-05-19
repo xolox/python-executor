@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: April 27, 2018
+# Last Change: May 20, 2018
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -14,8 +14,8 @@ simple wrappers for :class:`.ExternalCommand`, :class:`.RemoteCommand` and
 :class:`.SecureChangeRootCommand`.
 
 This allows you to script interaction with external commands in Python and
-perform that interaction on your local system, on a remote system over SSH_ or
-inside a chroot_ using the exact same Python code. `Dependency injection`_ on
+perform that interaction on your local system, on remote systems over SSH_ or
+inside chroots_ using the exact same Python code. `Dependency injection`_ on
 steroids anyone? :-)
 
 Here's a simple example:
@@ -60,7 +60,7 @@ integration tools developed using Python:
  I wrote on the remote system and I'm done!
 
 .. _SSH: https://en.wikipedia.org/wiki/Secure_Shell
-.. _chroot: http://en.wikipedia.org/wiki/Chroot
+.. _chroots: http://en.wikipedia.org/wiki/Chroot
 .. _Dependency injection: http://en.wikipedia.org/wiki/Dependency_injection
 """
 
@@ -428,8 +428,8 @@ class AbstractContext(PropertyManager):
 
         - This method *emulates* filename globbing as supported by system
           shells like Bash and ZSH. It works by forking a Python interpreter
-          and using that to call the :mod:`glob.glob()` function. This approach
-          is of course rather heavyweight.
+          and using that to call the :func:`glob.glob()` function. This
+          approach is of course rather heavyweight.
 
         - Initially this method used Bash for filename matching (similar to
           `this StackOverflow answer <https://unix.stackexchange.com/a/34012/44309>`_)
@@ -712,9 +712,10 @@ class LocalContext(AbstractContext):
         interpreter.
 
         This optimization is skipped when :attr:`~AbstractContext.options`
-        contains :func:`~ExternalCommand.sudo`, :func:`~ExternalCommand.uid` or
-        :func:`~ExternalCommand.user` to avoid reporting wrong matches due to
-        insufficient filesystem permissions.
+        contains :attr:`~executor.ExternalCommand.sudo`,
+        :attr:`~executor.ExternalCommand.uid` or
+        :attr:`~executor.ExternalCommand.user` to avoid reporting wrong matches
+        due to insufficient filesystem permissions.
         """
         if any(map(self.options.get, ('sudo', 'uid', 'user'))):
             return super(LocalContext, self).glob(pattern)

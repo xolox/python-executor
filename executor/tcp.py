@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 4, 2018
+# Last Change: May 20, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -173,8 +173,8 @@ class EphemeralTCPServer(ExternalCommand, EphemeralPortAllocator):
                  and :func:`~executor.tcp.WaitUntilConnected.wait_until_connected()`.
 
         If the TCP server doesn't start accepting connections within the
-        configured timeout (see :attr:`wait_timeout`) the process will be
-        terminated and the timeout exception is propagated.
+        configured timeout (see :attr:`~executor.tcp.WaitUntilConnected.wait_timeout`)
+        the process will be terminated and the timeout exception is propagated.
         """
         if not self.was_started:
             logger.debug("Preparing to start %s server ..", self.scheme.upper())
@@ -191,6 +191,6 @@ class TimeoutError(Exception):
     """
     Raised when a TCP server doesn't start accepting connections quickly enough.
 
-    This exception is raised by :func:`~EphemeralTCPServer.wait_until_connected()`
+    This exception is raised by :func:`~executor.tcp.WaitUntilConnected.wait_until_connected()`
     when the TCP server doesn't start accepting connections within a reasonable time.
     """

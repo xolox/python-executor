@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 4, 2018
+# Last Change: May 20, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -816,14 +816,15 @@ class ExternalCommand(ControllableProcess):
 
         When the :attr:`silent` option was originally added to executor it was
         implemented by redirecting the output streams to :data:`os.devnull`,
-        similar to how ``command &> /dev/null` works in Bash.
+        similar to how ``command &> /dev/null`` works in Bash.
 
         Since I made that decision I've regretted it many times because I ran
         into situations where :attr:`check` and :attr:`silent` were both set
         and :exc:`ExternalCommandFailed` was raised but I had no way to
         determine what had gone wrong.
 
-        This is why the :attr:`really_silent` property was introduced:
+        This is why the :attr:`really_silent` property was introduced in
+        executor release 19.0:
 
         - When :attr:`silent` is :data:`True` and :attr:`check` is
           :data:`False` the value of :attr:`really_silent` will be
@@ -1585,8 +1586,9 @@ class ExternalCommand(ControllableProcess):
         To understand why this is useful, consider the following:
 
         - Iteration over file-like objects in Python uses a hidden read-ahead
-          buffer for efficiency. Refer to the :func:`file.next()` documentation
-          for details.
+          buffer for efficiency. Refer to the `file.next()
+          <https://docs.python.org/2/library/stdtypes.html#file.next>`_
+          documentation for details.
 
         - Pipes are file-like objects so if you iterate over them but the
           command doesn't emit a lot of output, the iteration may not produce
