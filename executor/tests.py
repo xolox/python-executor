@@ -58,7 +58,6 @@ import uuid
 from humanfriendly import Timer, compact, dedent
 from humanfriendly.testing import TemporaryDirectory, TestCase, retry, run_cli
 from mock import MagicMock
-from property_manager import set_property
 from six.moves import StringIO
 
 # Modules included in our package.
