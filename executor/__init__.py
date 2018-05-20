@@ -1388,7 +1388,7 @@ class ExternalCommand(ControllableProcess):
         if not self.was_started:
             self.start()
         if self.is_running:
-            self.wait_for_process()
+            self.wait_for_process(**kw)
         self.cleanup()
         self.check_errors(check=check)
 
