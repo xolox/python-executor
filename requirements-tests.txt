@@ -2,8 +2,12 @@ coverage >= 4.2
 mock >= 2.0
 pytest >= 3.0.7, < 3.3.0 ; python_version > '2.6'
 pytest-cov >= 2.5.1
-virtualenv >= 15.1.0
+virtualenv >= 15.1.0 ; python_version > '2.6'
 
 # pytest release 3.3 drops Python 2.6 compatibility:
 # https://docs.pytest.org/en/latest/changelog.html#pytest-3-3-0-2017-11-23
 pytest < 3.3 ; python_version < '2.7'
+
+# virtualenv release 16.0.0 drops Python 2.6 compatibility:
+# https://virtualenv.pypa.io/en/latest/changes/
+virtualenv < 16.0.0 ; python_version < '2.7'
