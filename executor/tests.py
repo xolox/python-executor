@@ -58,6 +58,8 @@ import uuid
 from humanfriendly import Timer, compact, dedent
 from humanfriendly.testing import TemporaryDirectory, TestCase, retry, run_cli
 from mock import MagicMock
+from property_manager import set_property
+from six.moves import StringIO
 
 # Modules included in our package.
 from executor import (
@@ -114,6 +116,11 @@ class ExecutorTestCase(TestCase):
         self.sudo_enabled_directory = os.path.join(tempfile.gettempdir(), 'executor-test-suite')
         if not os.path.isdir(self.sudo_enabled_directory):
             os.makedirs(self.sudo_enabled_directory)
+
+    def test_double_start(self):
+        """Make sure a command can't be started when it's already running."""
+        with ExternalCommand('sleep', '1') as cmd:
+            self.assertRaises(ValueError, cmd.start)
 
     def test_graceful_termination(self):
         """Test graceful termination of processes."""
@@ -312,6 +319,18 @@ class ExecutorTestCase(TestCase):
         with open(filename) as handle:
             lines = [line.strip() for line in handle]
         assert lines == ['existing contents', 'appended output']
+
+    def test_redirect_without_fd(self):
+        """Test redirection to a file object that doesn't have an associated file descriptor."""
+        mock_file = StringIO()
+        setattr(mock_file, 'name', '/some/random/path')
+        self.assertRaises(ValueError, execute, 'true', stdout_file=mock_file)
+
+    def test_redirect_without_name(self):
+        """Test redirection to a file object that doesn't have an associated filename."""
+        mock_file = StringIO()
+        setattr(mock_file, 'fileno', lambda: 5)
+        self.assertRaises(ValueError, execute, 'true', stdout_file=mock_file)
 
     def test_merged_streams_to_file(self):
         """Make sure the standard streams of external commands can be merged, redirected and appended to a file."""
