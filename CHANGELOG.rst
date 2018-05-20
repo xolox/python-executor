@@ -11,6 +11,49 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 20.0`_ (2018-05-21)
+----------------------------
+
+*While intended to be fully backwards compatible (because the new behavior is
+opt-in) I decided to bump the major version number in this release because
+adding retry support touched on some of the most critical pieces of code in
+this project.*
+
+- Experimental support for retrying of commands that fail. Retrying of
+  asynchronous commands is only supported in the context of command pools.
+- Bug fix: Pass keyword arguments of ``wait()`` to ``wait_for_process()``.
+- Fix Sphinx warnings (mostly broken references).
+
+Notes about retry support
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+I've been wanting to add retry support to `executor` for quite a while now. One
+thing that I struggled with until recently was how to support retrying of
+synchronous and asynchronous commands in a way that made sense for both types
+of commands, without compromising too much on the simplicity of the Python API
+or the actual implementation code.
+
+In a pragmatic *"just implement something and see how it works"* moment I
+decided to add support for retrying of synchronous commands to the
+``ExternalCommand`` class while requiring the use of a command pool to retry
+asynchronous commands. Although this implementation doesn't cover every
+possible use case I do believe it covers the most important use cases. Some
+high-level implementation notes:
+
+- Synchronous commands are retried inside of the ``start()`` method. The second
+  part of this method was extracted into a new ``start_once()`` method and then
+  a loop was added to ``start()`` that calls ``start_once()`` until the command
+  succeeds.
+
+- Asynchronous commands allow for retry behavior to be configured but won't
+  actually run a command more than once unless used in the context of command
+  pools.  I did experiment with retrying of asynchronous commands inside the
+  ``wait()`` method but this ended up creating an API whose behavior was very
+  unintuitive (changing its behavior from non blocking to blocking in order to
+  retry on failure).
+
+.. _Release 20.0: https://github.com/xolox/python-executor/compare/19.3...20.0
+
 `Release 19.3`_ (2018-05-04)
 ----------------------------
 

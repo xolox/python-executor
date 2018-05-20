@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: December 18, 2016
+# Last Change: May 20, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -118,8 +118,8 @@ class CommandPool(PropertyManager):
 
     @property
     def is_finished(self):
-        """:data:`True` if all commands in the pool have finished, :data:`False` otherwise."""
-        return all(cmd.is_finished for id, cmd in self.commands)
+        """:data:`True` if all commands in the pool have finished (including retries), :data:`False` otherwise."""
+        return self.num_finished == self.num_commands
 
     @property
     def num_commands(self):
@@ -128,8 +128,8 @@ class CommandPool(PropertyManager):
 
     @property
     def num_finished(self):
-        """The number of commands in the pool that have already finished (an integer)."""
-        return sum(cmd.is_finished for id, cmd in self.commands)
+        """The number of commands in the pool that have already finished, including retries (an integer)."""
+        return sum(cmd.is_finished_with_retries for id, cmd in self.commands)
 
     @property
     def num_failed(self):
@@ -314,22 +314,23 @@ class CommandPool(PropertyManager):
            :data:`False`.
         2. The command's :attr:`~.ExternalCommand.group_by` value is not
            present in :attr:`running_groups`.
-        3. The :attr:`~.ExternalCommand.is_finished` properties of all of the
-           command's :attr:`~.ExternalCommand.dependencies` are :data:`True`.
+        3. The :attr:`~.ExternalCommand.is_finished_with_retries`
+           properties of all of the command's :attr:`~.ExternalCommand.dependencies`
+           are :data:`True`.
         """
         num_started = 0
         limit = self.concurrency - self.num_running
         if limit > 0:
             running_groups = self.running_groups
             for id, cmd in self.commands:
-                # Skip commands that have already been started.
-                if not cmd.was_started:
+                # Skip commands that have already been started and cannot be retried.
+                if (not cmd.was_started) or (cmd.retry_allowed and not cmd.is_running):
                     # If command groups are being used we'll only
                     # allow one running command per command group.
                     if cmd.group_by not in running_groups:
                         # If a command has any dependencies we won't allow it
                         # to start until all of its dependencies have finished.
-                        if all(dependency.is_finished for dependency in cmd.dependencies):
+                        if all(d.is_finished_with_retries for d in cmd.dependencies):
                             cmd.start()
                             num_started += 1
                             if cmd.group_by is not None:
@@ -367,16 +368,19 @@ class CommandPool(PropertyManager):
         for identifier, command in self.commands:
             if identifier not in self.collected and command.is_finished:
                 try:
-                    # Load the command output and cleanup temporary resources.
                     command.wait(check=False if self.delay_checks else None)
                 except ExternalCommandFailed as e:
-                    # Tag the exception object with the pool it came from.
-                    e.pool = self
-                    # Propagate the exception to the caller.
-                    raise
+                    if not command.retry_allowed:
+                        # Propagate exceptions that can't be retried.
+                        e.pool = self
+                        raise
                 finally:
                     # Update our bookkeeping even if wait() raised an exception.
-                    self.collected.add(identifier)
+                    if not command.retry_allowed:
+                        self.collected.add(identifier)
+                # We count retries as collected commands in order to
+                # preserve the symmetry between the return values of
+                # spawn() and collect() because run() depends on it.
                 num_collected += 1
         if num_collected > 0:
             logger.debug("Collected %s ..", pluralize(num_collected, "external command"))

@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 20, 2018
+# Last Change: May 21, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -53,7 +53,7 @@ import sys
 import tempfile
 
 # External dependencies.
-from humanfriendly import compact, concatenate, format
+from humanfriendly import compact, concatenate, format, pluralize
 from humanfriendly.terminal import connected_to_terminal
 from property_manager import (
     PropertyManager,
@@ -241,6 +241,21 @@ class ExternalCommand(ControllableProcess):
         command. If an exception isn't already being raised
         :func:`check_errors()` is called to make sure the external command
         succeeded.
+
+    .. _event callbacks:
+
+    **Event callbacks**
+        The :attr:`start_event`, :attr:`retry_event` and :attr:`finish_event`
+        properties can be set to callbacks (callable values like functions) to
+        subscribe to the corresponding events. The callback receives a single
+        positional argument which is the :class:`ExternalCommand` object.
+
+        The :attr:`start_event` and :attr:`finish_event` properties were
+        originally created for use in command pools, for example to report to
+        the operator when specific commands are started and when they finish.
+        The event handling is performed inside the :class:`ExternalCommand`
+        class though, so you're free to repurpose these events outside the
+        context of command pools.
     """
 
     def __init__(self, *command, **options):
@@ -644,17 +659,7 @@ class ExternalCommand(ControllableProcess):
 
     @mutable_property
     def finish_event(self):
-        """
-        Optional callback that's called just after the command finishes.
-
-        The :attr:`start_event` and :attr:`finish_event` properties were
-        created for use in command pools, for example to report to the operator
-        when specific commands are started and when they finish. The invocation
-        of the :attr:`start_event` and :attr:`finish_event` callbacks is
-        performed inside the :class:`ExternalCommand` class though, so you're
-        free to repurpose these callbacks outside the context of command
-        pools.
-        """
+        """Optional callback that's called just after the command finishes (see `event callbacks`_)."""
 
     @mutable_property
     def group_by(self):
@@ -733,13 +738,24 @@ class ExternalCommand(ControllableProcess):
     @property
     def is_finished(self):
         """
-        Whether the external command has finished execution.
+        Whether the external command has finished execution (excluding retries).
 
         :data:`True` once the external command has been started and has since
-        finished, :data:`False` when the external command hasn't been started
-        yet or is still running.
+        finished (excluding retries), :data:`False` when the external command
+        hasn't been started yet or is still running.
         """
         return self.was_started and not self.is_running
+
+    @property
+    def is_finished_with_retries(self):
+        """
+        Whether the external command has finished execution (including retries).
+
+        :data:`True` once the external command has been started and has since
+        finished (including retries), :data:`False` when the external command
+        hasn't been started yet, is still running or can be retried.
+        """
+        return self.is_finished and not self.retry_allowed
 
     @property
     def is_running(self):
@@ -863,6 +879,73 @@ class ExternalCommand(ControllableProcess):
             return self.callback(self)
 
     @mutable_property
+    def retry(self):
+        """
+        Whether the external command should be retried when it fails (a boolean, defaults to :data:`False`).
+
+        .. warning:: Retrying of failing commands is an experimental feature
+                     that was introduced with the release of executor 20.0.
+                     Please refer to the `20.0 release notes`_ for details.
+
+        .. _20.0 release notes: https://executor.readthedocs.io/en/latest/changelog.html#release-20-0-2018-05-21
+        """
+        return False
+
+    @mutable_property
+    def retry_allowed(self):
+        """
+        :data:`True` if the external command can be retried, :data:`False` otherwise.
+
+        The value of this property is computed by checking if the following
+        conditions hold:
+
+        - :attr:`retry` is :data:`True`,
+        - :attr:`failed` is :data:`True`,
+        - :attr:`returncode` is not :data:`COMMAND_NOT_FOUND_STATUS`,
+        - :attr:`retry_count` is lower than :attr:`retry_limit`
+          (only if :attr:`retry_limit` is not zero).
+
+        Note that when the :attr:`retry_event` callback returns :data:`False`
+        to cancel the retrying of a failed command, the computed value of
+        :attr:`retry_allowed` is overridden by assigning :attr:`retry_allowed`
+        the value :data:`False`.
+        """
+        return (self.retry and self.failed and
+                self.returncode != COMMAND_NOT_FOUND_STATUS and
+                (self.retry_limit == 0 or self.retry_count < self.retry_limit))
+
+    @mutable_property
+    def retry_count(self):
+        """
+        The number of times that the command was retried (an integer number, defaults to 0).
+
+        The value of :attr:`retry_count` is automatically incremented by
+        :func:`start_once()` when it notices that :attr:`was_started` is
+        :data:`True` before :func:`start_once()` has started the command.
+        """
+        return 0
+
+    @mutable_property
+    def retry_event(self):
+        """
+        Optional callback that's called when a command is retried  (see `event callbacks`_).
+
+        The callback can return :data:`False` to abort retrying.
+        """
+
+    @mutable_property
+    def retry_limit(self):
+        """
+        The maximum number of times to *retry* the command when it fails (an integer, defaults to 2).
+
+        Given the default value of two, when :attr:`retry` is :data:`True`
+        the command will be run at most three times (the initial run and
+        two retries). The value 0 means the command will be retried until
+        it succeeds.
+        """
+        return 2
+
+    @mutable_property
     def returncode(self):
         """
         The return code of the external command (an integer) or :data:`None`.
@@ -908,17 +991,7 @@ class ExternalCommand(ControllableProcess):
 
     @mutable_property
     def start_event(self):
-        """
-        Optional callback that's called just before the command is started.
-
-        The :attr:`start_event` and :attr:`finish_event` properties were
-        created for use in command pools, for example to report to the operator
-        when specific commands are started and when they finish. The invocation
-        of the :attr:`start_event` and :attr:`finish_event` callbacks is
-        performed inside the :class:`ExternalCommand` class though, so you're
-        free to repurpose these callbacks outside the context of command
-        pools.
-        """
+        """Optional callback that's called just before the command is started (see `event callbacks`_)."""
 
     @property
     def stderr(self):
@@ -1186,6 +1259,35 @@ class ExternalCommand(ControllableProcess):
         """
         return False
 
+    def check_retry_allowed(self):
+        """
+        Check if retrying is allowed by invoking the :attr:`retry_event` callback.
+
+        :returns: :data:`True` if :attr:`retry_allowed` is :data:`True` and the
+                  :attr:`retry_event` callback didn't return :data:`False`,
+                  otherwise :data:`False`.
+        """
+        if self.failed and self.retry and not self.retry_allowed:
+            # Log a final warning message when we give up on retrying a failed command.
+            self.logger.warning("Giving up on retrying external command that has failed %s! (%s)",
+                                pluralize(self.retry_count + 1, "time"), self)
+            return False
+        elif self.retry_allowed:
+            # When retrying is enabled and applicable we invoke the
+            # `retry_event' callback to check whether the caller
+            # doesn't veto our decision to retry.
+            if self.invoke_event_callback('retry_event') is False:
+                self.logger.warning("External command failed with return code %i, retry canceled by callback (%s).",
+                                    self.returncode, self)
+                self.retry_allowed = False
+                return False
+            else:
+                self.logger.warning("Will retry external command that failed with return code %i (%s).",
+                                    self.returncode, self)
+                return True
+        else:
+            return False
+
     def format_error_message(self, message, *args, **kw):
         """
         Add the command's captured standard output and/or error to an error message.
@@ -1267,7 +1369,7 @@ class ExternalCommand(ControllableProcess):
 
     def start(self):
         """
-        Start execution of the external command.
+        Start execution of the external command (including :attr:`retry` support).
 
         :raises: - :exc:`ExternalCommandFailed` when
                    :attr:`~ExternalCommand.check` is :data:`True`,
@@ -1310,11 +1412,53 @@ class ExternalCommand(ControllableProcess):
         kw['stdout'] = self.stdout_stream.prepare_output(self.stdout_file, self.capture)
         kw['stderr'] = (subprocess.STDOUT if self.merge_streams else
                         self.stderr_stream.prepare_output(self.stderr_file, self.capture_stderr))
-        # Let the operator know what's about to happen.
-        self.logger.debug("Executing external command: %s", quote(kw['args']))
+        if self.retry and not self.async:
+            # Retry a failing synchronous command.
+            while True:
+                self.start_once(check=False, **kw)
+                # Check if we need to break out of the loop.
+                if self.succeeded or not self.retry_allowed:
+                    # Raise an exception (if applicable).
+                    self.check_errors()
+                    # Stop retrying.
+                    break
+        else:
+            # Retrying of asynchronous commands isn't handled by start().
+            self.start_once(**kw)
+
+    def start_once(self, check=None, **kw):
+        """
+        Start execution of the external command (excluding :attr:`retry` support).
+
+        :param check: Override the value of :attr:`check` for the duration of
+                      this call to :func:`start_once()`. Defaults to
+                      :data:`None`.
+        :param kw: The keyword arguments to the :class:`subprocess.Popen`
+                   initializer (prepared by :func:`start()`).
+
+        The code in this internal method used to be the second half
+        of :func:`start()` but was extracted into a separate method
+        so that it can be called more than once, which made it
+        possible to add :attr:`retry` support.
+        """
+        if self.was_started:
+            if self.check_retry_allowed():
+                # Automatically bump the `retry_count' property.
+                self.retry_count += 1
+            else:
+                # Don't retry command not found errors, stop retrying when
+                # the limit on the number of retries is reached and stop
+                # retrying when the `retry_event' callback returns False.
+                return
         # Lightweight reset of internal state.
         for name in 'error_type', 'pid', 'returncode', 'subprocess':
             delattr(self, name)
+        # Let the operator know what's about to happen.
+        if self.retry and self.retry_limit > 0:
+            self.logger.debug("Executing external command (attempt %i/%i): %s",
+                              self.retry_count + 1, self.retry_limit + 1, self)
+        else:
+            self.logger.debug("Executing external command: %s", self)
         # Invoke the start event callback?
         self.invoke_event_callback('start_event')
         # Remember that we called subprocess.Popen() regardless of whether it
@@ -1332,7 +1476,7 @@ class ExternalCommand(ControllableProcess):
                 self.stdout_stream.finalize(b'')
                 self.stderr_stream.finalize(b'')
                 # Cleanup temporary resources and raise the exception (or not).
-                self.wait()
+                self.wait(check=check)
             else:
                 # Don't swallow exceptions we can't handle.
                 raise
@@ -1347,7 +1491,7 @@ class ExternalCommand(ControllableProcess):
                 stdout, stderr = self.subprocess.communicate(self.encoded_input)
                 self.stdout_stream.finalize(stdout)
                 self.stderr_stream.finalize(stderr)
-                self.wait()
+                self.wait(check=check)
         finally:
             # Invoke the finish event callback? (only applies when the command
             # is synchronous or the subprocess module raised an exception)
@@ -1468,6 +1612,8 @@ class ExternalCommand(ControllableProcess):
                 # so we don't lose track of it once we allow the subprocess.Popen
                 # object to be garbage collected.
                 self.returncode = self.subprocess.wait()
+                self.logger.debug("Got return code %i from asynchronous process (%s).",
+                                  self.returncode, self)
                 # Invoke the finish event callback?
                 self.invoke_event_callback('finish_event')
             else:
@@ -1475,6 +1621,8 @@ class ExternalCommand(ControllableProcess):
                 # because computing it again after we destroy our reference
                 # to the subprocess.Popen object will be impossible.
                 self.returncode = self.subprocess.returncode
+                self.logger.debug("Got return code %i from synchronous process (%s).",
+                                  self.returncode, self)
             # Destroy our reference to the subprocess.Popen object
             # to allow it to be garbage collected.
             delattr(self, 'subprocess')
@@ -1515,11 +1663,12 @@ class ExternalCommand(ControllableProcess):
         Invoke one of the event callbacks.
 
         :param name: The name of the callback (a string).
+        :returns: The return value of the callback.
         """
         callback = getattr(self, name)
         if callback is not None:
             logger.debug("Invoking %s callback ..", name)
-            callback(self)
+            return callback(self)
 
     def __enter__(self):
         """
@@ -1612,6 +1761,16 @@ class ExternalCommand(ControllableProcess):
                     # is affected by the `hidden read-ahead buffer' problem and
                     # I found no way to work around that.
                     return iter(lambda: stream.readline().decode(self.encoding), u'')
+
+    def __str__(self):
+        """
+        Render a human friendly string representation of the external command.
+
+        This special method calls :func:`quote()` on :attr:`command_line` which
+        is used by :mod:`executor` to enable lazy formatting of log messages
+        containing the quoted command line.
+        """
+        return quote(self.command_line)
 
 
 class CachedStream(object):

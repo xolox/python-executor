@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 3, 2018
+# Last Change: May 21, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -55,7 +55,7 @@ import time
 import uuid
 
 # External dependencies.
-from humanfriendly import Timer, compact
+from humanfriendly import Timer, compact, dedent
 from humanfriendly.testing import TemporaryDirectory, TestCase, retry, run_cli
 from mock import MagicMock
 
@@ -611,6 +611,44 @@ class ExecutorTestCase(TestCase):
 
         retry(assert_finished, 10)
 
+    def test_retry(self):
+        """Check that failing commands can be retried until they succeed."""
+        with TemporaryDirectory() as directory:
+            script = self.create_retry_script(directory, 5)
+            cmd = ExternalCommand(script, retry=True, retry_limit=10, shell=False)
+            cmd.start()
+            assert cmd.retry_count == 4
+            assert cmd.returncode == 0
+
+    def test_retry_limit(self):
+        """Check that failing commands aren't retried indefinitely."""
+        with TemporaryDirectory() as directory:
+            script = self.create_retry_script(directory, 5)
+            cmd = ExternalCommand(script, check=False, retry=True, retry_limit=2, shell=False)
+            cmd.start()
+            assert cmd.retry_count == 2
+            assert cmd.returncode == 42
+
+    def create_retry_script(self, directory, iterations=2):
+        """Create a script that fails until the fifth run :-)."""
+        unique_name = uuid.uuid4().hex
+        script = os.path.join(directory, '%s.sh' % unique_name)
+        data_file = os.path.join(directory, '%s.txt' % unique_name)
+        with open(script, 'w') as handle:
+            handle.write(dedent('''
+                #!/bin/bash -e
+
+                ITERATION=$(cat {data_file} 2>/dev/null || echo 1)
+                echo $(($ITERATION + 1)) > {data_file}
+                if [ $ITERATION -ge {limit} ]; then
+                    exit 0
+                else
+                    exit 42
+                fi
+            ''', data_file=data_file, limit=iterations))
+        os.chmod(script, 0o777)
+        return script
+
     def test_command_pool(self):
         """Make sure command pools actually run multiple commands in parallel."""
         num_commands = 10
@@ -642,6 +680,45 @@ class ExecutorTestCase(TestCase):
         # The second call to collect() should raise an exception about `exit 42'.
         e2 = intercept(ExternalCommandFailed, pool.collect)
         assert e2.command is c2
+
+    def test_command_pool_retry(self):
+        """Make sure command pools can retry failing commands."""
+        with TemporaryDirectory() as directory:
+            pool = CommandPool(concurrency=2, delay_checks=True)
+            # Create a shell script that succeeds on the second run and retry
+            # it exactly once. We expect this command to have succeeded when
+            # the command pool is finished.
+            script_1 = self.create_retry_script(directory, 2)
+            command_1 = ExternalCommand(script_1, async=True, retry=True, retry_limit=1)
+            pool.add(command_1)
+            # Create a shell script that succeeds on the fourth run and retry
+            # it up to two times. We expect this command to have failed when
+            # the command pool is finished.
+            script_2 = self.create_retry_script(directory, 4)
+            command_2 = ExternalCommand(script_2, async=True, retry=True, retry_limit=2)
+            pool.add(command_2)
+            # Include a command without retries that succeeds.
+            command_3 = ExternalCommand('true', async=True, retry=False)
+            pool.add(command_3)
+            # Include a command without retries that fails.
+            command_4 = ExternalCommand('false', async=True, retry=False)
+            pool.add(command_4)
+            # Run the commands in the pool, expecting an `CommandPoolFailed'
+            # exception because the second command will fail despite retrying
+            # and the fourth command fails on its first and only run.
+            self.assertRaises(CommandPoolFailed, pool.run)
+            # Check that the first command succeeded (with a retry).
+            assert command_1.succeeded
+            assert command_1.retry_count == 1
+            # Check that the second command failed (with retries).
+            assert command_2.failed
+            assert command_2.retry_count == 2
+            # Check that the third command succeeded (without retries).
+            assert command_3.succeeded
+            assert command_3.retry_count == 0
+            # Check that the fourth command failed (without retries).
+            assert command_4.failed
+            assert command_4.retry_count == 0
 
     def test_command_pool_termination(self):
         """Make sure command pools can be terminated on failure."""
