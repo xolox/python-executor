@@ -158,8 +158,8 @@ class EphemeralTCPServer(ExternalCommand, EphemeralPortAllocator):
     """
 
     @property
-    def async(self):
-        """Ephemeral TCP servers always set :attr:`.ExternalCommand.async` to :data:`True`."""
+    def _async(self):
+        """Ephemeral TCP servers always set :attr:`.ExternalCommand._async` to :data:`True`."""
         return True
 
     def start(self, **options):
