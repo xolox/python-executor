@@ -646,7 +646,7 @@ class SecureTunnel(RemoteCommand):
     """
 
     @mutable_property
-    def async(self):
+    def asynchronous(self):
         """Whether to enable asynchronous command execution (a boolean, defaults to :data:`True`)."""
         return True
 

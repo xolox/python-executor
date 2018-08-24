@@ -238,7 +238,7 @@ def run_command(arguments, timeout=None):
     """
     timer = Timer()
     logger.info("Running command: %s", quote(arguments))
-    with execute(*arguments, async=True) as command:
+    with execute(*arguments, asynchronous=True) as command:
         # Wait for the command to finish or exceed the given timeout.
         while command.is_running:
             if timeout and timer.elapsed_time > timeout:
