@@ -486,7 +486,7 @@ class ExecutorTestCase(TestCase):
     def test_ionice_option(self):
         """Make sure ``ionice`` can be used."""
         rsync_command_line = ['rsync', '-a', '/', '/mnt/backups/latest/']
-        expected_ionice_command = ['ionice', '--class', 'idle']
+        expected_ionice_command = ['ionice', '-c', 'idle']
         command = ExternalCommand(*rsync_command_line, ionice='idle')
         assert command.ionice == 'idle'
         print(command.ionice_command)

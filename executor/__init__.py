@@ -733,7 +733,7 @@ class ExternalCommand(ControllableProcess):
     @property
     def ionice_command(self):
         """The ionice_ command based on :attr:`ionice` (a list of strings)."""
-        return ['ionice', '--class', self.ionice] if self.ionice else []
+        return ['ionice', '-c', self.ionice] if self.ionice else []
 
     @property
     def is_finished(self):
