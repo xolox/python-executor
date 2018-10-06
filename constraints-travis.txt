@@ -1,1 +1,1 @@
-pycparser < 2.19
+cryptography < 2.2
