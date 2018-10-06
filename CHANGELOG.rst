@@ -11,6 +11,15 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 20.0.1`_ (2018-10-07)
+------------------------------
+
+- Bug fix: Merged pull request `#14`_ to make ``ionice_command`` compatible with older ``ionice`` versions not supporting the ``--class`` option.
+- Lots of commit noise to debug Python 2.6 support on Travis CI. I'm not sure why I still bother...
+
+.. _Release 20.0.1: https://github.com/xolox/python-executor/compare/20.0...20.0.1
+.. _#14: https://github.com/xolox/python-executor/pull/14
+
 `Release 20.0`_ (2018-05-21)
 ----------------------------
 
