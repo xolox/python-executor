@@ -12,7 +12,7 @@ before_install:
   - sudo apt-get install --yes fakeroot openssh-server
 install:
   - pip install pip-accel
-  - pip-accel install --requirement=requirements-travis.txt
+  - pip-accel install --constraint=constraints-travis.txt --requirement=requirements-travis.txt
   - LC_ALL=C pip install .
 env:
   - PIP_ACCEL_AUTO_INSTALL=true
