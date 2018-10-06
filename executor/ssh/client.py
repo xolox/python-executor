@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 4, 2018
+# Last Change: October 7, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -646,7 +646,7 @@ class SecureTunnel(RemoteCommand):
     """
 
     @mutable_property
-    def async(self):
+    def asynchronous(self):
         """Whether to enable asynchronous command execution (a boolean, defaults to :data:`True`)."""
         return True
 

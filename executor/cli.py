@@ -1,7 +1,7 @@
 # Command line interface for the executor package.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: June 24, 2017
+# Last Change: October 7, 2018
 # URL: https://executor.readthedocs.io
 #
 # TODO Expose a clean way to interrupt the fudge factor of other processes.
@@ -238,7 +238,7 @@ def run_command(arguments, timeout=None):
     """
     timer = Timer()
     logger.info("Running command: %s", quote(arguments))
-    with execute(*arguments, async=True) as command:
+    with execute(*arguments, asynchronous=True) as command:
         # Wait for the command to finish or exceed the given timeout.
         while command.is_running:
             if timeout and timer.elapsed_time > timeout:

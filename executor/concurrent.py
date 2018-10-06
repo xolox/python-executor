@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 20, 2018
+# Last Change: October 7, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -205,7 +205,7 @@ class CommandPool(PropertyManager):
         When a command is added to a command pool the following options are
         changed automatically:
 
-        - The :attr:`~executor.ExternalCommand.async` property is set to
+        - The :attr:`~executor.ExternalCommand.asynchronous` property is set to
           :data:`True`. If you want the commands to execute with a concurrency
           of one then you should set :attr:`concurrency` to one.
 
@@ -218,7 +218,7 @@ class CommandPool(PropertyManager):
           which of the subprocesses will receive the user's reply).
         """
         # Configure the command to run asynchronously.
-        command.async = True
+        command.asynchronous = True
         # Configure the command to run without a controlling terminal?
         if self.concurrency > 1:
             command.tty = False

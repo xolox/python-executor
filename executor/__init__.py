@@ -130,7 +130,7 @@ def execute(*command, **options):
              nonzero exit code (and :attr:`~ExternalCommand.check` is
              :data:`True`).
 
-    If :attr:`~ExternalCommand.async` is :data:`True` then :func:`execute()`
+    If :attr:`~ExternalCommand.asynchronous` is :data:`True` then :func:`execute()`
     will automatically start the external command for you using
     :func:`~ExternalCommand.start()` (but it won't wait for it to end). If you
     want to create an :class:`ExternalCommand` object instance without
@@ -183,7 +183,7 @@ def execute_prepared(command):
                     example :class:`.RemoteCommand`).
     :returns: The return value of this function depends on several options:
 
-              - If :attr:`~ExternalCommand.async` is :data:`True` the
+              - If :attr:`~ExternalCommand.asynchronous` is :data:`True` the
                 constructed :class:`ExternalCommand` object is returned.
 
               - If :attr:`~ExternalCommand.callback` is set the value of
@@ -196,7 +196,7 @@ def execute_prepared(command):
                 returned.
     :raises: See :func:`execute()` and :func:`.remote()`.
     """
-    if command.async:
+    if command.asynchronous:
         command.start()
         return command
     else:
@@ -265,7 +265,7 @@ class ExternalCommand(ControllableProcess):
         :param command: Any positional arguments are converted to a list and
                         used to set :attr:`command`.
         :param options: Keyword arguments can be used to conveniently override
-                        the default values of :attr:`async`, :attr:`callback`,
+                        the default values of :attr:`asynchronous`, :attr:`callback`,
                         :attr:`capture`, :attr:`capture_stderr`, :attr:`check`,
                         :attr:`directory`, :attr:`encoding`,
                         :attr:`environment`, :attr:`fakeroot`, :attr:`input`,
@@ -291,7 +291,7 @@ class ExternalCommand(ControllableProcess):
         self.stderr_stream = CachedStream(self, 'stderr')
 
     @mutable_property
-    def async(self):
+    def asynchronous(self):
         """
         Enable asynchronous command execution.
 
@@ -330,19 +330,19 @@ class ExternalCommand(ControllableProcess):
         The value of :attr:`buffer_size` becomes the `bufsize` argument
         that's passed to :class:`subprocess.Popen` by :func:`start()`.
 
-        If :data:`async` is :data:`True` and :attr:`buffered` is :data:`False`
+        If :data:`asynchronous` is :data:`True` and :attr:`buffered` is :data:`False`
         the value of :attr:`buffer_size` defaults to 0 which means unbuffered,
         in all other cases its value defaults to -1 which means to use the
         system default buffer size.
         """
-        return 0 if self.async and not self.buffered else -1
+        return 0 if self.asynchronous and not self.buffered else -1
 
     @mutable_property
     def buffered(self):
         """
         Control whether command output is buffered to temporary files.
 
-        When :attr:`async` is :data:`True` and the standard output and/or error
+        When :attr:`asynchronous` is :data:`True` and the standard output and/or error
         streams are being captured, temporary files will be used to collect the
         output. This enables the use of the :attr:`output`, :attr:`stdout` and
         :attr:`stderr` properties to easily get the full output of the command
@@ -371,7 +371,7 @@ class ExternalCommand(ControllableProcess):
            known_states = set(['BLANK', 'LOCK', 'UNBLANK'])
 
            while True:
-               options = dict(async=True, capture=True, buffered=False)
+               options = dict(asynchronous=True, capture=True, buffered=False)
                with execute('xscreensaver-command', '-watch', **options) as command:
                    for line in command:
                        tokens = line.split()
@@ -444,8 +444,8 @@ class ExternalCommand(ControllableProcess):
 
         If this option is :data:`True` (the default) and the external command
         exits with a nonzero status code :exc:`ExternalCommandFailed` will be
-        raised by :func:`start()` (when :attr:`async` isn't set) or
-        :func:`wait()` (when :attr:`async` is set).
+        raised by :func:`start()` (when :attr:`asynchronous` isn't set) or
+        :func:`wait()` (when :attr:`asynchronous` is set).
         """
         return True
 
@@ -1373,7 +1373,7 @@ class ExternalCommand(ControllableProcess):
 
         :raises: - :exc:`ExternalCommandFailed` when
                    :attr:`~ExternalCommand.check` is :data:`True`,
-                   :attr:`async` is :data:`False` and the external command
+                   :attr:`asynchronous` is :data:`False` and the external command
                    exits with a nonzero status code.
 
                  - :exc:`ValueError` when the external command is still
@@ -1383,12 +1383,12 @@ class ExternalCommand(ControllableProcess):
 
         This method instantiates a :class:`subprocess.Popen` object based on
         the defaults defined by :class:`ExternalCommand` and the overrides
-        configured by the caller. What happens then depends on :attr:`async`:
+        configured by the caller. What happens then depends on :attr:`asynchronous`:
 
-        - If :attr:`async` is set :func:`start()` starts the external command
+        - If :attr:`asynchronous` is set :func:`start()` starts the external command
           but doesn't wait for it to end (use :func:`wait()` for that).
 
-        - If :attr:`async` isn't set the ``communicate()`` method on the
+        - If :attr:`asynchronous` isn't set the ``communicate()`` method on the
           :attr:`subprocess` object is called to synchronously execute the
           external command.
         """
@@ -1412,7 +1412,7 @@ class ExternalCommand(ControllableProcess):
         kw['stdout'] = self.stdout_stream.prepare_output(self.stdout_file, self.capture)
         kw['stderr'] = (subprocess.STDOUT if self.merge_streams else
                         self.stderr_stream.prepare_output(self.stderr_file, self.capture_stderr))
-        if self.retry and not self.async:
+        if self.retry and not self.asynchronous:
             # Retry a failing synchronous command.
             while True:
                 self.start_once(check=False, **kw)
@@ -1486,7 +1486,7 @@ class ExternalCommand(ControllableProcess):
             # subprocess.Popen object without losing track of the process ID.
             self.pid = self.subprocess.pid
             # Synchronously wait for the external command to end?
-            if not self.async:
+            if not self.asynchronous:
                 self.logger.debug("Joining synchronous process using subprocess.Popen.communicate() ..")
                 stdout, stderr = self.subprocess.communicate(self.encoded_input)
                 self.stdout_stream.finalize(stdout)
@@ -1508,10 +1508,10 @@ class ExternalCommand(ControllableProcess):
         :param kw: Any keyword arguments are passed on to
                    :func:`~executor.process.ControllableProcess.wait_for_process()`.
         :raises: :exc:`ExternalCommandFailed` when :attr:`check` is
-                 :data:`True`, :attr:`async` is :data:`True` and the external
+                 :data:`True`, :attr:`asynchronous` is :data:`True` and the external
                  command exits with a nonzero status code.
 
-        The :func:`wait()` function is only useful when :attr:`async` is
+        The :func:`wait()` function is only useful when :attr:`asynchronous` is
         :data:`True`, it performs the following steps:
 
         1. If :attr:`was_started` is :data:`False` the :func:`start()` method
@@ -1571,7 +1571,7 @@ class ExternalCommand(ControllableProcess):
         Load output captured from the standard output/error streams.
 
         Reads the contents of the temporary file(s) created by :func:`start()`
-        (when :attr:`async` and :attr:`capture` are both set) into memory so
+        (when :attr:`asynchronous` and :attr:`capture` are both set) into memory so
         that the output doesn't get lost when the temporary file is cleaned up
         by :func:`cleanup()`.
         """
@@ -1587,7 +1587,7 @@ class ExternalCommand(ControllableProcess):
 
         - The temporary file(s) used to to buffer the external command's
           :attr:`input`, :attr:`stdout` and :attr:`stderr` (only when
-          :attr:`async` is :data:`True`).
+          :attr:`asynchronous` is :data:`True`).
 
         - File handles to the previously mentioned temporary files and
           :data:`os.devnull` (used to implement the :attr:`silent` option).
@@ -1603,7 +1603,7 @@ class ExternalCommand(ControllableProcess):
         self.stderr_stream.finalize()
         # Prepare to garbage collect the subprocess.Popen object?
         if self.subprocess is not None:
-            if self.async:
+            if self.asynchronous:
                 self.logger.debug("Joining asynchronous process using subprocess.Popen.wait() ..")
                 # Perform a wait to allow the system to release the resources
                 # associated with the child process; if a wait is not performed,
@@ -1680,15 +1680,15 @@ class ExternalCommand(ControllableProcess):
         :keyword:`with` statement, the command is automatically started when
         entering the context and terminated when leaving the context.
 
-        If the proces hasn't already been started yet :attr:`async` is
+        If the proces hasn't already been started yet :attr:`asynchronous` is
         automatically set to :data:`True` (if it's not already :data:`True`),
         otherwise the command will have finished execution by the time the body
         of the :keyword:`with` statement is executed (which isn't really all
         that useful :-).
         """
         if not self.was_started:
-            if not self.async:
-                self.async = True
+            if not self.asynchronous:
+                self.asynchronous = True
             self.start()
         return self
 
@@ -1746,7 +1746,7 @@ class ExternalCommand(ControllableProcess):
         """
         if not self.was_started:
             if not self.buffered:
-                self.async = True
+                self.asynchronous = True
             self.start()
         for is_enabled, value_property in (('capture', 'stdout'), ('capture_stderr', 'stderr')):
             if getattr(self, is_enabled):
@@ -1811,7 +1811,7 @@ class CachedStream(object):
                   :class:`subprocess.Popen` as the ``stdin`` argument.
         """
         if self.command.input is not None:
-            if self.command.async and self.command.input is not True:
+            if self.command.asynchronous and self.command.input is not True:
                 # Store the input provided by the caller in a temporary file
                 # and connect the file to the command's standard input stream.
                 self.prepare_temporary_file()
@@ -1846,7 +1846,7 @@ class CachedStream(object):
             self.redirect(file)
             return self.fd
         elif capture or (self.command.silent and not self.command.really_silent):
-            if self.command.async and self.command.buffered:
+            if self.command.asynchronous and self.command.buffered:
                 # Capture the stream to a temporary file.
                 self.prepare_temporary_file()
                 return self.fd

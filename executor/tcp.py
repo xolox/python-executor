@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 20, 2018
+# Last Change: October 7, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -158,8 +158,8 @@ class EphemeralTCPServer(ExternalCommand, EphemeralPortAllocator):
     """
 
     @property
-    def async(self):
-        """Ephemeral TCP servers always set :attr:`.ExternalCommand.async` to :data:`True`."""
+    def asynchronous(self):
+        """Ephemeral TCP servers always set :attr:`.ExternalCommand.asynchronous` to :data:`True`."""
         return True
 
     def start(self, **options):
