@@ -493,7 +493,7 @@ Better process management, decoupled from ``ExternalCommand``.
 `Release 7.6`_ (2015-11-10)
 ---------------------------
 
-- Automatically set ``async=True`` when used as context manager.
+- Automatically set ``_async=True`` when used as context manager.
 - Minor improvements to ``executor.ssh.server`` module.
 - Improve how Sphinx generates the documentation:
   

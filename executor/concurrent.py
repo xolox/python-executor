@@ -205,7 +205,7 @@ class CommandPool(PropertyManager):
         When a command is added to a command pool the following options are
         changed automatically:
 
-        - The :attr:`~executor.ExternalCommand.async` property is set to
+        - The :attr:`~executor.ExternalCommand._async` property is set to
           :data:`True`. If you want the commands to execute with a concurrency
           of one then you should set :attr:`concurrency` to one.
 
@@ -218,7 +218,7 @@ class CommandPool(PropertyManager):
           which of the subprocesses will receive the user's reply).
         """
         # Configure the command to run asynchronously.
-        command.async = True
+        command._async = True
         # Configure the command to run without a controlling terminal?
         if self.concurrency > 1:
             command.tty = False

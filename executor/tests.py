@@ -204,10 +204,10 @@ class ExecutorTestCase(TestCase):
         self.assertEqual(e.returncode, 42)
         self.assertTrue('whatever' in e.error_message)
         # Make sure the CommandNotFound exception is raised consistently
-        # regardless of the values of the `shell' and `async' options.
-        for async in True, False:
+        # regardless of the values of the `shell' and `_async' options.
+        for _async in True, False:
             for shell in True, False:
-                cmd = ExternalCommand(MISSING_COMMAND, async=async, shell=shell)
+                cmd = ExternalCommand(MISSING_COMMAND, _async=_async, shell=shell)
                 self.assertRaises(CommandNotFound, cmd.wait)
                 assert cmd.returncode == COMMAND_NOT_FOUND_STATUS
 
@@ -350,7 +350,7 @@ class ExecutorTestCase(TestCase):
         fd, filename = tempfile.mkstemp(prefix='executor-', suffix='-streaming.txt')
         with open(filename, 'w') as handle:
             cmd = ExternalCommand('for ((i=0; i<25; i++)); do echo $i; sleep 0.1; done',
-                                  async=True, stdout_file=handle)
+                                  _async=True, stdout_file=handle)
             cmd.start()
 
         def expect_some_output():
@@ -376,7 +376,7 @@ class ExecutorTestCase(TestCase):
                          'sys.stdout.write(sys.stdin.readline().upper())',
                          'sys.stdout.flush()',
                          'sys.stdout.write(sys.stdin.readline().upper())'),
-            async=True, buffered=False, capture=True, input=True
+            _async=True, buffered=False, capture=True, input=True
         )
         with cmd:
             # Message the command.
@@ -523,7 +523,7 @@ class ExecutorTestCase(TestCase):
 
     def test_simple_async_cmd(self):
         """Make sure commands can be executed asynchronously."""
-        cmd = ExternalCommand('sleep 4', async=True)
+        cmd = ExternalCommand('sleep 4', _async=True)
         # Make sure we're starting from a sane state.
         assert not cmd.was_started
         assert not cmd.is_running
@@ -554,9 +554,9 @@ class ExecutorTestCase(TestCase):
 
     def test_async_with_input(self):
         """Make sure asynchronous commands can be provided standard input."""
-        random_file = os.path.join(tempfile.gettempdir(), 'executor-%s-async-input-test' % os.getpid())
+        random_file = os.path.join(tempfile.gettempdir(), 'executor-%s-_async-input-test' % os.getpid())
         random_value = str(random.random())
-        cmd = ExternalCommand('cat > %s' % quote(random_file), async=True, input=random_value)
+        cmd = ExternalCommand('cat > %s' % quote(random_file), _async=True, input=random_value)
         try:
             cmd.start()
             cmd.wait()
@@ -571,7 +571,7 @@ class ExecutorTestCase(TestCase):
     def test_async_with_output(self):
         """Make sure asynchronous command output can be captured."""
         random_value = str(random.random())
-        cmd = ExternalCommand('echo %s' % quote(random_value), async=True, capture=True)
+        cmd = ExternalCommand('echo %s' % quote(random_value), _async=True, capture=True)
         cmd.start()
         cmd.wait()
         assert cmd.output == random_value
@@ -587,11 +587,11 @@ class ExecutorTestCase(TestCase):
 
     def test_event_callbacks(self):
         """Make sure the ``start_event`` and ``finish_event`` callbacks are actually invoked."""
-        for async in True, False:
+        for _async in True, False:
             results = []
             cmd = ExternalCommand(
                 'sleep', '0.1',
-                async=async,
+                _async=_async,
                 start_event=lambda cmd: results.append(('started', time.time())),
                 finish_event=lambda cmd: results.append(('finished', time.time())),
             )
@@ -606,14 +606,14 @@ class ExecutorTestCase(TestCase):
     def test_repr(self):
         """Make sure that repr() on external commands gives sane output."""
         cmd = ExternalCommand('echo 42',
-                              async=True,
+                              _async=True,
                               capture=True,
                               directory='/',
                               environment={'my_environment_variable': '42'})
         assert repr(cmd).startswith('ExternalCommand(')
         assert repr(cmd).endswith(')')
         assert 'echo 42' in repr(cmd)
-        assert 'async=True' in repr(cmd)
+        assert '_async=True' in repr(cmd)
         assert ('directory=%r' % '/') in repr(cmd)
         assert 'my_environment_variable' in repr(cmd)
         assert 'was_started=False' in repr(cmd)
@@ -707,19 +707,19 @@ class ExecutorTestCase(TestCase):
             # it exactly once. We expect this command to have succeeded when
             # the command pool is finished.
             script_1 = self.create_retry_script(directory, 2)
-            command_1 = ExternalCommand(script_1, async=True, retry=True, retry_limit=1)
+            command_1 = ExternalCommand(script_1, _async=True, retry=True, retry_limit=1)
             pool.add(command_1)
             # Create a shell script that succeeds on the fourth run and retry
             # it up to two times. We expect this command to have failed when
             # the command pool is finished.
             script_2 = self.create_retry_script(directory, 4)
-            command_2 = ExternalCommand(script_2, async=True, retry=True, retry_limit=2)
+            command_2 = ExternalCommand(script_2, _async=True, retry=True, retry_limit=2)
             pool.add(command_2)
             # Include a command without retries that succeeds.
-            command_3 = ExternalCommand('true', async=True, retry=False)
+            command_3 = ExternalCommand('true', _async=True, retry=False)
             pool.add(command_3)
             # Include a command without retries that fails.
-            command_4 = ExternalCommand('false', async=True, retry=False)
+            command_4 = ExternalCommand('false', _async=True, retry=False)
             pool.add(command_4)
             # Run the commands in the pool, expecting an `CommandPoolFailed'
             # exception because the second command will fail despite retrying
