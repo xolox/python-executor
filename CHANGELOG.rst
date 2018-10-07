@@ -11,6 +11,20 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 21.1`_ (2018-10-07)
+----------------------------
+
+Improve compatibility with "vanilla Ubuntu 18.04 docker images" by parsing the
+file ``/etc/lsb-release`` when the program ``/usr/bin/lsb_release`` isn't
+installed (fixes `#10`_).
+
+This enables the ``distributor_id`` and ``distribution_codename`` properties to
+work even when the ``/usr/bin/lsb_release`` program isn't installed, by parsing
+the ``/etc/lsb-release`` file instead. Tested on Ubuntu 14.04, 16.04 and 18.04.
+
+.. _Release 21.1: https://github.com/xolox/python-executor/compare/21.0...21.1
+.. _#10: https://github.com/xolox/python-executor/issues/10
+
 `Release 21.0`_ (2018-10-07)
 ----------------------------
 
