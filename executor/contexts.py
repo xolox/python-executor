@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 20, 2018
+# Last Change: October 7, 2018
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -71,10 +71,11 @@ import logging
 import multiprocessing
 import os
 import random
+import shlex
 import socket
 
 # External dependencies.
-from humanfriendly.text import dedent, split
+from humanfriendly.text import dedent, pluralize, split
 from property_manager import (
     PropertyManager,
     lazy_property,
@@ -179,18 +180,56 @@ class AbstractContext(PropertyManager):
         """
         The code name of the system's distribution (a lowercased string like ``precise`` or ``trusty``).
 
-        This is the lowercased output of ``lsb_release --short --codename``.
+        How this property is computed depends on the execution context:
+
+        1. When the file ``/etc/lsb-release`` exists and defines the variable
+           ``DISTRIB_CODENAME`` then this is the preferred source (see
+           :attr:`lsb_release_variables`). This was added in response to
+           `issue #10`_ which reported that the ``lsb_release`` program
+           wasn't available in vanilla Ubuntu 18.04 Docker images.
+
+        2. When the program ``lsb_release`` is installed then the output of the
+           command ``lsb_release --short --codename`` is used.
+
+        The returned string is guaranteed to be lowercased, in order to enable
+        reliable string comparison.
+
+        .. _issue #10: https://github.com/xolox/python-executor/issues/10
         """
-        return self.capture('lsb_release', '--short', '--codename', check=False, silent=True).lower()
+        logger.debug("Trying to discover distribution codename using /etc/lsb-release ..")
+        value = self.lsb_release_variables.get('DISTRIB_CODENAME')
+        if not value:
+            logger.debug("Falling back to 'lsb_release --short --codename' ..")
+            value = self.capture('lsb_release', '--short', '--codename', check=False, silent=True)
+        return value.lower()
 
     @lazy_property
     def distributor_id(self):
         """
         The distributor ID of the system (a lowercased string like ``debian`` or ``ubuntu``).
 
-        This is the lowercased output of ``lsb_release --short --id``.
+        How this property is computed depends on the execution context:
+
+        1. When the file ``/etc/lsb-release`` exists and defines the variable
+           ``DISTRIB_ID`` then this is the preferred source (see
+           :attr:`lsb_release_variables`). This was added in response to
+           `issue #10`_ which reported that the ``lsb_release`` program
+           wasn't available in vanilla Ubuntu 18.04 Docker images.
+
+        2. When the program ``lsb_release`` is installed then the output of the
+           command ``lsb_release --short --id`` is used.
+
+        The returned string is guaranteed to be lowercased, in order to enable
+        reliable string comparison.
+
+        .. _issue #10: https://github.com/xolox/python-executor/issues/10
         """
-        return self.capture('lsb_release', '--short', '--id', check=False, silent=True).lower()
+        logger.debug("Trying to discover distributor ID using /etc/lsb-release ..")
+        value = self.lsb_release_variables.get('DISTRIB_ID')
+        if not value:
+            logger.debug("Falling back to 'lsb_release --short --id' ..")
+            value = self.capture('lsb_release', '--short', '--id', check=False, silent=True)
+        return value.lower()
 
     @lazy_property
     def have_ionice(self):
@@ -202,6 +241,48 @@ class AbstractContext(PropertyManager):
         """:data:`True` if the context has superuser privileges, :data:`False` otherwise."""
         prototype = self.prepare('true')
         return prototype.have_superuser_privileges or prototype.sudo
+
+    @lazy_property
+    def lsb_release_variables(self):
+        """
+        The contents of ``/etc/lsb-release`` as a dictionary.
+
+        The values of :attr:`distributor_id` and :attr:`distribution_codename`
+        are based on the information provided by :attr:`lsb_release_variables`.
+        If ``/etc/lsb-release`` doesn't exist or can't be parsed a debug
+        message is logged and an empty dictionary is returned. Here's an
+        example:
+
+        >>> from executor.contexts import LocalContext
+        >>> context = LocalContext()
+        >>> context.lsb_release_variables
+        {'DISTRIB_CODENAME': 'bionic',
+         'DISTRIB_DESCRIPTION': 'Ubuntu 18.04.1 LTS',
+         'DISTRIB_ID': 'Ubuntu',
+         'DISTRIB_RELEASE': '18.04'}
+        """
+        variables = dict()
+        # We proceed under the assumption that the file exists, but avoid
+        # raising an exception when it doesn't and we don't leak error messages
+        # to the standard error stream. We could have used is_file() and
+        # is_readable() to "ask for permission instead of forgiveness" (so to
+        # speak) but that requires the execution of three external commands
+        # instead of one to accomplish the exact same thing :-P.
+        logger.debug("Trying to read /etc/lsb-release ..")
+        contents = self.capture('cat', '/etc/lsb-release', check=False, silent=True)
+        for lnum, line in enumerate(contents.splitlines()):
+            name, delimiter, value = line.partition('=')
+            name = name.strip()
+            parsed_value = shlex.split(value)
+            if len(parsed_value) == 1:
+                variables[name] = parsed_value[0]
+            else:
+                logger.debug("Failed to parse line %i: %r", lnum + 1, line)
+        if variables:
+            logger.debug("Extracted %s from /etc/lsb-release: %r", pluralize(len(variables), "variable"), variables)
+        else:
+            logger.debug("Failed to read /etc/lsb-release ..")
+        return variables
 
     @writable_property
     def options(self):
