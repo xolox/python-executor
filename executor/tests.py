@@ -55,9 +55,10 @@ import time
 import uuid
 
 # External dependencies.
-from humanfriendly import Timer, compact, dedent
+from humanfriendly import Timer, coerce_boolean, compact, dedent
 from humanfriendly.testing import TemporaryDirectory, TestCase, retry, run_cli
 from mock import MagicMock
+from property_manager import set_property
 from six.moves import StringIO
 
 # Modules included in our package.
@@ -1018,21 +1019,53 @@ class ExecutorTestCase(TestCase):
 
     def test_lsb_release_shortcuts(self):
         """Test the ``lsb_release`` shortcuts."""
+        # The following tests should pass on my laptops and Travis CI, but I
+        # don't want this test to fail on `unexpected' platforms, so here's a
+        # pragmatic compromise :-).
         try:
-            # The following tests should pass on my laptops and Travis CI.
             context = LocalContext()
             assert context.distributor_id == 'ubuntu'
-            assert context.distribution_codename in ('precise', 'trusty', 'xenial')
-        except AssertionError:
-            # But I don't want this test to fail on `unexpected'
-            # platforms so here's a pragmatic compromise :-).
-            return self.skipTest("assuming unsupported platform")
+            assert context.distribution_codename in ('precise', 'trusty', 'xenial', 'bionic')
+        except Exception:
+            if self.lsb_release_expected_to_work:
+                raise
+            else:
+                return self.skipTest("assuming unsupported platform")
+
+    def test_lsb_release_fallback(self):
+        """Make sure the fall back from /etc/lsb-release to /usr/bin/lsb_release works."""
+        context = LocalContext()
+        # Disable the parsing of /etc/lsb-release.
+        set_property(context, 'lsb_release_variables', {})
+        # Test the fall back from /etc/lsb-release to /usr/bin/lsb_release.
+        try:
+            assert context.distributor_id == 'ubuntu'
+            assert context.distribution_codename in ('precise', 'trusty', 'xenial', 'bionic')
+        except Exception:
+            if self.lsb_release_expected_to_work:
+                raise
+            else:
+                return self.skipTest("assuming unsupported platform")
 
     def test_lsb_release_error_handling(self):
         """Test that the ``lsb_release`` shortcuts don't raise exceptions on unsupported platforms."""
         context = LocalContext(environment=dict(PATH=''))
         assert context.distributor_id == ''
         assert context.distribution_codename == ''
+
+    def test_lsb_release_variables(self):
+        """Test the ``/etc/lsb-release`` parsing."""
+        try:
+            context = LocalContext()
+            variables = context.lsb_release_variables
+            assert len(variables) > 0
+            assert variables['DISTRIB_ID'].lower() == 'ubuntu'
+            assert variables['DISTRIB_CODENAME'].lower() in ('precise', 'trusty', 'xenial', 'bionic')
+        except Exception:
+            if self.lsb_release_expected_to_work:
+                raise
+            else:
+                return self.skipTest("assuming unsupported platform")
 
     def test_local_context(self):
         """Test a local command context."""
@@ -1203,6 +1236,13 @@ class ExecutorTestCase(TestCase):
             assert returncode != 0
             assert timer.elapsed_time < 10
         retry(timeout_hammer, 60)
+
+    @property
+    def lsb_release_expected_to_work(self):
+        """True on my laptops and Travis CI, False otherwise."""
+        developer_laptop = (socket.gethostname() in ('peter-mba', 'peter-mbp'))
+        travis_ci = coerce_boolean(os.environ.get('TRAVIS', 'false'))
+        return developer_laptop or travis_ci
 
 
 def intercept(exc_type, func, *args, **kw):
