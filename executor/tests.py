@@ -116,6 +116,14 @@ class ExecutorTestCase(TestCase):
         if not os.path.isdir(self.sudo_enabled_directory):
             os.makedirs(self.sudo_enabled_directory)
 
+    def test_async_compat(self):
+        """Make sure the ``async`` property still works (backwards compatibility)."""
+        aliases = ('async', 'asynchronous')
+        cmd = ExternalCommand('test', **{'async': True})
+        assert all(getattr(cmd, n) is True for n in aliases)
+        cmd = ExternalCommand('test', **{'async': False})
+        assert all(getattr(cmd, n) is False for n in aliases)
+
     def test_double_start(self):
         """Make sure a command can't be started when it's already running."""
         with ExternalCommand('sleep', '1') as cmd:
