@@ -319,6 +319,8 @@ class ExternalCommand(ControllableProcess):
           By using a temporary file the external command can produce output as
           fast or slow as it pleases without needing a thread or subprocess on
           our side to consume the output in real time.
+
+        .. seealso:: :attr:`async` (backwards compatible alias)
         """
         return False
 
@@ -1259,6 +1261,18 @@ class ExternalCommand(ControllableProcess):
         """
         return False
 
+    def async_fdel(self):
+        """Delete the value of :attr:`asynchronous`."""
+        delattr(self, 'asynchronous')
+
+    def async_fget(self):
+        """Get the value of :attr:`asynchronous`."""
+        return self.asynchronous
+
+    def async_fset(self, value):
+        """Set the value of :attr:`asynchronous`."""
+        self.asynchronous = value
+
     def check_retry_allowed(self):
         """
         Check if retrying is allowed by invoking the :attr:`retry_event` callback.
@@ -1771,6 +1785,37 @@ class ExternalCommand(ControllableProcess):
         containing the quoted command line.
         """
         return quote(self.command_line)
+
+
+# We define the 'async' -> 'asynchronous' alias once at module import time. The
+# alternative is to take care of this in ExternalCommand.__init__() but there
+# are two reasons why I prefer module import time instead:
+#
+#  - If we handle this in ExternalCommand.__init__() we'd be allocating a new
+#    property object for every ExternalCommand object, whereas now we allocate
+#    a single property object for all ExternalCommand objects.
+#
+#  - If the alias is created by ExternalCommand.__init__() then Sphinx would
+#    never get to see it (because Sphinx looks at classes, not instances).
+setattr(
+    ExternalCommand,
+    'async',
+    property(
+        ExternalCommand.async_fget,
+        ExternalCommand.async_fset,
+        ExternalCommand.async_fdel,
+        """
+        An alias for the :attr:`asynchronous` property.
+
+        In executor release 21.0 the ``async`` property was renamed to
+        ``asynchronous`` because Python 3.7 introduces the ``async``
+        keyword, invalidating its use as an identifier.
+
+        This alias ensures backwards compatibility with callers
+        that are still using the old property name.
+        """,
+    ),
+)
 
 
 class CachedStream(object):
