@@ -68,7 +68,7 @@ from six import string_types, text_type
 from executor.process import ControllableProcess
 
 # Semi-standard module versioning.
-__version__ = '20.0.1'
+__version__ = '21.0'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -1807,12 +1807,24 @@ setattr(
         """
         An alias for the :attr:`asynchronous` property.
 
-        In executor release 21.0 the ``async`` property was renamed to
-        ``asynchronous`` because Python 3.7 introduces the ``async``
-        keyword, invalidating its use as an identifier.
+        In `release 21.0`_ the :attr:`async` property was renamed to
+        :attr:`asynchronous` because Python 3.7 introduces the :keyword:`async`
+        keyword, invalidating its use as an identifier. This alias ensures
+        backwards compatibility with callers that are still using the old
+        :attr:`async` name. If you're wondering which of the two properties you
+        should use:
 
-        This alias ensures backwards compatibility with callers
-        that are still using the old property name.
+        - If Python >= 3.7 compatibility is important to you then your only
+          choice is :attr:`asynchronous`.
+
+        - If you're working in a Python < 3.7 code base you can pick either one
+          of the properties, it really doesn't matter.
+
+        - Of course most Python 2 code bases will eventually need to be
+          upgraded to Python 3 and the future proof choice is
+          :attr:`asynchronous`.
+
+        .. _release 21.0: https://executor.readthedocs.io/en/latest/changelog.html#release-21-0-2018-10-07
         """,
     ),
 )

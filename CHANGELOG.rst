@@ -11,11 +11,50 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 21.0`_ (2018-10-07)
+----------------------------
+
+**Implemented Python 3.7 compatibility.**
+
+Python 3.7 was released in June 2018 and introduced the reserved keyword
+``async`` which made the definition of the ``ExternalCommand.async``
+property a syntax error. Should have seen that coming 😒.
+
+In any case, due to personal circumstances I haven't had time for any open
+source programming in the past few months which meant feedback on this issue
+piled up in the form of issue `#9`_ and pull requests `#11`_ and `#13`_:
+
+- Pull request `#11`_ proposed switching to ``_async``.
+- Pull request `#13`_ proposed switching to ``asynchronous``.
+
+Apart from the naming difference both pull requests represented the same
+change, however I prefer ``asynchronous`` over ``_async`` because I have a
+strong dislike for leading and trailing underscores that have no semantic value
+except to avoid using a reserved keyword (I'm looking at you SQLAlchemy 😛).
+
+There was one thing that bugged me about all of this though: While it was clear
+that ``ExternalCommand.async`` needed to be renamed I didn't feel like breaking
+backwards compatibility with lots of existing Python 2 code using executor with
+the old ``async`` naming. That's why I've updated the code to programatically
+add an ``async`` alias that defers to the real ``asynchronous`` property.
+Because this is done using the ``setattr()`` function no reserved keywords are
+harmed in the process 😇.
+
+I've also added Python 3.7 to the supported and tested Python releases.
+
+.. _Release 21.0: https://github.com/xolox/python-executor/compare/20.0.1...21.0
+.. _#9: https://github.com/xolox/python-executor/issues/9
+.. _#11: https://github.com/xolox/python-executor/pull/11
+.. _#13: https://github.com/xolox/python-executor/pull/13
+
 `Release 20.0.1`_ (2018-10-07)
 ------------------------------
 
-- Bug fix: Merged pull request `#14`_ to make ``ionice_command`` compatible with older ``ionice`` versions not supporting the ``--class`` option.
-- Lots of commit noise to debug Python 2.6 support on Travis CI. I'm not sure why I still bother...
+- Bug fix: Merged pull request `#14`_ to make ``ionice_command`` compatible
+  with older ``ionice`` versions not supporting the ``--class`` option.
+
+- Lots of commit noise to debug Python 2.6 support on Travis CI. I'm not sure
+  why I still bother...
 
 .. _Release 20.0.1: https://github.com/xolox/python-executor/compare/20.0...20.0.1
 .. _#14: https://github.com/xolox/python-executor/pull/14
