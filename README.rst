@@ -22,8 +22,9 @@ escaping of arguments and error checking:
   what's called a "command pool". The concurrency level can be customized and
   of course both local and remote commands are supported.
 
-The package is currently tested on Python 2.6, 2.7, 3.4, 3.5, 3.6 and PyPy. For
-usage instructions please refer to following sections and the documentation_.
+The package is currently tested on Python 2.6, 2.7, 3.4, 3.5, 3.6, 3.7 and
+PyPy. For usage instructions please refer to following sections and the
+documentation_.
 
 .. contents::
    :local:
