@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 7, 2018
+# Last Change: October 8, 2018
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -270,12 +270,17 @@ class AbstractContext(PropertyManager):
         # instead of one to accomplish the exact same thing :-P.
         logger.debug("Trying to read /etc/lsb-release ..")
         contents = self.capture('cat', '/etc/lsb-release', check=False, silent=True)
+        logger.debug("Parsing /etc/lsb-release contents: %r", contents)
         for lnum, line in enumerate(contents.splitlines()):
             name, delimiter, value = line.partition('=')
-            name = name.strip()
             parsed_value = shlex.split(value)
-            if len(parsed_value) == 1:
-                variables[name] = parsed_value[0]
+            # The zero byte check below guards against a weird edge that has so
+            # far only manifested in the Python 2.6 environment of Travis CI:
+            # The parsing of /etc/lsb-release results in the expected variable
+            # names but values containing binary data including nul bytes.
+            # https://github.com/xolox/python-executor/issues/15.
+            if len(parsed_value) == 1 and '\0' not in parsed_value[0]:
+                variables[name.strip()] = parsed_value[0]
             else:
                 logger.debug("Failed to parse line %i: %r", lnum + 1, line)
         if variables:
