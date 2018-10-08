@@ -11,6 +11,16 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 21.1.1`_ (2018-10-08)
+------------------------------
+
+Bug fix of sorts: Guard against binary data in ``/etc/lsb-release`` on Travis
+CI. This problem became apparent after `#10`_ triggered some new development.
+Since then I created `#15`_ to track this specific issue.
+
+.. _Release 21.1.1: https://github.com/xolox/python-executor/compare/21.1...21.1.1
+.. _#15: https://github.com/xolox/python-executor/issues/10
+
 `Release 21.1`_ (2018-10-07)
 ----------------------------
 
