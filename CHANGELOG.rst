@@ -11,6 +11,16 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 21.2`_ (2018-10-11)
+----------------------------
+
+Enable ``context.read_file(..., sudo=True)`` and ``context.write_file(...,
+sudo=True)``. In fact all optional keyword arguments are supported (not just
+``sudo``) but for me the most important one is ``sudo=True`` because I strongly
+prefer "selective ``sudo``" over "just run everything using ``sudo``".
+
+.. _Release 21.2: https://github.com/xolox/python-executor/compare/21.1.1...21.2
+
 `Release 21.1.1`_ (2018-10-08)
 ------------------------------
 
