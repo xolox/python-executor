@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 8, 2018
+# Last Change: October 11, 2018
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -695,11 +695,12 @@ class AbstractContext(PropertyManager):
         options.update(shell=False, tty=True)
         return self.prepare(DEFAULT_SHELL, **options)
 
-    def read_file(self, filename):
+    def read_file(self, filename, **options):
         """
         Read the contents of a file.
 
         :param filename: The pathname of the file to read (a string).
+        :param options: Optional keyword arguments to :func:`execute()`.
         :returns: The contents of the file (a byte string).
 
         This method uses cat_ to read the contents of files so that options
@@ -709,7 +710,8 @@ class AbstractContext(PropertyManager):
 
         .. _cat: http://linux.die.net/man/1/cat
         """
-        return self.execute('cat', filename, capture=True).stdout
+        options.update(capture=True)
+        return self.execute('cat', filename, **options).stdout
 
     def start_interactive_shell(self, **options):
         """
