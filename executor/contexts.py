@@ -750,12 +750,13 @@ class AbstractContext(PropertyManager):
         cmd.start()
         return cmd.succeeded
 
-    def write_file(self, filename, contents):
+    def write_file(self, filename, contents, **options):
         """
         Change the contents of a file.
 
         :param filename: The pathname of the file to write (a string).
         :param contents: The contents to write to the file (a byte string).
+        :param options: Optional keyword arguments to :func:`execute()`.
 
         This method uses a combination of cat_ and `output redirection`_ to
         change the contents of files so that options like
@@ -767,7 +768,8 @@ class AbstractContext(PropertyManager):
 
         .. _output redirection: https://en.wikipedia.org/wiki/Redirection_(computing)
         """
-        return self.execute('cat > %s' % quote(filename), shell=True, input=contents)
+        options.update(input=contents, shell=True)
+        return self.execute('cat > %s' % quote(filename), **options)
 
 
 class LocalContext(AbstractContext):
