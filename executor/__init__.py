@@ -2112,12 +2112,12 @@ def validate_ionice_class(value):
     Ensure that the given value is a valid I/O scheduling class for ionice_.
 
     :param value: The value to validate (a string).
-    :returns: The validated value (one of the strings 'idle',
-              'best-effort' or 'realtime').
+    :returns: The validated value (one of the numbers/strings 'idle',
+              'best-effort', 'realtime', '1', '2' or '3').
     :raises: :exc:`~exceptions.ValueError` when the given value isn't one of
              the strings mentioned above.
     """
-    expected = ('idle', 'best-effort', 'realtime')
+    expected = ('idle', 'best-effort', 'realtime', '1', '2', '3')
     if value not in expected:
         msg = "Invalid I/O scheduling class! (got %r while valid options are %s)"
         raise ValueError(msg % (value, concatenate(expected)))
