@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 7, 2018
+# Last Change: October 30, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -70,6 +70,7 @@ from executor import (
     ExternalCommand,
     ExternalCommandFailed,
     execute,
+    validate_ionice_class,
     quote,
     which,
 )
@@ -507,6 +508,16 @@ class ExecutorTestCase(TestCase):
             'touch', 'something-inappropriate',
             ionice='unknown-class',
         )
+
+    def test_ionice_validation(self):
+        """Test the validation of ionice arguments."""
+        # Ensure that invalid values are refused.
+        self.assertRaises(ValueError, validate_ionice_class, 'not a valid choice')
+        self.assertRaises(ValueError, validate_ionice_class, '0')
+        self.assertRaises(ValueError, validate_ionice_class, '4')
+        # Ensure that valid values are accepted.
+        for value in 'idle', 'best-effort', 'realtime', '1', '2', '3':
+            validate_ionice_class(value)
 
     def test_environment_variable_handling(self):
         """Make sure environment variables can be overridden."""

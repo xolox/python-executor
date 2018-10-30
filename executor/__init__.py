@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 11, 2018
+# Last Change: October 30, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -2112,8 +2112,8 @@ def validate_ionice_class(value):
     Ensure that the given value is a valid I/O scheduling class for ionice_.
 
     :param value: The value to validate (a string).
-    :returns: The validated value (one of the numbers/strings 'idle',
-              'best-effort', 'realtime', '1', '2' or '3').
+    :returns: The validated value (one of the strings '1', '2', '3', 'idle',
+              'best-effort', or 'realtime').
     :raises: :exc:`~exceptions.ValueError` when the given value isn't one of
              the strings mentioned above.
     """
