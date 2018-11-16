@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 30, 2018
+# Last Change: November 16, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -22,7 +22,7 @@ personal development environment I have added a custom sudo configuration file
 
     # To enable test_sudo_option.
     peter ALL=NOPASSWD:/bin/chmod 600 /tmp/executor-test-suite/*
-    peter ALL=NOPASSWD:/bin/chown root\:root /tmp/executor-test-suite/*
+    peter ALL=NOPASSWD:/bin/chown root\\:root /tmp/executor-test-suite/*
     peter ALL=NOPASSWD:/bin/rm -R /tmp/executor-test-suite
     peter ALL=NOPASSWD:/usr/bin/stat --format=%a /tmp/executor-test-suite/*
     peter ALL=NOPASSWD:/usr/bin/stat --format=%G /tmp/executor-test-suite/*

@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 11, 2018
+# Last Change: November 16, 2018
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -945,14 +945,14 @@ class RemoteContext(RemoteAccount, AbstractContext):
 
         This property's value is computed by executing the remote command
         nproc_. If that command fails :attr:`cpu_count` falls back to the
-        command ``grep -ci '^processor\s*:' /proc/cpuinfo``.
+        command ``grep -ci '^processor\\s*:' /proc/cpuinfo``.
 
         .. _nproc: http://linux.die.net/man/1/nproc
         """
         try:
             return int(self.capture('nproc', shell=False, silent=True))
         except Exception:
-            return int(self.capture('grep', '-ci', '^processor\s*:', '/proc/cpuinfo'))
+            return int(self.capture('grep', '-ci', r'^processor\s*:', '/proc/cpuinfo'))
 
     def get_options(self):
         """The :attr:`~AbstractContext.options` including the SSH alias and remote user."""
