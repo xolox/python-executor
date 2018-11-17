@@ -11,6 +11,22 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 21.3`_ (2018-11-17)
+----------------------------
+
+Merged pull request `#16`_ that changes the ``ionice`` integration to accept
+the strings '1', '2' and '3' in addition to 'idle', 'best-effort' and
+'realtime' because ``busybox`` doesn't support the verbose strings.
+
+It's still up to the caller to pick the right kind of value and I'm a bit
+conflicted about that because it's creating a leaky abstraction. I may at a
+later point decide to add automatic translation from the verbose labels to the
+numeric codes (which seem to be the lowest common denominator that's always
+supported) ...
+
+.. _Release 21.3: https://github.com/xolox/python-executor/compare/21.2...21.3
+.. _#16: https://github.com/xolox/python-executor/pull/16
+
 `Release 21.2`_ (2018-10-11)
 ----------------------------
 

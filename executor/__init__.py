@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 30, 2018
+# Last Change: November 17, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -68,7 +68,7 @@ from six import string_types, text_type
 from executor.process import ControllableProcess
 
 # Semi-standard module versioning.
-__version__ = '21.2'
+__version__ = '21.3'
 
 # Initialize a logger.
 logger = logging.getLogger(__name__)
@@ -2116,6 +2116,13 @@ def validate_ionice_class(value):
               'best-effort', or 'realtime').
     :raises: :exc:`~exceptions.ValueError` when the given value isn't one of
              the strings mentioned above.
+
+    The strings 'idle', 'best-effort' and 'realtime' are preferred for
+    readability but not supported in minimalistic environments like busybox
+    which only support the values '1', '2' and '3' (refer to `#16`_). It's up
+    to the caller to choose the correct value, no translation is done.
+
+    .. _#16: https://github.com/xolox/python-executor/pull/16
     """
     expected = ('idle', 'best-effort', 'realtime', '1', '2', '3')
     if value not in expected:
