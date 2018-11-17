@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 16, 2018
+# Last Change: November 17, 2018
 # URL: https://executor.readthedocs.io
 
 """
@@ -495,19 +495,19 @@ class ExecutorTestCase(TestCase):
 
     def test_ionice_option(self):
         """Make sure ``ionice`` can be used."""
-        rsync_command_line = ['rsync', '-a', '/', '/mnt/backups/latest/']
-        expected_ionice_command = ['ionice', '-c', 'idle']
-        command = ExternalCommand(*rsync_command_line, ionice='idle')
-        assert command.ionice == 'idle'
-        print(command.ionice_command)
-        assert command.ionice_command == expected_ionice_command
-        assert command.command_line == (expected_ionice_command + rsync_command_line)
-        self.assertRaises(
-            ValueError,
-            ExternalCommand,
-            'touch', 'something-inappropriate',
-            ionice='unknown-class',
-        )
+        for value in '1', '2', '3', 'idle', 'best-effort', 'realtime':
+            rsync_command_line = ['rsync', '-a', '/', '/mnt/backups/latest/']
+            expected_ionice_command = ['ionice', '-c', value]
+            command = ExternalCommand(*rsync_command_line, ionice=value)
+            assert command.ionice == value
+            assert command.ionice_command == expected_ionice_command
+            assert command.command_line == (expected_ionice_command + rsync_command_line)
+            self.assertRaises(
+                ValueError,
+                ExternalCommand,
+                'touch', 'something-inappropriate',
+                ionice='unknown-class',
+            )
 
     def test_ionice_validation(self):
         """Test the validation of ionice arguments."""
