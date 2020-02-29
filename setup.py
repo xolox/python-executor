@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 7, 2018
+# Last Change: February 29, 2020
 # URL: https://executor.readthedocs.io
 
 """Setup script for the `executor` package."""
@@ -70,6 +70,7 @@ setup(name='executor',
       tests_require=[
           'virtualenv',
       ],
+      python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*',
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Environment :: Console',
@@ -82,10 +83,8 @@ setup(name='executor',
           'Operating System :: Unix',
           'Programming Language :: Python',
           'Programming Language :: Python :: 2',
-          'Programming Language :: Python :: 2.6',
           'Programming Language :: Python :: 2.7',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
