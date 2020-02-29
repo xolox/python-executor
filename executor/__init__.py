@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 17, 2018
+# Last Change: February 29, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -386,7 +386,7 @@ class ExternalCommand(ControllableProcess):
         example above, in order to keep it simple, but I did test it and
         it should actually work (at least it did for me):
 
-        .. code-block:: sh
+        .. code-block:: console
 
            $ export XSCREENSAVER_BLANK_COMMAND='echo $(date) - Screen is now blanked'
            $ export XSCREENSAVER_LOCK_COMMAND='echo $(date) - Screen is now locked'

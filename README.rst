@@ -35,7 +35,7 @@ Installation
 The `executor` package is available on PyPI_ which means installation should be
 as simple as:
 
-.. code-block:: sh
+.. code-block:: console
 
    $ pip install executor
 
