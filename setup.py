@@ -6,7 +6,18 @@
 # Last Change: February 29, 2020
 # URL: https://executor.readthedocs.io
 
-"""Setup script for the `executor` package."""
+"""
+Setup script for the `executor` package.
+
+**python setup.py install**
+  Install from the working directory into the current Python environment.
+
+**python setup.py sdist**
+  Build a source distribution archive.
+
+**python setup.py bdist_wheel**
+  Build a wheel distribution archive.
+"""
 
 # Standard library modules.
 import codecs
@@ -17,21 +28,17 @@ import re
 from setuptools import setup, find_packages
 
 
-def get_readme():
-    """Get the contents of the ``README.rst`` file as a Unicode string."""
-    with codecs.open(get_absolute_path('README.rst'), 'r', 'utf-8') as handle:
+def get_contents(*args):
+    """Get the contents of a file relative to the source distribution directory."""
+    with codecs.open(get_absolute_path(*args), 'r', 'UTF-8') as handle:
         return handle.read()
 
 
 def get_version(*args):
-    """Get the package's version (by extracting it from the source code)."""
-    module_path = get_absolute_path(*args)
-    with open(module_path) as handle:
-        for line in handle:
-            match = re.match(r'^__version__\s*=\s*["\']([^"\']+)["\']$', line)
-            if match:
-                return match.group(1)
-    raise Exception("Failed to extract version from %s!" % module_path)
+    """Extract the version number from a Python module."""
+    contents = get_contents(*args)
+    metadata = dict(re.findall('__([a-z]+)__ = [\'"]([^\'"]+)', contents))
+    return metadata['version']
 
 
 def get_requirements(*args):
@@ -49,16 +56,15 @@ def get_requirements(*args):
 
 def get_absolute_path(*args):
     """Transform relative pathnames into absolute pathnames."""
-    directory = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(directory, *args)
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), *args)
 
 
 setup(name='executor',
       version=get_version('executor', '__init__.py'),
       description='Programmer friendly subprocess wrapper',
-      long_description=get_readme(),
+      long_description=get_contents('README.rst'),
       url='https://executor.readthedocs.io',
-      author='Peter Odding',
+      author="Peter Odding",
       author_email='peter@peterodding.com',
       license='MIT',
       packages=find_packages(),
