@@ -12,7 +12,7 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install --yes fakeroot openssh-server
 install:
-  - pip install --constraint=constraints.txt --requirement=requirements-travis.txt
+  - pip install --requirement=requirements-travis.txt
   - LC_ALL=C pip install .
 script:
   - make check
