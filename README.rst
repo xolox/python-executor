@@ -4,8 +4,8 @@ executor: Programmer friendly subprocess wrapper
 .. image:: https://travis-ci.org/xolox/python-executor.svg?branch=master
    :target: https://travis-ci.org/xolox/python-executor
 
-.. image:: https://coveralls.io/repos/xolox/python-executor/badge.png?branch=master
-   :target: https://coveralls.io/r/xolox/python-executor?branch=master
+.. image:: https://coveralls.io/repos/github/xolox/python-executor/badge.svg?branch=master
+   :target: https://coveralls.io/github/xolox/python-executor?branch=master
 
 The `executor` package is a simple wrapper for Python's subprocess_ module
 that makes it very easy to handle subprocesses on UNIX systems with proper
