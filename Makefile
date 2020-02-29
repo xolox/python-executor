@@ -1,12 +1,13 @@
-# Makefile for the `executor' package.
+# Makefile for the 'executor' package.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 17, 2018
+# Last Change: February 29, 2020
 # URL: https://github.com/xolox/python-executor
 
 PACKAGE_NAME = executor
 WORKON_HOME ?= $(HOME)/.virtualenvs
 VIRTUAL_ENV ?= $(WORKON_HOME)/$(PACKAGE_NAME)
+PYTHON ?= python3
 PATH := $(VIRTUAL_ENV)/bin:$(PATH)
 MAKE := $(MAKE) --no-print-directory
 SHELL = bash
@@ -29,7 +30,7 @@ default:
 
 install:
 	@test -d "$(VIRTUAL_ENV)" || mkdir -p "$(VIRTUAL_ENV)"
-	@test -x "$(VIRTUAL_ENV)/bin/python" || virtualenv --quiet "$(VIRTUAL_ENV)"
+	@test -x "$(VIRTUAL_ENV)/bin/python" || virtualenv --python=$(PYTHON) --quiet "$(VIRTUAL_ENV)"
 	@test -x "$(VIRTUAL_ENV)/bin/pip" || easy_install pip
 	@test -x "$(VIRTUAL_ENV)/bin/pip-accel" || pip install --quiet pip-accel
 	@pip-accel install --quiet --requirement=requirements.txt
