@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 7, 2018
+# Last Change: February 29, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -61,6 +61,11 @@ class WaitUntilConnected(PropertyManager):
         """The timeout in seconds for individual connection attempts (a number, defaults to 2)."""
         return 2
 
+    @property
+    def endpoint(self):
+        """A human friendly representation of the TCP endpoint (a string containing a URL)."""
+        return format("%s://%s:%i", self.scheme, self.hostname, self.port_number)
+
     @mutable_property
     def hostname(self):
         """The host name or IP address to connect to (a string, defaults to ``localhost``)."""
@@ -70,13 +75,13 @@ class WaitUntilConnected(PropertyManager):
     def is_connected(self):
         """:data:`True` if a connection was accepted, :data:`False` otherwise."""
         timer = Timer()
-        logger.debug("Checking whether %s is accepting connections ..", self)
+        logger.debug("Checking whether %s is accepting connections ..", self.endpoint)
         try:
             socket.create_connection((self.hostname, self.port_number), self.connect_timeout)
-            logger.debug("Yes %s is accepting connections (took %s).", self, timer)
+            logger.debug("Yes %s is accepting connections (took %s).", self.endpoint, timer)
             return True
         except Exception:
-            logger.debug("No %s isn't accepting connections (took %s).", self, timer)
+            logger.debug("No %s isn't accepting connections (took %s).", self.endpoint, timer)
             return False
 
     @required_property
@@ -106,15 +111,11 @@ class WaitUntilConnected(PropertyManager):
                 if timer.elapsed_time > self.wait_timeout:
                     raise TimeoutError(format(
                         "Failed to establish connection to %s within configured timeout of %s!",
-                        self, format_timespan(self.wait_timeout),
+                        self.endpoint, format_timespan(self.wait_timeout),
                     ))
-                spinner.step(label="Waiting for %s to accept connections" % self)
+                spinner.step(label="Waiting for %s to accept connections" % self.endpoint)
                 spinner.sleep()
-        logger.debug("Waited %s for %s to accept connections.", timer, self)
-
-    def __str__(self):
-        """Render a human friendly representation."""
-        return format("%s://%s:%i", self.scheme, self.hostname, self.port_number)
+        logger.debug("Waited %s for %s to accept connections.", timer, self.endpoint)
 
 
 class EphemeralPortAllocator(WaitUntilConnected):
@@ -136,7 +137,7 @@ class EphemeralPortAllocator(WaitUntilConnected):
             set_property(self, 'port_number', value)
             if not self.is_connected:
                 logger.debug("Found free ephemeral port number %s after %s (took %s).",
-                             self, pluralize(i, "attempt"), timer)
+                             value, pluralize(i, "attempt"), timer)
                 return value
 
     @property
