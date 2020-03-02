@@ -1,5 +1,5 @@
 coloredlogs >= 3.5
 fasteners >= 0.14.1
-humanfriendly >= 3.5
+humanfriendly >= 8.0
 property-manager >= 2.3
 six >= 1.9.0

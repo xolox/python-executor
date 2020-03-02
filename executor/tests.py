@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 17, 2018
+# Last Change: March 2, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -205,14 +205,20 @@ class ExecutorTestCase(TestCase):
         assert execute('true') is True
         assert execute('false', check=False) is False
         # Make sure execute('false') raises an exception.
-        self.assertRaises(ExternalCommandFailed, execute, 'false')
+        with self.assertRaises(ExternalCommandFailed):
+            execute('false')
         # Make sure execute('exit 42') raises an exception.
-        shell_cmd = 'echo -n what; echo -n ever; exit 42'
-        e = self.assertRaises(ExternalCommandFailed, execute, shell_cmd, silent=True)
+        with self.assertRaises(ExternalCommandFailed):
+            execute('exit 42')
         # Make sure the exception has the expected properties.
-        self.assertEqual(e.command.command_line, ['bash', '-c', shell_cmd])
-        self.assertEqual(e.returncode, 42)
-        self.assertTrue('whatever' in e.error_message)
+        try:
+            shell_cmd = 'echo -n what; echo -n ever; exit 42'
+            execute(shell_cmd, silent=True)
+            assert False, "This code should not be reached!"
+        except ExternalCommandFailed as e:
+            self.assertEqual(e.command.command_line, ['bash', '-c', shell_cmd])
+            self.assertEqual(e.returncode, 42)
+            self.assertTrue('whatever' in e.error_message)
         # Make sure the CommandNotFound exception is raised consistently
         # regardless of the values of the `shell' and `asynchronous' options.
         for asynchronous in True, False:
