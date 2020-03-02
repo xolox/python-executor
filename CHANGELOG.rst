@@ -11,12 +11,55 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 22.0`_ (2020-03-02)
+----------------------------
+
+Maintenance release that changes the compatible Python versions.
+
+**Noteworthy changes:**
+
+- Documented support for Python 3.8.
+
+- Dropped support for Python 2.6 and 3.4.
+
+- Avoid cyclic dependencies in the :mod:`executor.tcp` module. I've been
+  working on readying a new project for publication and started using the
+  :class:`~executor.tcp.EphemeralTCPServer` class in its test suite, however I
+  ran into an unnecessary cyclic dependency that caused :mod:`logging` to print
+  dramatic tracebacks (although nothing actually failed):
+
+  - The ``__init__()`` method needed access to the ephemeral TCP port (because
+    it is passed to the command that's started) which implies running a whole
+    lot of code (to pick a port that isn't in use yet) and this code logged
+    ``EphemeralTCPServer.__str__()``.
+
+  - This was intended to use ``WaitUntilConnected.__str__()`` however due to
+    incorrect superclass ordering it called ``ExternalCommand.__str__()``
+    instead which needs access to the ``command`` property which in turn
+    requires ``__init__()`` to have already been run!
+
+  - This catch-22 was broken by removing the ``__str__()`` from logging and
+    using a newly added :attr:`~executor.tcp.WaitUntilConnected.endpoint`
+    property instead  (explicit is better than implicit).
+
+**Miscellaneous changes:**
+
+- Bumped :pypi:`humanfriendly` to 8.0 and :pypi:`property-manager` to 3.0 to
+  fix deprecated imports and resolve a backwards incompatibility in the test
+  suite (introduced by the :pypi:`humanfriendly` 8.0 release).
+
+- Changed ``Makefile`` to use Python 3 during development.
+
+- Improved the :man:`ionice` tests.
+
+.. _Release 22.0: https://github.com/xolox/python-executor/compare/21.3...22.0
+
 `Release 21.3`_ (2018-11-17)
 ----------------------------
 
-Merged pull request `#16`_ that changes the ``ionice`` integration to accept
-the strings '1', '2' and '3' in addition to 'idle', 'best-effort' and
-'realtime' because ``busybox`` doesn't support the verbose strings.
+Merged pull request `#16`_ that changes the :man:`ionice` integration to
+accept the strings '1', '2' and '3' in addition to 'idle', 'best-effort'
+and 'realtime' because :man:`busybox` doesn't support the verbose strings.
 
 It's still up to the caller to pick the right kind of value and I'm a bit
 conflicted about that because it's creating a leaky abstraction. I may at a
@@ -32,8 +75,8 @@ supported) ...
 
 Enable ``context.read_file(..., sudo=True)`` and ``context.write_file(...,
 sudo=True)``. In fact all optional keyword arguments are supported (not just
-``sudo``) but for me the most important one is ``sudo=True`` because I strongly
-prefer "selective ``sudo``" over "just run everything using ``sudo``".
+:man:`sudo`) but for me the most important one is ``sudo=True`` because I strongly
+prefer "selective :man:`sudo`" over "just run everything using :man:`sudo`".
 
 .. _Release 21.2: https://github.com/xolox/python-executor/compare/21.1.1...21.2
 
