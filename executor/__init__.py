@@ -3,7 +3,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: February 29, 2020
+# Last Change: March 2, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -53,7 +53,7 @@ import sys
 import tempfile
 
 # External dependencies.
-from humanfriendly import compact, concatenate, format, pluralize
+from humanfriendly.text import compact, concatenate, format, pluralize
 from humanfriendly.terminal import connected_to_terminal
 from property_manager import (
     PropertyManager,

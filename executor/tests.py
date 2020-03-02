@@ -55,8 +55,9 @@ import time
 import uuid
 
 # External dependencies.
-from humanfriendly import Timer, coerce_boolean, compact, dedent
+from humanfriendly import Timer, coerce_boolean
 from humanfriendly.testing import TemporaryDirectory, TestCase, retry, run_cli
+from humanfriendly.text import compact, dedent
 from mock import MagicMock
 from property_manager import set_property
 from six.moves import StringIO

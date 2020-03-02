@@ -1,7 +1,7 @@
 # Command line interface for the executor package.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 7, 2018
+# Last Change: March 2, 2020
 # URL: https://executor.readthedocs.io
 #
 # TODO Expose a clean way to interrupt the fudge factor of other processes.
@@ -81,8 +81,9 @@ import time
 # External dependencies.
 import coloredlogs
 from fasteners.process_lock import InterProcessLock
-from humanfriendly import Timer, format, format_timespan, parse_timespan
+from humanfriendly import Timer, format_timespan, parse_timespan
 from humanfriendly.terminal import usage, warning
+from humanfriendly.text import format
 from six.moves.urllib.parse import quote as urlencode
 
 # Modules included in our package.

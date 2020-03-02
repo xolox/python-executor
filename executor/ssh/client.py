@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: October 7, 2018
+# Last Change: March 2, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -27,7 +27,8 @@ import logging
 import os
 
 # External dependencies.
-from humanfriendly import Timer, concatenate, pluralize
+from humanfriendly import Timer
+from humanfriendly.text import concatenate, pluralize
 from property_manager import (
     PropertyManager,
     mutable_property,
