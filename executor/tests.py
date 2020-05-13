@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 13, 2020
+# Last Change: May 14, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -1038,33 +1038,20 @@ class ExecutorTestCase(TestCase):
 
     def test_lsb_release_shortcuts(self):
         """Test the ``lsb_release`` shortcuts."""
-        # The following tests should pass on my laptops and Travis CI, but I
-        # don't want this test to fail on `unexpected' platforms, so here's a
-        # pragmatic compromise :-).
-        try:
+        with SwallowReleaseDiscoveryErrors():
             context = LocalContext()
             assert context.distributor_id == 'ubuntu'
             assert context.distribution_codename in ('precise', 'trusty', 'xenial', 'bionic')
-        except Exception:
-            if self.lsb_release_expected_to_work:
-                raise
-            else:
-                return self.skipTest("assuming unsupported platform")
 
     def test_lsb_release_fallback(self):
         """Make sure the fall back from /etc/lsb-release to /usr/bin/lsb_release works."""
-        context = LocalContext()
-        # Disable the parsing of /etc/lsb-release.
-        set_property(context, 'lsb_release_variables', {})
-        # Test the fall back from /etc/lsb-release to /usr/bin/lsb_release.
-        try:
+        with SwallowReleaseDiscoveryErrors():
+            context = LocalContext()
+            # Disable parsing of the /etc/lsb-release file.
+            set_property(context, 'lsb_release_variables', {})
+            # Test the fall back from /etc/lsb-release to /usr/bin/lsb_release.
             assert context.distributor_id == 'ubuntu'
             assert context.distribution_codename in ('precise', 'trusty', 'xenial', 'bionic')
-        except Exception:
-            if self.lsb_release_expected_to_work:
-                raise
-            else:
-                return self.skipTest("assuming unsupported platform")
 
     def test_lsb_release_error_handling(self):
         """Test that the ``lsb_release`` shortcuts don't raise exceptions on unsupported platforms."""
@@ -1074,7 +1061,7 @@ class ExecutorTestCase(TestCase):
 
     def test_lsb_release_variables(self):
         """Test the ``/etc/lsb-release`` parsing."""
-        try:
+        with SwallowReleaseDiscoveryErrors():
             context = LocalContext()
             variables = context.lsb_release_variables
             assert len(variables) > 0
@@ -1089,11 +1076,6 @@ class ExecutorTestCase(TestCase):
             for key, value in context.lsb_release_variables.items():
                 assert isinstance(key, text_type)
                 assert isinstance(value, text_type)
-        except Exception:
-            if self.lsb_release_expected_to_work:
-                raise
-            else:
-                return self.skipTest("assuming unsupported platform")
 
     def test_local_context(self):
         """Test a local command context."""
@@ -1265,17 +1247,6 @@ class ExecutorTestCase(TestCase):
             assert timer.elapsed_time < 10
         retry(timeout_hammer, 60)
 
-    @property
-    def lsb_release_expected_to_work(self):
-        """True on my laptops and Travis CI, False otherwise."""
-        developer_laptop = (socket.gethostname() in ('peter-mba', 'peter-mbp'))
-        travis_ci = coerce_boolean(os.environ.get('TRAVIS', 'false'))
-        # TODO For some weird reason the parsing of the /etc/lsb-release file
-        # in the Travis CI build environment for Python 2.6 seems to result in
-        # binary garbage. Right now I'm not inclined to dive deeper.
-        py26 = (sys.version_info[:2] == (2, 6))
-        return developer_laptop or (travis_ci and not py26)
-
 
 def intercept(exc_type, func, *args, **kw):
     """Intercept and return a raised exception."""
@@ -1321,3 +1292,23 @@ class NonForcefulCommand(NonGracefulCommand):
             disabled to simulate processes that refuse to terminate
             forcefully ..
         """))
+
+
+class SwallowReleaseDiscoveryErrors(object):
+
+    """Context manager to conditionally swallow release discovery errors."""
+
+    def __enter__(self):
+        """Enable use as a context manager."""
+        return self
+
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        """Swallow release discovery errors (except on the developer's laptop and Travis CI)."""
+        if exc_type is AssertionError:
+            developer_laptop = (socket.gethostname() in ('peter-mba', 'peter-mbp'))
+            travis_ci = coerce_boolean(os.environ.get('TRAVIS', 'false'))
+            if developer_laptop or travis_ci:
+                # Re-raise the assertion failure.
+                return False
+            else:
+                self.skipTest("assuming unsupported platform")
