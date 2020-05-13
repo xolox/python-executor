@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 16, 2018
+# Last Change: May 14, 2020
 # URL: https://executor.readthedocs.io
 
 r"""
@@ -91,6 +91,27 @@ from executor.chroot import ChangeRootCommand
 from executor.schroot import DEFAULT_NAMESPACE, SCHROOT_PROGRAM_NAME, SecureChangeRootCommand
 from executor.ssh.client import RemoteAccount, RemoteCommand
 
+MIRROR_TO_DISTRIB_MAPPING = {
+    u'http://deb.debian.org/debian': u'debian',
+    u'http://archive.ubuntu.com/ubuntu/': u'ubuntu',
+}
+"""
+Mapping of canonical package mirror URLs to "distributor ID" strings.
+
+Each key in this dictionary is the canonical package mirror URL of a Debian
+based Linux distribution and each value is the corresponding distributor ID.
+The following canonical mirror URLs are currently supported:
+
+=================================  ==========
+Mirror URL                         Value
+=================================  ==========
+http://deb.debian.org/debian       ``debian``
+http://archive.ubuntu.com/ubuntu/  ``ubuntu``
+=================================  ==========
+
+For more details refer to the :attr:`AbstractContext.apt_sources_info` property.
+"""
+
 # Initialize a logger.
 logger = logging.getLogger(__name__)
 
@@ -163,6 +184,69 @@ class AbstractContext(PropertyManager):
         # Initialize instance variables.
         self.undo_stack = []
 
+    @lazy_property
+    def apt_sources_info(self):
+        """
+        A tuple with two strings (the distributor ID and distribution codename).
+
+        The values of the :attr:`distributor_id` and :attr:`distribution_codename`
+        properties are determined by one of the following three methods (in
+        decreasing order of preference):
+
+        1. If :attr:`lsb_release_variables` is available it's used.
+        2. If the :man:`lsb_release` program is available it's used.
+        3. Finally ``/etc/apt/sources.list`` is parsed for hints.
+
+        The :attr:`apt_sources_info` property concerns the third step which
+        works as follows:
+
+        - The ``deb`` directives in ``/etc/apt/sources.list`` are parsed to
+          determine the primary package mirror URL (it's fine if this file
+          doesn't exist, no error will be reported).
+
+        - The :data:`MIRROR_TO_DISTRIB_MAPPING` dictionary is used to look up
+          the distributor ID corresponding to the package mirror URL that was
+          found in ``/etc/apt/sources.list``.
+
+        - If the mirror URL is successfully translated to a distributor ID, the
+          third token in the ``deb`` directive is taken to be the distribution
+          codename.
+
+        The :attr:`apt_sources_info` property was added in response to `issue
+        #17`_ where it was reported that official Debian Docker images don't
+        contain the ``/etc/lsb-release`` file nor the :man:`lsb_release`
+        program.
+
+        This is only used as a last resort because of its specificness to
+        Debian based Linux distributions and because I have concerns about how
+        robust this new functionality will turn out to be.
+
+        .. _issue #17: https://github.com/xolox/python-executor/issues/17
+        """
+        distributor_id = u''
+        distribution_codename = u''
+        listing = self.read_file('/etc/apt/sources.list', check=False, silent=True)
+        for line in listing.decode('UTF-8').splitlines():
+            tokens = line.split()
+            # We check for at least four whitespace separated tokens even
+            # though we only use the first three because a well formed 'deb'
+            # directive is supposed to contain at least four tokens.
+            if len(tokens) >= 4 and tokens[0] == u'deb':
+                logger.debug("Parsing /etc/apt/sources 'deb' directive: %s", tokens)
+                mirror_url = tokens[1]
+                if mirror_url in MIRROR_TO_DISTRIB_MAPPING:
+                    distributor_id = MIRROR_TO_DISTRIB_MAPPING[mirror_url]
+                    distribution_codename = tokens[2]
+                    logger.debug(
+                        "Determined distributor ID (%s) and codename (%s) from /etc/apt/sources.list.",
+                        distributor_id,
+                        distribution_codename,
+                    )
+                    break
+                else:
+                    logger.debug("Unrecognized mirror URL.")
+        return distributor_id, distribution_codename
+
     @required_property
     def command_type(self):
         """The type of command objects created by this context (:class:`.ExternalCommand` or a subclass)."""
@@ -184,24 +268,25 @@ class AbstractContext(PropertyManager):
         How this property is computed depends on the execution context:
 
         1. When the file ``/etc/lsb-release`` exists and defines the variable
-           ``DISTRIB_CODENAME`` then this is the preferred source (see
-           :attr:`lsb_release_variables`). This was added in response to
-           `issue #10`_ which reported that the ``lsb_release`` program
-           wasn't available in vanilla Ubuntu 18.04 Docker images.
+           ``DISTRIB_CODENAME`` then this is the preferred source (for details
+           see :attr:`lsb_release_variables`).
 
-        2. When the program ``lsb_release`` is installed then the output of the
-           command ``lsb_release --short --codename`` is used.
+        2. When :man:`lsb_release` is installed the output of the command
+           ``lsb_release --short --codename`` is used.
+
+        3. Finally :attr:`apt_sources_info` is used if possible.
 
         The returned string is guaranteed to be lowercased, in order to enable
         reliable string comparison.
-
-        .. _issue #10: https://github.com/xolox/python-executor/issues/10
         """
         logger.debug("Trying to discover distribution codename using /etc/lsb-release ..")
         value = self.lsb_release_variables.get('DISTRIB_CODENAME')
         if not value:
             logger.debug("Falling back to 'lsb_release --short --codename' ..")
             value = self.capture('lsb_release', '--short', '--codename', check=False, silent=True)
+        if not value:
+            logger.debug("Falling back to parsing /etc/apt/sources.list ..")
+            value = self.apt_sources_info[1]
         return value.lower()
 
     @lazy_property
@@ -212,24 +297,25 @@ class AbstractContext(PropertyManager):
         How this property is computed depends on the execution context:
 
         1. When the file ``/etc/lsb-release`` exists and defines the variable
-           ``DISTRIB_ID`` then this is the preferred source (see
-           :attr:`lsb_release_variables`). This was added in response to
-           `issue #10`_ which reported that the ``lsb_release`` program
-           wasn't available in vanilla Ubuntu 18.04 Docker images.
+           ``DISTRIB_ID`` then this is the preferred source (for details see
+           :attr:`lsb_release_variables`).
 
-        2. When the program ``lsb_release`` is installed then the output of the
-           command ``lsb_release --short --id`` is used.
+        2. When :man:`lsb_release` is installed the output of the command
+           ``lsb_release --short --id`` is used.
+
+        3. Finally :attr:`apt_sources_info` is used if possible.
 
         The returned string is guaranteed to be lowercased, in order to enable
         reliable string comparison.
-
-        .. _issue #10: https://github.com/xolox/python-executor/issues/10
         """
         logger.debug("Trying to discover distributor ID using /etc/lsb-release ..")
         value = self.lsb_release_variables.get('DISTRIB_ID')
         if not value:
             logger.debug("Falling back to 'lsb_release --short --id' ..")
             value = self.capture('lsb_release', '--short', '--id', check=False, silent=True)
+        if not value:
+            logger.debug("Falling back to parsing /etc/apt/sources.list ..")
+            value = self.apt_sources_info[0]
         return value.lower()
 
     @lazy_property
@@ -261,6 +347,12 @@ class AbstractContext(PropertyManager):
          'DISTRIB_DESCRIPTION': 'Ubuntu 18.04.1 LTS',
          'DISTRIB_ID': 'Ubuntu',
          'DISTRIB_RELEASE': '18.04'}
+
+        The :attr:`lsb_release_variables` property was added in response to
+        `issue #10`_ where it was reported that the :man:`lsb_release` program
+        wasn't available in vanilla Ubuntu 18.04 Docker images.
+
+        .. _issue #10: https://github.com/xolox/python-executor/issues/10
         """
         variables = dict()
         # We proceed under the assumption that the file exists, but avoid

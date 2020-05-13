@@ -56,7 +56,7 @@ import uuid
 
 # External dependencies.
 from humanfriendly import Timer, coerce_boolean
-from humanfriendly.testing import TemporaryDirectory, TestCase, retry, run_cli
+from humanfriendly.testing import MockedProgram, TemporaryDirectory, TestCase, retry, run_cli
 from humanfriendly.text import compact, dedent
 from mock import MagicMock
 from property_manager import set_property
@@ -100,6 +100,7 @@ from executor.ssh.client import (
 from executor.ssh.server import SSHServer
 
 MISSING_COMMAND = 'a-program-name-that-no-one-would-ever-use'
+EXPECTED_CODENAMES = (u'xenial', u'bionic', u'focal')
 
 # Initialize a logger for this module.
 logger = logging.getLogger(__name__)
@@ -1036,12 +1037,42 @@ class ExecutorTestCase(TestCase):
         assert create_context(sudo=True).options['sudo'] is True
         assert create_context(sudo=False).options['sudo'] is False
 
+    def test_apt_sources_info(self):
+        """Test parsing of ``/etc/apt/sources.list`` for release discovery."""
+        with SwallowReleaseDiscoveryErrors():
+            context = LocalContext()
+            # Mock read_file() to feed expected data to 'apt_sources_info'.
+            sources_entry = u'deb http://archive.ubuntu.com/ubuntu/ focal main restricted'
+            context.read_file = MagicMock(return_value=sources_entry.encode('UTF-8'))
+            # Verify that 'apt_sources_info' successfully determines the
+            # distributor ID and distribution codename on Ubuntu systems.
+            assert context.apt_sources_info[0] == u'ubuntu'
+            assert context.apt_sources_info[1] == u'focal'
+
+    def test_apt_sources_info_fallback(self):
+        """Test that release discovery falls back to ``/etc/apt/sources.list`` parsing."""
+        with SwallowReleaseDiscoveryErrors():
+            # Shadow the system wide 'lsb_release' program with a shell script
+            # that simply exits with status 255, to simulate the 'lsb_release'
+            # program not being available.
+            with MockedProgram(name='lsb_release', returncode=255):
+                context = LocalContext()
+                # Disable parsing of the /etc/lsb-release file.
+                set_property(context, 'lsb_release_variables', {})
+                # Mock read_file() to feed expected data to 'apt_sources_info'.
+                sources_entry = u'deb http://deb.debian.org/debian buster main'
+                context.read_file = MagicMock(return_value=sources_entry.encode('UTF-8'))
+                # Verify that 'distributor_id' and 'distribution_codename' fall
+                # back to the information gathered by 'apt_sources_info'.
+                assert context.distributor_id == u'debian'
+                assert context.distribution_codename == u'buster'
+
     def test_lsb_release_shortcuts(self):
         """Test the ``lsb_release`` shortcuts."""
         with SwallowReleaseDiscoveryErrors():
             context = LocalContext()
-            assert context.distributor_id == 'ubuntu'
-            assert context.distribution_codename in ('precise', 'trusty', 'xenial', 'bionic')
+            assert context.distributor_id == u'ubuntu'
+            assert context.distribution_codename in EXPECTED_CODENAMES
 
     def test_lsb_release_fallback(self):
         """Make sure the fall back from /etc/lsb-release to /usr/bin/lsb_release works."""
@@ -1050,14 +1081,14 @@ class ExecutorTestCase(TestCase):
             # Disable parsing of the /etc/lsb-release file.
             set_property(context, 'lsb_release_variables', {})
             # Test the fall back from /etc/lsb-release to /usr/bin/lsb_release.
-            assert context.distributor_id == 'ubuntu'
-            assert context.distribution_codename in ('precise', 'trusty', 'xenial', 'bionic')
+            assert context.distributor_id == u'ubuntu'
+            assert context.distribution_codename in EXPECTED_CODENAMES
 
     def test_lsb_release_error_handling(self):
         """Test that the ``lsb_release`` shortcuts don't raise exceptions on unsupported platforms."""
         context = LocalContext(environment=dict(PATH=''))
-        assert context.distributor_id == ''
-        assert context.distribution_codename == ''
+        assert context.distributor_id == u''
+        assert context.distribution_codename == u''
 
     def test_lsb_release_variables(self):
         """Test the ``/etc/lsb-release`` parsing."""
@@ -1068,8 +1099,8 @@ class ExecutorTestCase(TestCase):
             # NB: The following tests are written to assume one of the
             # supported Ubuntu LTS releases, because the developer's
             # laptop as well as Travis CI run Ubuntu LTS releases.
-            assert variables['DISTRIB_ID'].lower() == 'ubuntu'
-            assert variables['DISTRIB_CODENAME'].lower() in ('xenial', 'bionic', 'focal')
+            assert variables['DISTRIB_ID'].lower() == u'ubuntu'
+            assert variables['DISTRIB_CODENAME'].lower() in EXPECTED_CODENAMES
             # Make sure all strings are Unicode strings, this tests against
             # a regression of a bug caused by shlex.split() on Python 2.7
             # automatically coercing Unicode strings to byte strings.
