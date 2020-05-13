@@ -837,7 +837,7 @@ class ChangeRootContext(AbstractContext):
         """
         # Enable modification of the positional arguments.
         args = list(args)
-        # We allow `chroot_name' to be passed as a keyword argument but use the
+        # We allow `chroot' to be passed as a keyword argument but use the
         # first positional argument when the keyword argument isn't given.
         if options.get('chroot') is None and args:
             options['chroot'] = args.pop(0)

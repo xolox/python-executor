@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: May 20, 2018
+# Last Change: May 13, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -73,9 +73,8 @@ class ChangeRootCommand(ExternalCommand):
         """
         # Enable modification of the positional arguments.
         args = list(args)
-        # We allow `chroot_directory' to be passed as a keyword argument but
-        # use the first positional argument when the keyword argument isn't
-        # given.
+        # We allow `chroot' to be passed as a keyword argument but use the
+        # first positional argument when the keyword argument isn't given.
         if options.get('chroot') is None and args:
             options['chroot'] = args.pop(0)
         # Inject our logger as a default.
