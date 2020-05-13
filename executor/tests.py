@@ -1,7 +1,7 @@
 # Automated tests for the `executor' module.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 2, 2020
+# Last Change: May 13, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -60,6 +60,7 @@ from humanfriendly.testing import TemporaryDirectory, TestCase, retry, run_cli
 from humanfriendly.text import compact, dedent
 from mock import MagicMock
 from property_manager import set_property
+from six import text_type
 from six.moves import StringIO
 
 # Modules included in our package.
@@ -1077,8 +1078,17 @@ class ExecutorTestCase(TestCase):
             context = LocalContext()
             variables = context.lsb_release_variables
             assert len(variables) > 0
+            # NB: The following tests are written to assume one of the
+            # supported Ubuntu LTS releases, because the developer's
+            # laptop as well as Travis CI run Ubuntu LTS releases.
             assert variables['DISTRIB_ID'].lower() == 'ubuntu'
-            assert variables['DISTRIB_CODENAME'].lower() in ('precise', 'trusty', 'xenial', 'bionic')
+            assert variables['DISTRIB_CODENAME'].lower() in ('xenial', 'bionic', 'focal')
+            # Make sure all strings are Unicode strings, this tests against
+            # a regression of a bug caused by shlex.split() on Python 2.7
+            # automatically coercing Unicode strings to byte strings.
+            for key, value in context.lsb_release_variables.items():
+                assert isinstance(key, text_type)
+                assert isinstance(value, text_type)
         except Exception:
             if self.lsb_release_expected_to_work:
                 raise
