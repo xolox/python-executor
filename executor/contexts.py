@@ -93,7 +93,7 @@ from executor.ssh.client import RemoteAccount, RemoteCommand
 
 MIRROR_TO_DISTRIB_MAPPING = {
     u'http://deb.debian.org/debian': u'debian',
-    u'http://archive.ubuntu.com/ubuntu/': u'ubuntu',
+    u'http://archive.ubuntu.com/ubuntu': u'ubuntu',
 }
 """
 Mapping of canonical package mirror URLs to "distributor ID" strings.
@@ -233,7 +233,7 @@ class AbstractContext(PropertyManager):
             # directive is supposed to contain at least four tokens.
             if len(tokens) >= 4 and tokens[0] == u'deb':
                 logger.debug("Parsing /etc/apt/sources 'deb' directive: %s", tokens)
-                mirror_url = tokens[1]
+                mirror_url = normalize_mirror_url(tokens[1])
                 if mirror_url in MIRROR_TO_DISTRIB_MAPPING:
                     distributor_id = MIRROR_TO_DISTRIB_MAPPING[mirror_url]
                     distribution_codename = tokens[2]
@@ -1064,3 +1064,15 @@ class RemoteContext(RemoteAccount, AbstractContext):
     def __str__(self):
         """Render a human friendly string representation of the context."""
         return "remote system (%s)" % self.ssh_alias
+
+
+def normalize_mirror_url(value):
+    """Normalize a package mirror URL to enable string equality comparison."""
+    # If Debian and/or Ubuntu ever decide to switch from HTTP to HTTPS I don't
+    # want this to invalidate the matching against MIRROR_TO_DISTRIB_MAPPING.
+    value = value.replace(u'https://', u'http://')
+    # Domain names are case insensitive (technically anything after the domain
+    # name isn't, but for our limited purposes it really doesn't matter).
+    value = value.lower()
+    # Ignore insignificant trailing slash.
+    return value.rstrip(u'/')

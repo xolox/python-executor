@@ -1060,7 +1060,7 @@ class ExecutorTestCase(TestCase):
                 # Disable parsing of the /etc/lsb-release file.
                 set_property(context, 'lsb_release_variables', {})
                 # Mock read_file() to feed expected data to 'apt_sources_info'.
-                sources_entry = u'deb http://deb.debian.org/debian buster main'
+                sources_entry = u'deb http://deb.debian.org/debian/ buster main'
                 context.read_file = MagicMock(return_value=sources_entry.encode('UTF-8'))
                 # Verify that 'distributor_id' and 'distribution_codename' fall
                 # back to the information gathered by 'apt_sources_info'.
