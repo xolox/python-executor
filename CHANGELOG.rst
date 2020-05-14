@@ -11,6 +11,16 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 23.1`_ (2020-05-14)
+----------------------------
+
+As requested in `issue #2`_: Enable control over the spinner that's
+shown when a command pool is active. For more details refer to the
+:attr:`.CommandPool.spinner` documentation.
+
+.. _Release 23.1: https://github.com/xolox/python-executor/compare/23.0...23.1
+.. _issue #2: https://github.com/xolox/python-executor/issues/2
+
 `Release 23.0`_ (2020-05-14)
 ----------------------------
 
