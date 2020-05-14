@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 2, 2020
+# Last Change: May 14, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -172,11 +172,19 @@ class CommandPool(PropertyManager):
     @mutable_property
     def spinner(self):
         """
-        Whether to show an animated spinner or not (a boolean or :data:`None`).
+        Control if and how an animated spinner is shown when the command pool is active.
 
-        The value of :attr:`spinner` defaults to :data:`None` which means a
-        spinner is shown when we're connected to a terminal but hidden when
-        we're not connected to a terminal.
+        The following values are supported:
+
+        - The default value :data:`None` means "auto detect", which means the
+          spinner is shown only when the process is connected to a terminal.
+
+        - The value :data:`True` unconditionally enables the spinner.
+
+        - The value :data:`False` unconditionally disables the spinner.
+
+        - A :class:`.Spinner` object can be provided by the caller, giving them
+          the chance to configure how the spinner behaves.
         """
         return None
 
@@ -244,6 +252,13 @@ class CommandPool(PropertyManager):
         # Add the command to the pool.
         self.commands.append((identifier, command))
 
+    def get_spinner(self, timer):
+        """Get a :class:`.Spinner` to be used by :func:`run()`."""
+        if isinstance(self.spinner, Spinner):
+            return self.spinner
+        else:
+            return Spinner(interactive=self.spinner, timer=timer)
+
     def run(self):
         """
         Keep spawning commands and collecting results until all commands have run.
@@ -270,7 +285,7 @@ class CommandPool(PropertyManager):
                      pluralize(self.num_commands, "command"),
                      self.concurrency)
         try:
-            with Spinner(interactive=self.spinner, timer=timer) as spinner:
+            with self.get_spinner(timer) as spinner:
                 num_started = 0
                 num_collected = 0
                 while not self.is_finished:
