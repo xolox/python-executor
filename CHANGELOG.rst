@@ -11,6 +11,48 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 23.0`_ (2020-05-14)
+----------------------------
+
+This release includes two notable changes:
+
+**Improved compatibility of release discovery**
+ As reported in `issue #17`_ official Debian Docker images don't include the
+ file ``/etc/lsb-release`` nor the program :man:`lsb_release` and this breaks
+ "release discovery" using the :attr:`.distributor_id` and
+ :attr:`.distribution_codename` properties. This has been fixed by implementing
+ a fall back that tries to parse the ``/etc/apt/sources.list`` file to
+ determine the package mirror URL which is matched against the mirror URLs in
+ :data:`.MIRROR_TO_DISTRIB_MAPPING`.
+
+ .. note:: Because this concerns a fall back the risk of regressions is small.
+
+**Fixed Unicode inconsistency on Python 2.7**
+ It turns out that while :func:`shlex.split()` on Python 2.7 accepts Unicode
+ strings it doesn't actually support them: The result is a list of byte strings
+ and any values that ASCII doesn't support result in an error.
+
+ This caused the values (but not the keys) in the dictionary provided by
+ :attr:`.lsb_release_variables` to become byte strings which in turn caused
+ :attr:`.distributor_id` and :attr:`.distribution_codename` to become byte
+ strings (when those properties are based on :attr:`.lsb_release_variables`).
+
+ However when :attr:`.distributor_id` and :attr:`.distribution_codename` are
+ based on the output of the :man:`lsb_release` program the values become
+ Unicode strings, so this unfortunate behavior of :func:`shlex.split()` was
+ causing rather inconsistent behavior in the :pypi:`executor` package.
+
+ This has been fixed by applying a workaround on Python 2.7 (the text is
+ encoded before passing it to :func:`shlex.split()` and the result is decoded
+ before use).
+
+ .. note:: While this concerns a small detail in the grand scheme of things it
+           is technically backwards incompatible and version numbers are cheap,
+           hence why this is being released as 23.0.
+
+.. _Release 23.0: https://github.com/xolox/python-executor/compare/22.0...23.0
+.. _issue #17: https://github.com/xolox/python-executor/issues/17
+
 `Release 22.0`_ (2020-03-02)
 ----------------------------
 
