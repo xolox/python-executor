@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: March 2, 2020
+# Last Change: November 18, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -141,9 +141,15 @@ def foreach(hosts, *command, **options):
     """
     hosts = list(hosts)
     # Separate command pool options from command options.
-    concurrency = options.pop('concurrency', DEFAULT_CONCURRENCY)
-    delay_checks = options.pop('delay_checks', True)
-    logs_directory = options.pop('logs_directory', None)
+    # TODO Maybe I should just bite the bullet, make this dynamic
+    # (using introspection) and see whether there's any fallout?
+    pool_opts = dict(
+        concurrency=options.pop('concurrency', DEFAULT_CONCURRENCY),
+        delay_checks=options.pop('delay_checks', True),
+    )
+    for option_name in 'logs_directory', 'spinner':
+        if option_name in options:
+            pool_opts[option_name] = options.pop(option_name)
     # Capture the output of remote commands by default
     # (unless the caller requested capture=False).
     if options.get('capture') is not False:
@@ -154,12 +160,10 @@ def foreach(hosts, *command, **options):
         options['check'] = True
     # Create a command pool.
     timer = Timer()
-    pool = RemoteCommandPool(concurrency=concurrency,
-                             delay_checks=delay_checks,
-                             logs_directory=logs_directory)
+    pool = RemoteCommandPool(**pool_opts)
     hosts_pluralized = pluralize(len(hosts), "host")
     logger.debug("Preparing to run remote command on %s (%s) with a concurrency of %i: %s",
-                 hosts_pluralized, concatenate(hosts), concurrency, quote(command))
+                 hosts_pluralized, concatenate(hosts), pool_opts['concurrency'], quote(command))
     # Populate the pool with remote commands to execute.
     for ssh_alias in hosts:
         pool.add(identifier=ssh_alias,
