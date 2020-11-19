@@ -11,6 +11,32 @@ to `semantic versioning`_.
 .. _Keep a Changelog: http://keepachangelog.com/
 .. _semantic versioning: http://semver.org/
 
+`Release 23.2`_ (2020-11-19)
+----------------------------
+
+**Enhancements:**
+
+- Enable control of spinners with :func:`.foreach()` using the ``spinner``
+  keyword (previously this would result in :exc:`~exceptions.TypeError`
+  exceptions).
+
+**Changes to Travis CI:**
+
+- Stabilized the Python 3.5 job (testing requirements).
+
+- Stabilized the PyPy (2.7) job (:pypi:`cryptography` incantations).
+
+- Reordered the build matrix by descending runtime (to optimize total runtime).
+
+- Allow PyPy job failures without failing the complete Travis CI build, because
+  failures in the PyPy job tend to be caused by PyPy incompatibilities.
+
+  In fact I've seen hundreds of PyPy job failures on Travis CI over the years
+  while developing my open source projects and less than 1% of these pertained
+  to actual PyPy incompatibilities in the code bases I develop...
+
+.. _Release 23.2: https://github.com/xolox/python-executor/compare/23.1...23.2
+
 `Release 23.1`_ (2020-05-14)
 ----------------------------
 
