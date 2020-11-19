@@ -22,3 +22,7 @@ after_success:
 branches:
   except:
     - /^[0-9]/
+jobs:
+  allow_failures:
+  - python: pypy
+  fast_finish: true
