@@ -13,7 +13,7 @@ before_install:
   - sudo apt-get install --yes fakeroot openssh-server
 install:
   - pip install --requirement=requirements-travis.txt
-  - LC_ALL=C pip install .
+  - LC_ALL=C CRYPTOGRAPHY_ALLOW_OPENSSL_102=true pip install .
 script:
   - make check
   - make test
