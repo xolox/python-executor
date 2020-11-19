@@ -1,6 +1,8 @@
 sudo: true
 language: python
-matrix:
+jobs:
+  allow_failures:
+  - python: pypy
   include:
     - python: 2.7
     - python: 3.5
@@ -8,6 +10,7 @@ matrix:
     - python: 3.7
     - python: 3.8
     - python: pypy
+  fast_finish: true
 before_install:
   - sudo apt-get update -qq
   - sudo apt-get install --yes fakeroot openssh-server
@@ -22,7 +25,3 @@ after_success:
 branches:
   except:
     - /^[0-9]/
-jobs:
-  allow_failures:
-  - python: pypy
-  fast_finish: true
