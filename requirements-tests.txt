@@ -1,6 +1,7 @@
 # Python packages required to run `make test'.
+
 coverage >= 4.2
 mock >= 2.0
-pytest >= 3.0.7
-pytest-cov >= 2.5.1
+pytest >= 4.6.9
+pytest-cov >= 2.8.1
 virtualenv >= 15.1.0
