@@ -1,7 +1,7 @@
 # Programmer friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
-# Last Change: November 18, 2020
+# Last Change: November 19, 2020
 # URL: https://executor.readthedocs.io
 
 """
@@ -84,38 +84,66 @@ def foreach(hosts, *command, **options):
     """
     Execute a command simultaneously on a group of remote hosts using SSH.
 
-    :param hosts: An iterable of strings with SSH host aliases.
-    :param command: Any positional arguments are converted to a list and used
-                    to set the :attr:`~.ExternalCommand.command` property of
-                    the :class:`RemoteCommand` objects constructed by
-                    :func:`foreach()`.
-    :param concurrency: The value of :attr:`.concurrency` to use
-                        (defaults to :data:`DEFAULT_CONCURRENCY`).
-    :param delay_checks: The value of :attr:`.delay_checks` to use
-                         (defaults to :data:`True`).
-    :param logs_directory: The value of :attr:`.logs_directory` to
-                           use (defaults to :data:`None`).
-    :param options: Additional keyword arguments can be used to conveniently
-                    override the default values of the writable properties of
-                    the :class:`RemoteCommand` objects constructed by
-                    :func:`foreach()` (see :func:`RemoteCommand.__init__()` for
-                    details).
-    :returns: The list of :class:`RemoteCommand` objects constructed by
-              :func:`foreach()`.
-    :raises: Any of the following exceptions can be raised:
+    :param hosts:
 
-             - :exc:`.CommandPoolFailed` if :attr:`.delay_checks` is enabled
-               (the default) and a command in the pool that has :attr:`.check`
-               enabled (the default) fails.
-             - :exc:`RemoteCommandFailed` if :attr:`.delay_checks` is disabled
-               (not the default) and an SSH connection was successful but the
-               remote command failed (the exit code of the ``ssh`` command was
-               neither zero nor 255). Use the keyword argument ``check=False``
-               to disable raising of this exception.
-             - :exc:`RemoteConnectFailed` if :attr:`.delay_checks` is disabled
-               (not the default) and an SSH connection failed (the exit code of
-               the ``ssh`` command is 255). Use the keyword argument
-               ``check=False`` to disable raising of this exception.
+        An iterable of strings with SSH host aliases.
+
+    :param command:
+
+        Any positional arguments are converted to a list and used to set the
+        :attr:`~.ExternalCommand.command` property of the
+        :class:`RemoteCommand` objects constructed by :func:`foreach()`.
+
+    :param concurrency:
+
+        Set the command pool :attr:`.concurrency` property (defaults to
+        :data:`DEFAULT_CONCURRENCY`).
+
+    :param delay_checks:
+
+        Set the command pool :attr:`.delay_checks` property (defaults to
+        :data:`True`).
+
+    :param logs_directory:
+
+        Set the command pool :attr:`.logs_directory` property
+        (not set by default).
+
+    :param spinner:
+
+        Set the command pool :attr:`.spinner` property
+        (not set by default).
+
+    :param options:
+
+        Additional keyword arguments can be used to conveniently override the
+        default values of the writable properties of the :class:`RemoteCommand`
+        objects constructed by :func:`foreach()` (see
+        :func:`RemoteCommand.__init__()` for details).
+
+    :returns:
+
+        The list of :class:`RemoteCommand` objects constructed by
+        :func:`foreach()`.
+
+    :raises:
+
+        Any of the following exceptions can be raised:
+
+        - :exc:`.CommandPoolFailed` if :attr:`.delay_checks` is enabled (the
+          default) and a command in the pool that has :attr:`.check` enabled
+          (the default) fails.
+
+        - :exc:`RemoteCommandFailed` if :attr:`.delay_checks` is disabled (not
+          the default) and an SSH connection was successful but the remote
+          command failed (the exit code of the ``ssh`` command was neither zero
+          nor 255). Use the keyword argument ``check=False`` to disable raising
+          of this exception.
+
+        - :exc:`RemoteConnectFailed` if :attr:`.delay_checks` is disabled (not
+          the default) and an SSH connection failed (the exit code of the
+          ``ssh`` command is 255). Use the keyword argument ``check=False`` to
+          disable raising of this exception.
 
     .. note:: The :func:`foreach()` function enables the :attr:`.check` and
               :attr:`.delay_checks` options by default in an attempt to make it
