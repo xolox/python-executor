@@ -1,0 +1,4 @@
+.cache/
+.coverage
+*.egg-info/
+*.pyc
