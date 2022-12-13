@@ -1984,7 +1984,7 @@ class CachedStream(object):
 
 def quote(*args):
     """
-    Quote a string or a sequence of strings to be used as command line argument(s).
+    Quote an object or a sequence of objects to be used as command line argument(s).
 
     This function is a simple wrapper around :func:`pipes.quote()` which
     adds support for quoting sequences of strings (lists and tuples). For
@@ -2007,7 +2007,7 @@ def quote(*args):
         value = args[0]
         if not isinstance(value, (list, tuple)):
             return pipes.quote(value)
-    return ' '.join(map(quote, value))
+    return ' '.join(map(quote, (str(e) for e in value)))
 
 
 def which(program, mode=os.F_OK | os.X_OK, path=None):
