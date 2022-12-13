@@ -1,4 +1,4 @@
-executor: Programmer friendly subprocess wrapper
+executor: Programmer-friendly subprocess wrapper
 ================================================
 
 Welcome to the documentation of `executor` version |release|!

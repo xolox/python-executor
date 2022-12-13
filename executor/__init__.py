@@ -1,6 +1,6 @@
 # vim: fileencoding=utf-8
 
-# Programmer friendly subprocess wrapper.
+# Programmer-friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: November 19, 2020
@@ -213,7 +213,7 @@ def execute_prepared(command):
 class ExternalCommand(ControllableProcess):
 
     """
-    Programmer friendly :class:`subprocess.Popen` wrapper.
+    Programmer-friendly :class:`subprocess.Popen` wrapper.
 
     The :class:`ExternalCommand` class wraps :class:`subprocess.Popen` to make
     it easier to do the right thing (the simplicity of :func:`os.system()` with
@@ -1984,7 +1984,7 @@ class CachedStream(object):
 
 def quote(*args):
     """
-    Quote a string or a sequence of strings to be used as command line argument(s).
+    Quote an object or a sequence of objects to be used as command line argument(s).
 
     This function is a simple wrapper around :func:`pipes.quote()` which
     adds support for quoting sequences of strings (lists and tuples). For
@@ -2007,7 +2007,7 @@ def quote(*args):
         value = args[0]
         if not isinstance(value, (list, tuple)):
             return pipes.quote(value)
-    return ' '.join(map(quote, value))
+    return ' '.join(map(quote, (str(e) for e in value)))
 
 
 def which(program, mode=os.F_OK | os.X_OK, path=None):

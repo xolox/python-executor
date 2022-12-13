@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Programmer friendly subprocess wrapper.
+# Programmer-friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: February 29, 2020
@@ -61,7 +61,7 @@ def get_absolute_path(*args):
 
 setup(name='executor',
       version=get_version('executor', '__init__.py'),
-      description='Programmer friendly subprocess wrapper',
+      description='Programmer-friendly subprocess wrapper',
       long_description=get_contents('README.rst'),
       url='https://executor.readthedocs.io',
       author="Peter Odding",
@@ -76,7 +76,7 @@ setup(name='executor',
       tests_require=[
           'virtualenv',
       ],
-      python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*',
+      python_requires='>=3.5',
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Environment :: Console',
@@ -88,13 +88,14 @@ setup(name='executor',
           'Operating System :: POSIX :: Linux',
           'Operating System :: Unix',
           'Programming Language :: Python',
-          'Programming Language :: Python :: 2',
-          'Programming Language :: Python :: 2.7',
           'Programming Language :: Python :: 3',
           'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
+          'Programming Language :: Python :: 3.9',
+          'Programming Language :: Python :: 3.10',
+          'Programming Language :: Python :: 3.11',
           'Programming Language :: Python :: Implementation :: CPython',
           'Programming Language :: Python :: Implementation :: PyPy',
           'Topic :: Internet',
