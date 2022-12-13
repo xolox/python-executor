@@ -1,6 +1,6 @@
 # vim: fileencoding=utf-8
 
-# Programmer friendly subprocess wrapper.
+# Programmer-friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: November 19, 2020
@@ -213,7 +213,7 @@ def execute_prepared(command):
 class ExternalCommand(ControllableProcess):
 
     """
-    Programmer friendly :class:`subprocess.Popen` wrapper.
+    Programmer-friendly :class:`subprocess.Popen` wrapper.
 
     The :class:`ExternalCommand` class wraps :class:`subprocess.Popen` to make
     it easier to do the right thing (the simplicity of :func:`os.system()` with

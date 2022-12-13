@@ -1,4 +1,4 @@
-# Programmer friendly subprocess wrapper.
+# Programmer-friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: May 13, 2020

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Programmer friendly subprocess wrapper.
+# Programmer-friendly subprocess wrapper.
 #
 # Author: Peter Odding <peter@peterodding.com>
 # Last Change: February 29, 2020
@@ -61,7 +61,7 @@ def get_absolute_path(*args):
 
 setup(name='executor',
       version=get_version('executor', '__init__.py'),
-      description='Programmer friendly subprocess wrapper',
+      description='Programmer-friendly subprocess wrapper',
       long_description=get_contents('README.rst'),
       url='https://executor.readthedocs.io',
       author="Peter Odding",

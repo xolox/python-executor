@@ -1,4 +1,4 @@
-executor: Programmer friendly subprocess wrapper
+executor: Programmer-friendly subprocess wrapper
 ================================================
 
 .. image:: https://travis-ci.org/xolox/python-executor.svg?branch=master
