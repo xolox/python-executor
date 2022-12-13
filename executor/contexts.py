@@ -366,14 +366,7 @@ class AbstractContext(PropertyManager):
         logger.debug("Parsing /etc/lsb-release contents: %r", contents)
         for lnum, line in enumerate(contents.splitlines()):
             name, delimiter, value = line.partition(u'=')
-            # The following encode/decode trick works around shlex.split() not
-            # properly supporting Unicode strings on Python 2.7, for details
-            # refer to https://stackoverflow.com/a/14219159/788200.
-            if PY2:
-                tokens = shlex.split(value.encode('UTF-8'))
-                parsed_value = [t.decode('UTF-8') for t in tokens]
-            else:
-                parsed_value = shlex.split(value)
+            parsed_value = shlex.split(value)
             # The null byte check below guards against a weird edge case
             # that has so far only manifested in the Python 2.6 environment
             # of Travis CI: The parsing of /etc/lsb-release results in the

@@ -1101,12 +1101,6 @@ class ExecutorTestCase(TestCase):
             # laptop as well as Travis CI run Ubuntu LTS releases.
             assert variables['DISTRIB_ID'].lower() == u'ubuntu'
             assert variables['DISTRIB_CODENAME'].lower() in EXPECTED_CODENAMES
-            # Make sure all strings are Unicode strings, this tests against
-            # a regression of a bug caused by shlex.split() on Python 2.7
-            # automatically coercing Unicode strings to byte strings.
-            for key, value in context.lsb_release_variables.items():
-                assert isinstance(key, text_type)
-                assert isinstance(value, text_type)
 
     def test_local_context(self):
         """Test a local command context."""
