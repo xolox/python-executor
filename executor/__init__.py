@@ -44,7 +44,6 @@ Classes and functions
 import errno
 import logging
 import os
-import pipes
 import pprint
 import shlex
 import signal
@@ -1986,7 +1985,7 @@ def quote(*args):
     """
     Quote a string or a sequence of strings to be used as command line argument(s).
 
-    This function is a simple wrapper around :func:`pipes.quote()` which
+    This function is a simple wrapper around :func:`shlex.quote()` which
     adds support for quoting sequences of strings (lists and tuples). For
     example the following calls are all equivalent::
 
@@ -2006,7 +2005,7 @@ def quote(*args):
     else:
         value = args[0]
         if not isinstance(value, (list, tuple)):
-            return pipes.quote(value)
+            return shlex.quote(value)
     return ' '.join(map(quote, value))
 
 
