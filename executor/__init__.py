@@ -44,13 +44,19 @@ Classes and functions
 import errno
 import logging
 import os
-import pipes
 import pprint
 import shlex
 import signal
 import subprocess
 import sys
 import tempfile
+
+# The pipes module was deprecated in 3.11 (to be removed in 3.13).
+# shlex.quote was introduced in 3.3 and pipes adopted it immediately.
+if sys.version_info < (3, 3):
+    from pipes import quote as py_quote
+else:
+    from shlex import quote as py_quote
 
 # External dependencies.
 from humanfriendly.text import compact, concatenate, format, pluralize
@@ -1986,7 +1992,8 @@ def quote(*args):
     """
     Quote a string or a sequence of strings to be used as command line argument(s).
 
-    This function is a simple wrapper around :func:`pipes.quote()` which
+    This function is a simple wrapper around :func:`shlex.quote()`
+    or :func:`pipes.quote()` (if the Python version is less than 3.3) which
     adds support for quoting sequences of strings (lists and tuples). For
     example the following calls are all equivalent::
 
@@ -2006,7 +2013,7 @@ def quote(*args):
     else:
         value = args[0]
         if not isinstance(value, (list, tuple)):
-            return pipes.quote(value)
+            return py_quote(value)
     return ' '.join(map(quote, value))
 
 
